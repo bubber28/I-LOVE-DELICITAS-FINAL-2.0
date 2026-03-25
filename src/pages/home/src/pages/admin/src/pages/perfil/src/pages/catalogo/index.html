@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Cardápio - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"}
+      }
+    }
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .skeleton { background: linear-gradient(90deg, #f5dddb 25%, #ffe9e7 50%, #f5dddb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+</style>
+</head>
+<body class="bg-surface text-on-surface font-body">
+
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+    <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='/'">
+      <span class="material-symbols-outlined text-[#FF6B6B] text-2xl">bakery_dining</span>
+      <h1 class="font-headline font-black text-2xl text-[#FF6B6B] tracking-tight">I Love Delicitas</h1>
+    </div>
+    <div class="hidden md:flex items-center gap-8">
+      <nav class="flex gap-6 font-headline font-bold text-lg">
+        <a class="text-on-surface hover:bg-surface-container-low px-3 py-1 rounded-full" href="/">Home</a>
+        <a class="text-primary bg-[#ffe9e7] px-3 py-1 rounded-full" href="/cardapio">Cardápio</a>
+        <a class="text-on-surface hover:bg-surface-container-low px-3 py-1 rounded-full" href="/perfil">Perfil</a>
+      </nav>
+      <button class="relative p-2 text-primary" onclick="location.href='/carrinho'">
+        <span class="material-symbols-outlined text-2xl">shopping_bag</span>
+        <span class="absolute top-1 right-1 bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full" id="cart-count">0</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="pt-28 pb-32 px-4 max-w-7xl mx-auto">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+    <div>
+      <h2 class="text-4xl md:text-5xl font-headline font-extrabold text-on-surface tracking-tight">Doce <span class="text-primary-container">Momento</span></h2>
+      <p class="text-on-surface-variant max-w-md">Descubra nossa seleção artesanal de confeitos feitos com amor.</p>
+    </div>
+    <div class="relative w-full md:w-96 group">
+      <input class="w-full bg-surface-container-low border-none rounded-md px-12 py-4 focus:ring-2 focus:ring-secondary/40 text-on-surface" id="search-input" placeholder="O que você deseja hoje?" type="text"/>
+      <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+    </div>
+  </div>
+
+  <div class="mb-10 overflow-x-auto hide-scrollbar -mx-4 px-4">
+    <div class="flex gap-3 min-w-max" id="category-list">
+      <button class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-medium flex items-center gap-2" onclick="filterByCategory('all')">
+        <span class="material-symbols-outlined text-sm">apps</span>Todos
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8" id="product-grid">
+    <div class="skeleton h-80 rounded-lg"></div>
+    <div class="skeleton h-80 rounded-lg"></div>
+    <div class="skeleton h-80 rounded-lg"></div>
+  </div>
+</main>
+
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#fff8f7]/80 backdrop-blur-xl rounded-t-3xl z-50">
+  <a class="flex flex-col items-center text-on-surface/60" href="/"><span class="material-symbols-outlined">home</span><span class="text-[11px]">Home</span></a>
+  <a class="flex flex-col items-center bg-[#ffe9e7] text-primary rounded-full px-5 py-2" href="/cardapio"><span class="material-symbols-outlined">reorder</span><span class="text-[11px]">Cardápio</span></a>
+  <a class="flex flex-col items-center text-on-surface/60" href="/carrinho"><span class="material-symbols-outlined">shopping_cart</span><span class="text-[11px]">Carrinho</span></a>
+  <a class="flex flex-col items-center text-on-surface/60" href="/perfil"><span class="material-symbols-outlined">person</span><span class="text-[11px]">Perfil</span></a>
+</nav>
+
+<footer class="mt-auto bg-[#fff0ef] py-12 px-8">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+    <span class="font-headline font-extrabold text-2xl text-[#FF6B6B]">I Love Delicitas</span>
+    <p class="text-sm text-on-surface/70">© 2025 I Love Delicitas - Doce que vira memória</p>
+  </div>
+</footer>
+
+<script>
+  let products = [];
+  let activeCategory = 'all';
+
+  async function fetchData() {
+    try {
+      const res = await fetch('/api/produtos');
+      products = await res.json();
+      renderProducts(products);
+    } catch (error) {
+      products = [
+        { id: 1, nome: 'Brownie Belga', preco: 18.90, categoria: 'Bolos', descricao: 'Chocolate belga 70% cacau.', imagem: 'https://via.placeholder.com/150' },
+        { id: 2, nome: 'Box Macarons', preco: 45.00, categoria: 'Gelados', descricao: '6 unidades de pistache e morango.', imagem: 'https://via.placeholder.com/150' }
+      ];
+      renderProducts(products);
+    }
+  }
+
+  function renderProducts(items) {
+    const grid = document.getElementById('product-grid');
+    grid.innerHTML = items.map(p => `
+      <div class="group relative bg-surface-container-low rounded-lg pt-16 pb-6 px-6 text-center">
+        <img class="absolute -top-12 w-40 h-40 object-cover rounded-full shadow-xl left-1/2 -translate-x-1/2" src="${p.imagem}" alt="${p.nome}"/>
+        <div class="mt-8"><h3 class="text-xl font-headline font-bold">${p.nome}</h3><p class="text-sm text-on-surface-variant mt-1">${p.descricao}</p></div>
+        <div class="mt-6 flex justify-between items-center"><span class="text-2xl font-extrabold">R$ ${p.preco.toFixed(2).replace('.', ',')}</span><button class="bg-secondary text-white p-3 rounded-full hover:scale-110 active:scale-90" onclick="addToCart(${p.id})"><span class="material-symbols-outlined">add_shopping_cart</span></button></div>
+      </div>
+    `).join('');
+  }
+
+  function filterByCategory(cat) { activeCategory = cat; renderProducts(cat === 'all' ? products : products.filter(p => p.categoria === cat)); }
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase();
+    renderProducts(products.filter(p => p.nome.toLowerCase().includes(term) || p.descricao.toLowerCase().includes(term)));
+  });
+
+  let cartCount = 0;
+  function addToCart(id) { cartCount++; document.getElementById('cart-count').innerText = cartCount; }
+
+  fetchData();
+</script>
+</body>
+</html>
