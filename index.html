@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>I Love Delicitas - Sabor que vira memória</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary-fixed": "#ffdad8",
+          "surface-container-lowest": "#ffffff",
+          "primary-container": "#ff6b6b",
+          "on-secondary-fixed": "#00201e",
+          "tertiary-fixed": "#fbe36a",
+          "on-surface-variant": "#584140",
+          "on-surface": "#251818",
+          "surface-variant": "#f5dddb",
+          "on-secondary": "#ffffff",
+          "surface-dim": "#ecd5d3",
+          "primary-fixed-dim": "#ffb3b0",
+          "on-tertiary-fixed": "#211b00",
+          "surface-bright": "#fff8f7",
+          "on-secondary-fixed-variant": "#00504c",
+          "inverse-on-surface": "#ffedeb",
+          "outline-variant": "#e0bfbd",
+          "on-primary-fixed-variant": "#8c1520",
+          "secondary-fixed": "#7cf6ec",
+          "outline": "#8c706f",
+          "secondary-fixed-dim": "#5dd9d0",
+          "surface-tint": "#ae2f34",
+          "inverse-primary": "#ffb3b0",
+          "secondary": "#006a65",
+          "primary": "#ae2f34",
+          "background": "#fff8f7",
+          "secondary-container": "#79f3ea",
+          "tertiary-container": "#c1ab38",
+          "on-primary-fixed": "#410006",
+          "on-tertiary-fixed-variant": "#524600",
+          "tertiary": "#6d5e00",
+          "on-primary-container": "#6d0010",
+          "surface-container-high": "#fbe3e1",
+          "on-error-container": "#93000a",
+          "on-tertiary": "#ffffff",
+          "error": "#ba1a1a",
+          "on-background": "#251818",
+          "inverse-surface": "#3b2d2c",
+          "error-container": "#ffdad6",
+          "on-primary": "#ffffff",
+          "on-secondary-container": "#006f69",
+          "surface-container": "#ffe9e7",
+          "tertiary-fixed-dim": "#dec651",
+          "surface-container-highest": "#f5dddb",
+          "on-error": "#ffffff",
+          "surface-container-low": "#fff0ef",
+          "surface": "#fff8f7",
+          "on-tertiary-container": "#4a3f00"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"],
+          "label": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  .glass-nav {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .editorial-shadow {
+    box-shadow: 0 20px 40px -10px rgba(37, 24, 24, 0.06);
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  body {
+    min-height: max(884px, 100dvh);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+</style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed selection:text-primary">
+
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm shadow-[#251818]/5">
+<nav class="flex justify-between items-center px-6 py-4 w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-2"><img alt="I Love Delicitas Logo" class="h-12 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></div>
+<div class="flex items-center gap-4">
+<button id="cart-icon-btn" class="p-2 rounded-full hover:bg-[#fff0ef] transition-colors active:scale-95 duration-200 relative">
+<span class="material-symbols-outlined text-[#FF6B6B]">shopping_bag</span>
+<span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+</button>
+</div>
+</nav>
+</header>
+
+<main class="pt-24 pb-32">
+<!-- Hero Section -->
+<section class="px-6 mb-12 relative overflow-hidden">
+<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+<div class="z-10 order-2 md:order-1">
+<h1 class="font-headline font-extrabold text-4xl md:text-6xl text-on-surface leading-[1.1] mb-6 tracking-tight" id="hero-title">Sabor que vira <span class="text-primary">memória</span> em cada pedido</h1>
+<p class="text-on-surface-variant text-lg md:text-xl mb-8 leading-relaxed max-w-md" id="hero-subtitle">Personalize sua caixa de doces, agende a entrega e receba tudo fresquinho ainda hoje.</p>
+<div class="flex flex-col sm:flex-row gap-4">
+<a href="/cardapio" class="bg-primary text-on-primary px-8 py-4 rounded-full font-semibold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all text-center" id="hero-btn-primary">Pedir agora</a>
+<a href="/acompanhamento" class="bg-surface-container text-primary px-8 py-4 rounded-full font-semibold hover:bg-surface-container-high active:scale-95 transition-all text-center" id="hero-btn-secondary">Acompanhar pedido</a>
+</div>
+</div>
+<div class="relative order-1 md:order-2">
+<div class="aspect-square rounded-xl bg-primary-fixed overflow-visible relative">
+<img alt="Gourmet Cake" class="absolute -top-10 -right-4 w-[110%] h-[110%] object-contain drop-shadow-2xl transition-transform hover:rotate-3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWdoQrzzlinYB7q2u64t2DTQVtsJP8tCqUWsJ3O9dUIfF4Lnig9LPJmeoIGeQ_wRKfDMsmLGxXzGyj0N_Zs_NGO_9XHwVn3Xi-Ywc3-ONnrQWsy6kPhw0EOgoiMf021NuYnhCZa-v8j_IC8fLuq-ykpJJ7ccZkUOvMzNhn2fw84gEjG-L_timEBPQ-O5Gmc-KzhUnAUKGXk3RTqwL89lEBsO8Ll8MacLLUDY-oYk3JdMcIfzbzxrv1qRBVGTrBT6Nqjys0IU8hfqse"/>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Categories Section -->
+<section class="px-6 mb-16 max-w-7xl mx-auto">
+<div class="flex justify-between items-end mb-8">
+<h2 class="font-headline font-bold text-2xl text-on-surface" id="categories-title">Categorias</h2>
+<button class="text-primary font-semibold text-sm hover:underline" onclick="window.location.href='/cardapio'">Ver todas</button>
+</div>
+<div id="categories-container" class="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-6 px-6">
+  <div class="flex-none w-40 h-48 bg-surface-container-low rounded-lg p-6 flex flex-col justify-between items-center text-center animate-pulse">Carregando...</div>
+</div>
+</section>
+
+<!-- Featured Products -->
+<section class="px-6 mb-12 max-w-7xl mx-auto">
+<h2 class="font-headline font-bold text-2xl text-on-surface mb-8" id="products-title">Mais pedidos da semana</h2>
+<div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+  <div class="bg-surface-container-lowest rounded-lg p-6 editorial-shadow relative group animate-pulse h-96">Carregando...</div>
+</div>
+</section>
+
+<!-- Horário de funcionamento (avisos) -->
+<div id="delivery-status" class="fixed top-20 left-0 right-0 mx-auto w-max px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold shadow-lg z-50 hidden"></div>
+</main>
+
+<!-- Footer -->
+<footer class="w-full mt-auto bg-[#fff0ef]">
+<div class="w-full px-8 py-12 flex flex-col md:flex-row justify-between items-center gap-6 max-w-7xl mx-auto">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="font-['Plus_Jakarta_Sans'] font-extrabold text-[#FF6B6B] text-xl">I Love Delicitas</span>
+<p class="font-['Be_Vietnam_Pro'] text-sm text-[#251818]/70">© 2024 I Love Delicitas. Doce momento.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-[#251818]/70 hover:text-[#FF6B6B] transition-colors font-['Be_Vietnam_Pro'] text-sm" href="#">Instagram</a>
+<a class="text-[#251818]/70 hover:text-[#FF6B6B] transition-colors font-['Be_Vietnam_Pro'] text-sm" href="#">WhatsApp</a>
+<a class="text-[#251818]/70 hover:text-[#FF6B6B] transition-colors font-['Be_Vietnam_Pro'] text-sm" href="#">Contato</a>
+</div>
+</div>
+</footer>
+
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#fff8f7]/80 backdrop-blur-xl rounded-t-[3rem] z-50 shadow-[0_-4px_20px_rgba(255,107,107,0.08)]">
+<a class="flex flex-col items-center justify-center bg-[#ffe9e7] text-[#FF6B6B] rounded-full px-5 py-2 active:scale-90 duration-300" href="/">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#251818]/60 hover:scale-110 transition-transform active:scale-90 duration-300" href="/cardapio">
+<span class="material-symbols-outlined">reorder</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium">Catálogo</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#251818]/60 hover:scale-110 transition-transform active:scale-90 duration-300" href="/carrinho">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium">Carrinho</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#251818]/60 hover:scale-110 transition-transform active:scale-90 duration-300" href="/perfil">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium">Perfil</span>
+</a>
+</nav>
+
+<button id="chat-fab" class="fixed bottom-24 right-6 bg-primary text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 md:hidden">
+<span class="material-symbols-outlined">chat</span>
+</button>
+
+<script>
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // --- Helper: Formatar preço (centavos -> R$)
+  function formatPrice(cents) {
+    return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+  }
+
+  // --- Carregar categorias
+  async function loadCategories() {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name')
+      .order('name');
+
+    const container = document.getElementById('categories-container');
+    if (error || !data || data.length === 0) {
+      container.innerHTML = '<div class="text-center w-full text-on-surface-variant">Nenhuma categoria encontrada</div>';
+      return;
+    }
+
+    container.innerHTML = data.map(cat => `
+      <div class="flex-none w-40 h-48 bg-surface-container-low rounded-lg p-6 flex flex-col justify-between hover:bg-surface-container transition-colors cursor-pointer group" onclick="window.location.href='/cardapio?categoria=${cat.id}'">
+        <span class="material-symbols-outlined text-4xl text-primary">cake</span>
+        <span class="font-headline font-bold text-on-surface text-center">${escapeHtml(cat.name)}</span>
+      </div>
+    `).join('');
+  }
+
+  // --- Carregar produtos em destaque (ex: os mais recentes ou com maior estoque)
+  async function loadFeaturedProducts() {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, description, price_cents, image_url, active')
+      .eq('active', true)
+      .order('created_at', { ascending: false })
+      .limit(6);
+
+    const container = document.getElementById('products-container');
+    if (error || !data || data.length === 0) {
+      container.innerHTML = '<div class="col-span-full text-center text-on-surface-variant">Nenhum produto disponível</div>';
+      return;
+    }
+
+    container.innerHTML = data.map(prod => `
+      <div class="bg-surface-container-lowest rounded-lg p-6 editorial-shadow relative group">
+        <div class="h-48 mb-6 relative -mt-12 overflow-visible">
+          <img class="w-full h-full object-contain drop-shadow-xl group-hover:scale-110 transition-transform duration-500" src="${prod.image_url || 'https://placehold.co/400x400?text=Sem+Imagem'}" alt="${escapeHtml(prod.name)}">
+        </div>
+        <h3 class="font-headline font-bold text-xl text-on-surface mb-2">${escapeHtml(prod.name)}</h3>
+        <p class="text-on-surface-variant text-sm mb-4 line-clamp-2">${escapeHtml(prod.description || '')}</p>
+        <div class="flex justify-between items-center">
+          <span class="text-2xl font-black text-on-surface">${formatPrice(prod.price_cents)}</span>
+          <button class="add-to-cart-btn bg-secondary text-on-secondary p-3 rounded-full hover:scale-110 transition-transform active:scale-95" data-product='${JSON.stringify(prod)}'>
+            <span class="material-symbols-outlined block">add_shopping_cart</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    // Adicionar eventos aos botões de adicionar ao carrinho
+    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const product = JSON.parse(btn.dataset.product);
+        addToCart(product);
+      });
+    });
+  }
+
+  // --- Adicionar produto ao carrinho (localStorage)
+  function addToCart(product) {
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existing = cart.find(item => item.id === product.id);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      cart.push({ ...product, quantity: 1 });
+    }
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    // Pequeno feedback visual
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-28 left-1/2 transform -translate-x-1/2 bg-primary text-white px-4 py-2 rounded-full text-sm shadow-lg z-50 animate-bounce';
+    toast.innerText = `${product.name} adicionado!`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+  }
+
+  function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const countEl = document.getElementById('cart-count');
+    if (count > 0) {
+      countEl.innerText = count;
+      countEl.classList.remove('hidden');
+    } else {
+      countEl.classList.add('hidden');
+    }
+  }
+
+  // --- Carregar configurações do app (hero text, cores, etc.)
+  async function loadAppConfig() {
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('hero_title, hero_subtitle, hero_button_primary, hero_button_secondary, categories_section_title, products_section_title, delivery_hours')
+      .limit(1)
+      .single();
+
+    if (error || !data) return;
+
+    // Atualizar texto do hero
+    if (data.hero_title) document.getElementById('hero-title').innerHTML = data.hero_title;
+    if (data.hero_subtitle) document.getElementById('hero-subtitle').innerText = data.hero_subtitle;
+    if (data.hero_button_primary) document.getElementById('hero-btn-primary').innerText = data.hero_button_primary;
+    if (data.hero_button_secondary) document.getElementById('hero-btn-secondary').innerText = data.hero_button_secondary;
+    if (data.categories_section_title) document.getElementById('categories-title').innerText = data.categories_section_title;
+    if (data.products_section_title) document.getElementById('products-title').innerText = data.products_section_title;
+
+    // Verificar horário de funcionamento
+    if (data.delivery_hours) {
+      checkDeliveryHours(data.delivery_hours);
+    }
+  }
+
+  function checkDeliveryHours(deliveryHours) {
+    const now = new Date();
+    const todayKey = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const todayConfig = deliveryHours[todayKey];
+
+    const statusDiv = document.getElementById('delivery-status');
+    if (!todayConfig || !todayConfig.enabled) {
+      statusDiv.innerText = '🔴 Fechado hoje – não estamos realizando entregas';
+      statusDiv.classList.remove('hidden');
+      return;
+    }
+
+    const currentTime = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    const isOpen = currentTime >= todayConfig.open && currentTime <= todayConfig.close;
+    if (isOpen) {
+      statusDiv.classList.add('hidden');
+    } else {
+      statusDiv.innerText = `🔴 Fechado agora – horário de funcionamento: ${todayConfig.open} às ${todayConfig.close}`;
+      statusDiv.classList.remove('hidden');
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  }
+
+  // Inicialização
+  document.addEventListener('DOMContentLoaded', () => {
+    loadAppConfig();
+    loadCategories();
+    loadFeaturedProducts();
+    updateCartCount();
+
+    // Botão do carrinho
+    document.getElementById('cart-icon-btn').addEventListener('click', () => {
+      window.location.href = '/carrinho';
+    });
+
+    // Botão flutuante de chat (exemplo)
+    document.getElementById('chat-fab').addEventListener('click', () => {
+      window.open('https://wa.me/5511999999999?text=Olá!', '_blank');
+    });
+  });
+</script>
+</body>
+</html>
