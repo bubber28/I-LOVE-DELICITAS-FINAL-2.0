@@ -5,6 +5,7 @@
     { "source": "/checkout", "destination": "/src/pages/checkout.html" },
     { "source": "/acompanhamento", "destination": "/src/pages/acompanhamento.html" },
     { "source": "/pedido-confirmado", "destination": "/src/pages/pedido-confirmado.html" },
+    { "source": "/cardapio", "destination": "/src/pages/cardapio.html" },
     { "source": "/:path*", "destination": "/src/pages/:path*.html" }
   ]
 }
