@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Acompanhamento - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef",
+          "error": "#ba1a1a"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #fff8f7; }
+</style>
+</head>
+<body>
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+    <a href="/"><img class="h-12" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></a>
+    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+  </div>
+</header>
+<main class="pt-24 pb-32 px-4 max-w-3xl mx-auto" id="main">
+  <div class="text-center py-8">Carregando pedido...</div>
+</main>
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const statusIndex = { 'received':0, 'preparing':1, 'ready':2, 'delivered':3 };
+  const statusLabels = { received:'Recebido', preparing:'Preparando', ready:'Pronto', delivered:'Entregue', canceled:'Cancelado' };
+  const steps = ['received','preparing','ready','delivered'];
+
+  async function loadOrder() {
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) {
+      document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não identificado.</div>';
+      return;
+    }
+    const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single();
+    if (error || !order) {
+      document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não encontrado.</div>';
+      return;
+    }
+    const { data: items } = await supabase.from('order_items').select('product_name, quantity, line_total_cents').eq('order_id', id);
+    const date = new Date(order.created_at).toLocaleString();
+    const total = (order.total_cents/100).toFixed(2).replace('.',',');
+    const status = order.status;
+    const currentStep = statusIndex[status] ?? -1;
+    const progress = currentStep >=0 ? (currentStep/3)*100 : 0;
+
+    let itemsHtml = items?.map(i => `<div class="flex justify-between text-sm"><span>${i.quantity}x ${escapeHtml(i.product_name)}</span><span>R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</span></div>`).join('') || '<p>Itens não disponíveis</p>';
+
+    const dotHtml = steps.map((s,i) => {
+      const active = currentStep >= i;
+      const icon = (active && s!=='delivered') ? (s==='received'?'receipt':s==='preparing'?'cooking':'check_circle') : null;
+      return `<div class="flex flex-col items-center gap-2 flex-1">
+        <div class="w-4 h-4 rounded-full ${active ? 'bg-secondary' : 'bg-gray-300'} border-4 border-white"></div>
+        <span class="text-xs font-bold ${active ? 'text-secondary' : 'text-gray-400'}">${statusLabels[s]}</span>
+      </div>`;
+    }).join('');
+
+    const trackingButton = order.tracking_url ? `<a href="${order.tracking_url}" target="_blank" class="block mt-4 bg-primary text-white py-2 rounded-full text-center">Rastrear entregador</a>` : '';
+
+    document.getElementById('main').innerHTML = `
+      <div class="bg-white rounded-2xl p-6 shadow-sm space-y-4">
+        <div><h2 class="text-xl font-bold">Pedido #${order.id.slice(0,8)}</h2><p>${date}</p><span class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-secondary-container">${statusLabels[status]}</span></div>
+        <div class="relative py-4"><div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200"></div><div class="absolute top-1/2 left-0 h-1 bg-secondary" style="width:${progress}%"></div><div class="relative flex justify-between">${dotHtml}</div></div>
+        <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}<br><strong>Telefone:</strong> ${order.customer_phone}<br>${order.delivery_type==='pickup' ? '<strong>Retirada no local</strong>' : `<strong>Entrega:</strong> ${escapeHtml(order.delivery_address)}`}<br><strong>Pagamento:</strong> ${order.payment_method}<br><strong>Desconto:</strong> R$ ${(order.discount_cents/100).toFixed(2).replace('.',',')}</div>
+        <div><strong>Itens:</strong> ${itemsHtml}</div>
+        <div class="text-right font-bold text-primary">Total: R$ ${total}</div>
+        ${trackingButton}
+        <a href="/" class="block text-center text-primary underline">Voltar ao início</a>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
+  }
+
+  loadOrder();
+</script>
+</body>
+</html>
