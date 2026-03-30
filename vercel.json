@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/src/pages/index.html" },
+    { "source": "/admin", "destination": "/src/pages/admin/dashboard.html" },
+    { "source": "/perfil", "destination": "/src/pages/perfil/index.html" },
+    { "source": "/catalogo", "destination": "/src/pages/catalogo/index.html" },
+    { "source": "/cardapio", "destination": "/src/pages/catalogo/index.html" },
+    { "source": "/carrinho", "destination": "/src/pages/carrinho/index.html" },
+    { "source": "/checkout", "destination": "/src/pages/checkout/index.html" },
+    { "source": "/pedido", "destination": "/src/pages/pedido/index.html" },
+    { "source": "/login", "destination": "/src/pages/login/index.html" },
+    { "source": "/cadastro", "destination": "/src/pages/cadastro/index.html" },
+    { "source": "/recuperar-senha", "destination": "/src/pages/recuperar-senha/index.html" }
+  ]
+}
