@@ -58,7 +58,7 @@
 </header>
 
 <main class="pt-24 pb-32">
-  <!-- Hero Section (dinâmica com app_config) -->
+  <!-- Hero Section -->
   <section class="px-6 mb-12 relative overflow-hidden">
     <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
       <div class="z-10 order-2 md:order-1">
@@ -85,19 +85,18 @@
     </div>
   </section>
 
-  <!-- Categorias (dinâmicas) -->
+  <!-- Categorias -->
   <section class="px-6 mb-16 max-w-7xl mx-auto">
     <div class="flex justify-between items-end mb-8">
       <h2 id="categories-title" class="font-headline font-bold text-2xl text-on-surface">Categorias</h2>
       <a href="cardapio.html" class="text-primary font-semibold text-sm hover:underline">Ver todas</a>
     </div>
     <div id="categories-container" class="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-6 px-6">
-      <!-- As categorias serão carregadas via JS -->
       <div class="text-center py-8 w-full">Carregando categorias...</div>
     </div>
   </section>
 
-  <!-- Produtos em destaque (Mais pedidos) -->
+  <!-- Produtos em destaque -->
   <section class="px-6 mb-12 max-w-7xl mx-auto">
     <h2 id="products-title" class="font-headline font-bold text-2xl text-on-surface mb-8">Mais pedidos da semana</h2>
     <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -142,10 +141,10 @@
 </nav>
 
 <script>
-  // Configuração Supabase
+  // Configuração Supabase (usando supabaseClient para evitar conflito)
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // Atualizar contador do carrinho
   function updateCartCount() {
@@ -156,9 +155,8 @@
   }
   updateCartCount();
 
-  // Carregar configurações do app (hero, horário, etc)
   async function loadAppConfig() {
-    const { data, error } = await supabase.from('app_config').select('*').limit(1).single();
+    const { data, error } = await supabaseClient.from('app_config').select('*').limit(1).single();
     if (error) {
       console.error('Erro ao carregar configurações:', error);
       return;
@@ -173,11 +171,15 @@
     }
   }
 
-  // Carregar categorias
   async function loadCategories() {
-    const { data, error } = await supabase.from('categories').select('*').order('name');
+    const { data, error } = await supabaseClient.from('categories').select('*').order('name');
     const container = document.getElementById('categories-container');
-    if (error || !data || data.length === 0) {
+    if (error) {
+      console.error('Erro categorias:', error);
+      container.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Erro ao carregar categorias</div>';
+      return;
+    }
+    if (!data || data.length === 0) {
       container.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Nenhuma categoria encontrada</div>';
       return;
     }
@@ -189,9 +191,8 @@
     `).join('');
   }
 
-  // Carregar produtos (apenas ativos e com estoque > 0)
   async function loadProducts() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('products')
       .select('*, categories(name)')
       .eq('active', true)
@@ -199,7 +200,12 @@
       .order('created_at', { ascending: false })
       .limit(6);
     const container = document.getElementById('products-container');
-    if (error || !data || data.length === 0) {
+    if (error) {
+      console.error('Erro produtos:', error);
+      container.innerHTML = '<div class="text-center py-8 col-span-full text-on-surface-variant">Erro ao carregar produtos</div>';
+      return;
+    }
+    if (!data || data.length === 0) {
       container.innerHTML = '<div class="text-center py-8 col-span-full text-on-surface-variant">Nenhum produto disponível no momento</div>';
       return;
     }
@@ -221,7 +227,6 @@
     `).join('');
   }
 
-  // Adicionar ao carrinho (salva no localStorage)
   function addToCart(productId, name, priceCents) {
     let cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const existing = cart.find(item => item.id === productId);
@@ -237,7 +242,6 @@
     }
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
-    // Pequeno feedback visual
     alert('Produto adicionado ao carrinho!');
   }
 
@@ -255,9 +259,6 @@
   loadAppConfig();
   loadCategories();
   loadProducts();
-
-  // Opcional: exibir horário de funcionamento (pode ser colocado em algum lugar, como um aviso)
-  // Você pode adicionar um elemento no HTML e preenchê-lo aqui.
 </script>
 </body>
 </html>
