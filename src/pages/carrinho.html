@@ -35,6 +35,13 @@
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
   body { background-color: #fff8f7; }
+  .cart-item-image {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    width: 80px;
+    height: 80px;
+    border-radius: 0.75rem;
+  }
 </style>
 </head>
 <body>
@@ -42,7 +49,7 @@
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
     <a href="/"><img class="h-12" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></a>
-    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span></a>
   </div>
 </header>
 
@@ -76,9 +83,10 @@
 </main>
 
 <script>
+  // CORREÇÃO: usar um nome diferente para o cliente Supabase
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let cart = [];
   let appliedCoupon = null;
@@ -86,21 +94,9 @@
 
   function loadCart() {
     const stored = localStorage.getItem('cart');
-    if (stored) {
-      try {
-        cart = JSON.parse(stored);
-      } catch(e) { cart = []; }
-    } else {
-      cart = [];
-    }
+    cart = stored ? JSON.parse(stored) : [];
     const storedCoupon = localStorage.getItem('appliedCoupon');
-    if (storedCoupon) {
-      try {
-        appliedCoupon = JSON.parse(storedCoupon);
-      } catch(e) { appliedCoupon = null; }
-    } else {
-      appliedCoupon = null;
-    }
+    appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
     updateCartCount();
     renderCart();
     updateTotals();
@@ -121,55 +117,44 @@
 
   function renderCart() {
     const container = document.getElementById('cart-items');
-    if (!cart || cart.length === 0) {
-      container.innerHTML = `<div class="text-center py-8">Seu carrinho está vazio. <a href="/cardapio" class="text-primary underline">Ver cardápio</a></div>`;
-      const checkoutBtn = document.getElementById('checkout-btn');
-      if (checkoutBtn) checkoutBtn.disabled = true;
+    if (!cart.length) {
+      container.innerHTML = `<div class="text-center py-8">Seu carrinho está vazio. <a href="/" class="text-primary underline">Voltar ao cardápio</a></div>`;
+      document.getElementById('checkout-btn').disabled = true;
       return;
     }
-    const checkoutBtn = document.getElementById('checkout-btn');
-    if (checkoutBtn) checkoutBtn.disabled = false;
+    document.getElementById('checkout-btn').disabled = false;
     container.innerHTML = cart.map((item, idx) => `
-      <div class="bg-white rounded-lg p-4 flex gap-4 shadow-sm">
-        <div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-low">
-          <img class="w-full h-full object-cover" src="${item.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(item.name)}">
-        </div>
+      <div class="bg-white rounded-lg p-4 flex gap-4 items-center shadow-sm">
+        <img class="cart-item-image" src="${item.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(item.name)}">
         <div class="flex-grow">
-          <h3 class="font-bold">${escapeHtml(item.name)}</h3>
+          <h3 class="font-bold text-lg">${escapeHtml(item.name)}</h3>
           <div class="flex justify-between items-center mt-2">
             <span class="text-primary font-bold">R$ ${((item.price_cents / 100) * (item.quantity || 1)).toFixed(2).replace('.', ',')}</span>
             <div class="flex items-center gap-2">
-              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low hover:bg-surface-container" data-idx="${idx}" data-delta="-1">-</button>
-              <span class="w-8 text-center">${item.quantity || 1}</span>
-              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low hover:bg-surface-container" data-idx="${idx}" data-delta="1">+</button>
-              <button class="remove-btn text-error hover:bg-error-container rounded-full w-8 h-8 flex items-center justify-center" data-idx="${idx}">🗑️</button>
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center" data-idx="${idx}" data-delta="-1">-</button>
+              <span class="w-8 text-center font-semibold">${item.quantity || 1}</span>
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center" data-idx="${idx}" data-delta="1">+</button>
+              <button class="remove-btn text-error" data-idx="${idx}">🗑️</button>
             </div>
           </div>
         </div>
       </div>
     `).join('');
-
     document.querySelectorAll('.qty-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.idx);
         const delta = parseInt(btn.dataset.delta);
-        if (isNaN(idx)) return;
         const newQty = (cart[idx].quantity || 1) + delta;
-        if (newQty <= 0) {
-          cart.splice(idx, 1);
-        } else {
-          cart[idx].quantity = newQty;
-        }
+        if (newQty <= 0) cart.splice(idx, 1);
+        else cart[idx].quantity = newQty;
         saveCart();
       });
     });
     document.querySelectorAll('.remove-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.idx);
-        if (!isNaN(idx)) {
-          cart.splice(idx, 1);
-          saveCart();
-        }
+        cart.splice(idx, 1);
+        saveCart();
       });
     });
   }
@@ -191,7 +176,7 @@
     const msg = document.getElementById('coupon-message');
     if (!code) return;
     const hoje = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('cupons')
       .select('*')
       .eq('codigo', code)
