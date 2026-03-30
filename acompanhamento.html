@@ -86,7 +86,7 @@
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Mapeamento de status para índice (0 a 4)
+  // Mapeamento de status para índice
   const statusIndex = {
     'received': 0,
     'preparing': 1,
@@ -146,6 +146,7 @@
     const total = (order.total_cents / 100).toFixed(2).replace('.', ',');
     const status = order.status;
     const currentStep = statusIndex[status] ?? -1;
+    const trackingUrl = order.tracking_url || null;  // link de rastreio, se existir
 
     // Gerar HTML dos itens
     let itemsHtml = '';
@@ -157,7 +158,7 @@
           </div>
           <div class="flex-grow">
             <p class="font-bold text-on-surface">${escapeHtml(item.product_name)}</p>
-            <p class="text-sm text-on-surface-variant">Qty: ${item.quantity} • R$ ${(item.line_total_cents / 100).toFixed(2).replace('.', ',')}</p>
+            <p class="text-sm text-on-surface-variant">Qtd: ${item.quantity} • R$ ${(item.line_total_cents / 100).toFixed(2).replace('.', ',')}</p>
           </div>
         </div>
       `).join('');
@@ -165,7 +166,7 @@
       itemsHtml = '<div class="col-span-2 text-center text-on-surface-variant py-4">Itens não disponíveis</div>';
     }
 
-    // Calcular progresso da barra (0% a 100%)
+    // Calcular progresso da barra
     let progressPercent = 0;
     if (currentStep >= 0) {
       progressPercent = (currentStep / 3) * 100;
@@ -195,7 +196,7 @@
       `;
     }).join('');
 
-    // Se cancelado, mostrar mensagem especial
+    // Se cancelado
     if (status === 'canceled') {
       document.getElementById('main-content').innerHTML = `
         <div class="text-center py-10">
@@ -208,9 +209,18 @@
       return;
     }
 
-    // Montar página
+    // Construir o HTML principal, incluindo o botão de rastreio se houver link
+    const trackingButtonHtml = trackingUrl ? `
+      <div class="mt-2">
+        <a href="${escapeHtml(trackingUrl)}" target="_blank" rel="noopener noreferrer" class="w-full bg-primary text-white rounded-lg p-4 font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+          <span class="material-symbols-outlined text-base">track_changes</span>
+          Rastrear entregador
+        </a>
+      </div>
+    ` : '';
+
     const mainHtml = `
-      <!-- Live Map Section -->
+      <!-- Live Map Section (apenas ilustrativo) -->
       <section class="relative mb-8 h-80 rounded-xl overflow-hidden shadow-2xl shadow-on-surface/5">
         <div class="absolute inset-0 bg-surface-container-low">
           <img alt="Mapa" class="w-full h-full object-cover grayscale-[20%] sepia-[10%] opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBojNTdVPhwsNPpaWiopqWBqCQEXRFPcdu4Ceclgil7Y7Yd0dUh8XF7xBUpEuAQL-5to8322XzejTfo7A-2s4MyGK-qKWfQb3GdV-qn8Vy0702pojMXWmaFp4-4T3uEDOk_H8zQXlffFWqPXZbZaQhJ3J7CeCRhntZyhcGgECvn9strwN4oH8TafwXFLjnzglXq6gB0ZNt0GgK6zPQ9Er8shxG6aIP5U3yr77CSnKXjJsL2ls5myj039SPsxPD_suLsFc66sorIacli"/>
@@ -236,7 +246,7 @@
           <span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold">${statusLabels[status]}</span>
         </div>
 
-        <!-- Delivery Progress -->
+        <!-- Barra de progresso -->
         <div class="relative py-8">
           <div class="absolute top-1/2 left-0 w-full h-2 bg-surface-container rounded-full -translate-y-1/2"></div>
           <div class="absolute top-1/2 left-0 h-2 bg-secondary rounded-full -translate-y-1/2" style="width: ${progressPercent}%"></div>
@@ -246,7 +256,7 @@
         </div>
       </div>
 
-      <!-- Items Summary -->
+      <!-- Itens do pedido -->
       <div class="grid grid-cols-2 gap-4 mb-8">
         ${itemsHtml}
         <div class="bg-surface-container-low p-4 rounded-lg">
@@ -260,6 +270,7 @@
           <span class="material-symbols-outlined text-base">chat_bubble</span>
           Contatar
         </button>
+        ${trackingButtonHtml}
       </div>
 
       <div class="text-center">
