@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pedido Confirmado - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef",
+          "error": "#ba1a1a"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #fff8f7; }
+</style>
+</head>
+<body class="bg-surface text-on-surface">
+
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 w-full max-w-7xl mx-auto">
+    <div class="flex items-center gap-2">
+      <a href="/">
+        <img alt="Logo I Love Delicitas" class="h-12 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/>
+      </a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef] transition-colors">
+        <span class="material-symbols-outlined text-primary">shopping_bag</span>
+        <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="pt-24 pb-32 px-4 max-w-3xl mx-auto">
+  <div id="order-confirmation" class="bg-white rounded-2xl p-6 shadow-sm text-center">
+    <div class="text-center py-8">Carregando pedido...</div>
+  </div>
+</main>
+
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#fff8f7]/80 backdrop-blur-xl rounded-t-[3rem] z-50 shadow-[0_-4px_20px_rgba(255,107,107,0.08)] md:hidden">
+  <a href="/" class="flex flex-col items-center justify-center text-on-surface/60 hover:scale-110 transition-transform">
+    <span class="material-symbols-outlined">home</span>
+    <span class="text-[11px] font-medium">Início</span>
+  </a>
+  <a href="/cardapio" class="flex flex-col items-center justify-center text-on-surface/60 hover:scale-110 transition-transform">
+    <span class="material-symbols-outlined">reorder</span>
+    <span class="text-[11px] font-medium">Catálogo</span>
+  </a>
+  <a href="/carrinho" class="flex flex-col items-center justify-center text-on-surface/60 hover:scale-110 transition-transform">
+    <span class="material-symbols-outlined">shopping_cart</span>
+    <span class="text-[11px] font-medium">Carrinho</span>
+  </a>
+  <a href="/perfil" class="flex flex-col items-center justify-center text-on-surface/60 hover:scale-110 transition-transform">
+    <span class="material-symbols-outlined">person</span>
+    <span class="text-[11px] font-medium">Perfil</span>
+  </a>
+</nav>
+
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function loadOrder() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('id');
+    if (!orderId) {
+      document.getElementById('order-confirmation').innerHTML = `
+        <div class="text-center py-8 text-error">Pedido não identificado.</div>
+        <div class="text-center mt-4"><a href="/" class="text-primary underline">Voltar ao início</a></div>
+      `;
+      return;
+    }
+
+    try {
+      const { data: order, error } = await supabaseClient
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      if (error || !order) {
+        throw new Error('Pedido não encontrado');
+      }
+
+      const { data: items } = await supabaseClient
+        .from('order_items')
+        .select('product_name, quantity, unit_price_cents, line_total_cents')
+        .eq('order_id', orderId);
+
+      const date = new Date(order.created_at).toLocaleString('pt-BR');
+      const total = (order.total_cents / 100).toFixed(2).replace('.', ',');
+      const discount = (order.discount_cents / 100).toFixed(2).replace('.', ',');
+
+      let itemsHtml = '';
+      if (items && items.length) {
+        itemsHtml = items.map(item => `
+          <div class="flex justify-between text-sm py-1 border-b border-outline-variant/20">
+            <span>${item.quantity}x ${escapeHtml(item.product_name)}</span>
+            <span>R$ ${(item.line_total_cents / 100).toFixed(2).replace('.', ',')}</span>
+          </div>
+        `).join('');
+      } else {
+        itemsHtml = '<div class="text-center text-on-surface-variant py-2">Itens não disponíveis</div>';
+      }
+
+      const addressHtml = order.delivery_type === 'pickup'
+        ? '<p><strong>Retirada no local</strong></p>'
+        : `<p><strong>Endereço de entrega:</strong><br>${escapeHtml(order.delivery_address || 'Não informado')}</p>`;
+
+      const html = `
+        <div class="space-y-4 text-left">
+          <div class="text-center">
+            <span class="material-symbols-outlined text-6xl text-primary">check_circle</span>
+            <h2 class="text-2xl font-bold mt-2">Pedido confirmado!</h2>
+            <p class="text-on-surface-variant">Agradecemos pela preferência.</p>
+          </div>
+          <div class="border-t pt-4">
+            <div class="flex justify-between"><strong>Pedido #:</strong> <span>${order.id.slice(0,8)}</span></div>
+            <div class="flex justify-between"><strong>Data/Hora:</strong> <span>${date}</span></div>
+            <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name || 'Não informado')}</div>
+            <div><strong>Telefone:</strong> ${order.customer_phone || '-'}</div>
+            ${addressHtml}
+            <div><strong>Pagamento:</strong> ${order.payment_method || 'Não informado'}</div>
+            <div><strong>Desconto:</strong> R$ ${discount}</div>
+          </div>
+          <div class="border-t pt-4">
+            <h3 class="font-bold mb-2">Itens do pedido</h3>
+            ${itemsHtml}
+          </div>
+          <div class="border-t pt-4 text-right">
+            <div class="text-xl font-bold text-primary">Total: R$ ${total}</div>
+            <div class="text-sm text-on-surface-variant">Tempo estimado de preparo: ${order.tempo_preparo_padrao || 30} minutos</div>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 pt-4">
+            <a href="/acompanhamento?id=${order.id}" class="bg-primary text-white text-center py-3 rounded-full font-bold hover:bg-primary/90 transition">Acompanhar pedido</a>
+            <a href="/" class="bg-surface-container text-primary text-center py-3 rounded-full font-bold hover:bg-surface-container-high transition">Voltar ao início</a>
+          </div>
+        </div>
+      `;
+      document.getElementById('order-confirmation').innerHTML = html;
+    } catch (err) {
+      console.error(err);
+      document.getElementById('order-confirmation').innerHTML = `
+        <div class="text-center py-8 text-error">Erro ao carregar pedido.</div>
+        <div class="text-center mt-4"><a href="/" class="text-primary underline">Voltar ao início</a></div>
+      `;
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  }
+
+  // Atualizar contador do carrinho (apenas visual, já que carrinho está vazio)
+  function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const cartCountSpan = document.getElementById('cart-count');
+    if (cartCountSpan) cartCountSpan.innerText = totalItems;
+  }
+  updateCartCount();
+
+  loadOrder();
+</script>
+</body>
+</html>
