@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finalizar Pedido - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef",
+          "error": "#ba1a1a"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #fff8f7; }
+  .input-field { width: 100%; padding: 0.75rem; border-radius: 1rem; border: 1px solid #e0bfbd; background: white; transition: all 0.2s; }
+  .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
+</style>
+</head>
+<body class="bg-surface text-on-surface">
+
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 w-full max-w-7xl mx-auto">
+    <div class="flex items-center gap-2">
+      <a href="/">
+        <img alt="Logo I Love Delicitas" class="h-12 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/>
+      </a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef] transition-colors">
+        <span class="material-symbols-outlined text-primary">shopping_bag</span>
+        <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="pt-24 pb-32 px-4 max-w-4xl mx-auto">
+  <h1 class="text-3xl font-extrabold text-primary mb-6">Finalizar Pedido</h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Formulário de dados do cliente -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm">
+      <h2 class="text-xl font-bold mb-4">Dados para entrega</h2>
+      <form id="checkout-form" class="space-y-4">
+        <div>
+          <label class="block font-semibold mb-1">Nome completo *</label>
+          <input type="text" id="customer-name" required class="input-field" placeholder="Seu nome">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Telefone (WhatsApp) *</label>
+          <input type="tel" id="customer-phone" required class="input-field" placeholder="(11) 99999-9999">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Endereço de entrega</label>
+          <input type="text" id="delivery-address" class="input-field" placeholder="Rua, número, bairro, CEP">
+          <p class="text-xs text-on-surface-variant mt-1">Deixe em branco se for retirada no local.</p>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Tipo de entrega</label>
+          <select id="delivery-type" class="input-field">
+            <option value="delivery">Delivery</option>
+            <option value="pickup">Retirada no local</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Forma de pagamento</label>
+          <select id="payment-method" class="input-field">
+            <option value="pix">PIX</option>
+            <option value="cartao">Cartão de crédito/débito</option>
+            <option value="dinheiro">Dinheiro</option>
+          </select>
+        </div>
+      </form>
+    </div>
+
+    <!-- Resumo do pedido -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm">
+      <h2 class="text-xl font-bold mb-4">Resumo do pedido</h2>
+      <div id="cart-items-summary" class="space-y-3 max-h-64 overflow-y-auto">
+        <div class="text-center py-4">Carregando itens...</div>
+      </div>
+      <div class="border-t pt-4 mt-4 space-y-2">
+        <div class="flex justify-between">
+          <span>Subtotal</span>
+          <span id="subtotal">R$ 0,00</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Taxa de entrega</span>
+          <span id="frete">R$ 7,00</span>
+        </div>
+        <div class="flex justify-between text-secondary font-semibold">
+          <span>Desconto</span>
+          <span id="desconto">- R$ 0,00</span>
+        </div>
+        <div class="flex justify-between text-lg font-bold text-primary pt-2">
+          <span>Total</span>
+          <span id="total">R$ 0,00</span>
+        </div>
+      </div>
+      <button id="submit-order-btn" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-bold text-lg hover:bg-primary/90 transition active:scale-95">
+        Confirmar Pedido
+      </button>
+      <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
+    </div>
+  </div>
+</main>
+
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#fff8f7]/80 backdrop-blur-xl rounded-t-[3rem] z-50 shadow-[0_-4px_20px_rgba(255,107,107,0.08)] md:hidden">
+  <a href="/" class="flex flex-col items-center justify-center text-on-surface/60 hover:scale-110 transition-transform">
+    <span class="material-symbols-outlined">home</span>
+    <span class="text-[11px] font-medium">Início</span>
+  </a>
+  <a href="/cardapio" class="flex flex-col items-center justify-center text-on-surface/60 hover:scale-110 transition-transform">
+    <span class="material-symbols-outlined">reorder</span>
+    <span class="text-[11px] font-medium">Catálogo</span>
+  </a>
+  <a href="/carrinho" class="flex flex-col items-center justify-center bg-[#ffe9e7] text-primary rounded-full px-5 py-2 scale-110 shadow-sm">
+    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+    <span class="text-[11px] font-bold">Carrinho</span>
+  </a>
+  <a href="/perfil" class="flex flex-col items-center justify-center text-on-surface/60 hover:scale-110 transition-transform">
+    <span class="material-symbols-outlined">person</span>
+    <span class="text-[11px] font-medium">Perfil</span>
+  </a>
+</nav>
+
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let cart = [];
+  let appliedCoupon = null;
+  let freteFixo = 7.00;
+
+  function loadCartData() {
+    const storedCart = localStorage.getItem('cart');
+    cart = storedCart ? JSON.parse(storedCart) : [];
+    const storedCoupon = localStorage.getItem('appliedCoupon');
+    appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
+    updateCartCount();
+    renderSummary();
+  }
+
+  function updateCartCount() {
+    const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const cartCountSpan = document.getElementById('cart-count');
+    if (cartCountSpan) cartCountSpan.innerText = totalItems;
+  }
+
+  function renderSummary() {
+    const container = document.getElementById('cart-items-summary');
+    if (!cart.length) {
+      container.innerHTML = '<div class="text-center py-4 text-on-surface-variant">Seu carrinho está vazio. <a href="/cardapio" class="text-primary underline">Escolha seus produtos</a></div>';
+      document.getElementById('submit-order-btn').disabled = true;
+      return;
+    }
+
+    let subtotal = 0;
+    const itemsHtml = cart.map(item => {
+      const itemTotal = (item.price_cents / 100) * (item.quantity || 1);
+      subtotal += itemTotal;
+      return `
+        <div class="flex justify-between text-sm">
+          <span>${item.quantity}x ${escapeHtml(item.name)}</span>
+          <span>R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>
+        </div>
+      `;
+    }).join('');
+    container.innerHTML = itemsHtml;
+
+    let desconto = 0;
+    if (appliedCoupon) {
+      desconto = (subtotal * appliedCoupon.desconto) / 100;
+    }
+    const total = subtotal + freteFixo - desconto;
+
+    document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+    document.getElementById('frete').innerText = `R$ ${freteFixo.toFixed(2).replace('.', ',')}`;
+    document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
+    document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+  }
+
+  async function submitOrder() {
+    const errorEl = document.getElementById('error-message');
+    errorEl.classList.add('hidden');
+
+    // Validações
+    const name = document.getElementById('customer-name').value.trim();
+    const phone = document.getElementById('customer-phone').value.trim();
+    const deliveryAddress = document.getElementById('delivery-address').value.trim();
+    const deliveryType = document.getElementById('delivery-type').value;
+    const paymentMethod = document.getElementById('payment-method').value;
+
+    if (!name || !phone) {
+      errorEl.textContent = 'Preencha nome e telefone.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    if (cart.length === 0) {
+      errorEl.textContent = 'Carrinho vazio. Adicione itens antes de finalizar.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    // Calcular valores
+    let subtotal = 0;
+    cart.forEach(item => {
+      subtotal += (item.price_cents / 100) * (item.quantity || 1);
+    });
+    const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
+    const total = subtotal + freteFixo - desconto;
+    const totalCents = Math.round(total * 100);
+
+    // Dados do pedido
+    const orderData = {
+      customer_name: name,
+      customer_phone: phone,
+      status: 'received',
+      total_cents: totalCents,
+      delivery_address: deliveryType === 'pickup' ? null : deliveryAddress,
+      payment_method: paymentMethod,
+      discount_cents: Math.round(desconto * 100),
+      delivery_type: deliveryType,
+      created_at: new Date().toISOString()
+    };
+
+    // Inserir pedido
+    const { data: insertedOrder, error: orderError } = await supabaseClient
+      .from('orders')
+      .insert([orderData])
+      .select();
+
+    if (orderError) {
+      console.error(orderError);
+      errorEl.textContent = 'Erro ao criar pedido. Tente novamente.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    const orderId = insertedOrder[0].id;
+
+    // Inserir itens
+    const itemsToInsert = cart.map(item => ({
+      order_id: orderId,
+      product_name: item.name,
+      quantity: item.quantity || 1,
+      unit_price_cents: item.price_cents,
+      line_total_cents: (item.price_cents * (item.quantity || 1))
+    }));
+
+    const { error: itemsError } = await supabaseClient
+      .from('order_items')
+      .insert(itemsToInsert);
+
+    if (itemsError) {
+      console.error(itemsError);
+      errorEl.textContent = 'Erro ao salvar itens. O pedido foi criado, mas não conseguimos registrar os produtos. Contate o suporte.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    // Atualizar uso do cupom, se aplicado
+    if (appliedCoupon && appliedCoupon.id) {
+      const newUsos = (appliedCoupon.usos_atual || 0) + 1;
+      await supabaseClient
+        .from('cupons')
+        .update({ usos_atual: newUsos })
+        .eq('id', appliedCoupon.id);
+    }
+
+    // Limpar carrinho e cupom
+    localStorage.removeItem('cart');
+    localStorage.removeItem('appliedCoupon');
+
+    // Redirecionar para página de confirmação
+    window.location.href = `/pedido-confirmado.html?id=${orderId}`;
+  }
+
+  document.getElementById('submit-order-btn').addEventListener('click', submitOrder);
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  }
+
+  loadCartData();
+</script>
+</body>
+</html>
