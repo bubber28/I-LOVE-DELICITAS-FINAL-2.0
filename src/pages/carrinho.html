@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Carrinho - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef",
+          "error": "#ba1a1a"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #fff8f7; }
+</style>
+</head>
+<body>
+
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+    <a href="/"><img class="h-12" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></a>
+    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+  </div>
+</header>
+
+<main class="pt-24 pb-32 px-4 max-w-5xl mx-auto">
+  <h1 class="text-3xl font-bold mb-6">Seu Carrinho</h1>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div id="cart-items" class="lg:col-span-2 space-y-4">
+      <div class="text-center py-8">Carregando carrinho...</div>
+    </div>
+    <div class="space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm">
+        <h2 class="text-xl font-bold mb-4">Resumo</h2>
+        <div class="space-y-2">
+          <div class="flex justify-between"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
+          <div class="flex justify-between"><span>Entrega</span><span id="frete">R$ 7,00</span></div>
+          <div class="flex justify-between text-secondary"><span>Desconto</span><span id="desconto">- R$ 0,00</span></div>
+          <div class="border-t pt-2 flex justify-between font-bold text-lg"><span>Total</span><span id="total">R$ 0,00</span></div>
+        </div>
+        <button id="checkout-btn" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-bold">Finalizar Pedido</button>
+      </div>
+      <div class="bg-white rounded-2xl p-6 shadow-sm">
+        <label class="font-bold mb-2 block">Cupom de desconto</label>
+        <div class="flex gap-2">
+          <input id="coupon-input" type="text" class="flex-grow border rounded-full px-4 py-2" placeholder="CUPOM10">
+          <button id="apply-coupon" class="bg-secondary text-white px-4 py-2 rounded-full">Aplicar</button>
+        </div>
+        <p id="coupon-message" class="text-xs mt-2 hidden"></p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let cart = [];
+  let appliedCoupon = null;
+  const frete = 7.00;
+
+  function loadCart() {
+    const stored = localStorage.getItem('cart');
+    cart = stored ? JSON.parse(stored) : [];
+    const storedCoupon = localStorage.getItem('appliedCoupon');
+    appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
+    updateCartCount();
+    renderCart();
+    updateTotals();
+  }
+
+  function updateCartCount() {
+    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    document.getElementById('cart-count').innerText = totalItems;
+  }
+
+  function saveCart() {
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    renderCart();
+    updateTotals();
+  }
+
+  function renderCart() {
+    const container = document.getElementById('cart-items');
+    if (!cart.length) {
+      container.innerHTML = `<div class="text-center py-8">Seu carrinho está vazio. <a href="/cardapio" class="text-primary underline">Ver cardápio</a></div>`;
+      document.getElementById('checkout-btn').disabled = true;
+      return;
+    }
+    document.getElementById('checkout-btn').disabled = false;
+    container.innerHTML = cart.map((item, idx) => `
+      <div class="bg-white rounded-lg p-4 flex gap-4">
+        <img class="w-20 h-20 object-cover rounded" src="${item.image_url || 'https://placehold.co/300x200?text=Delícia'}">
+        <div class="flex-grow">
+          <h3 class="font-bold">${escapeHtml(item.name)}</h3>
+          <div class="flex justify-between items-center mt-2">
+            <span class="text-primary font-bold">R$ ${((item.price_cents / 100) * (item.quantity || 1)).toFixed(2).replace('.', ',')}</span>
+            <div class="flex items-center gap-2">
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low" data-idx="${idx}" data-delta="-1">-</button>
+              <span class="w-8 text-center">${item.quantity || 1}</span>
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low" data-idx="${idx}" data-delta="1">+</button>
+              <button class="remove-btn text-error" data-idx="${idx}">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    document.querySelectorAll('.qty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        const delta = parseInt(btn.dataset.delta);
+        const newQty = (cart[idx].quantity || 1) + delta;
+        if (newQty <= 0) cart.splice(idx, 1);
+        else cart[idx].quantity = newQty;
+        saveCart();
+      });
+    });
+    document.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        cart.splice(idx, 1);
+        saveCart();
+      });
+    });
+  }
+
+  function updateTotals() {
+    let subtotal = 0;
+    cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
+    let desconto = 0;
+    if (appliedCoupon) desconto = (subtotal * appliedCoupon.desconto) / 100;
+    const total = subtotal + frete - desconto;
+    document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+    document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
+    document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
+    document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+  }
+
+  async function applyCoupon() {
+    const code = document.getElementById('coupon-input').value.trim().toUpperCase();
+    const msg = document.getElementById('coupon-message');
+    if (!code) return;
+    const hoje = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('cupons')
+      .select('*')
+      .eq('codigo', code)
+      .eq('ativo', true)
+      .gte('validade', hoje)
+      .single();
+    if (error || !data) {
+      msg.textContent = 'Cupom inválido ou expirado.';
+      msg.classList.remove('hidden', 'text-secondary');
+      msg.classList.add('text-error');
+      appliedCoupon = null;
+      localStorage.removeItem('appliedCoupon');
+      updateTotals();
+      return;
+    }
+    if (data.usos_atual >= data.uso_maximo) {
+      msg.textContent = 'Cupom já atingiu o limite de uso.';
+      msg.classList.remove('hidden', 'text-secondary');
+      msg.classList.add('text-error');
+      appliedCoupon = null;
+      localStorage.removeItem('appliedCoupon');
+      updateTotals();
+      return;
+    }
+    appliedCoupon = data;
+    localStorage.setItem('appliedCoupon', JSON.stringify(data));
+    msg.textContent = `Cupom aplicado! ${data.desconto}% de desconto.`;
+    msg.classList.remove('hidden', 'text-error');
+    msg.classList.add('text-secondary');
+    updateTotals();
+  }
+
+  document.getElementById('checkout-btn').addEventListener('click', () => {
+    if (cart.length === 0) alert('Carrinho vazio.');
+    else window.location.href = '/checkout';
+  });
+  document.getElementById('apply-coupon').addEventListener('click', applyCoupon);
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  }
+
+  loadCart();
+</script>
+</body>
+</html>
