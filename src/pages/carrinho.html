@@ -49,7 +49,7 @@
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
     <a href="/"><img class="h-12" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></a>
-    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span></a>
+    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
   </div>
 </header>
 
@@ -83,7 +83,6 @@
 </main>
 
 <script>
-  // CORREÇÃO: usar um nome diferente para o cliente Supabase
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -118,7 +117,7 @@
   function renderCart() {
     const container = document.getElementById('cart-items');
     if (!cart.length) {
-      container.innerHTML = `<div class="text-center py-8">Seu carrinho está vazio. <a href="/" class="text-primary underline">Voltar ao cardápio</a></div>`;
+      container.innerHTML = `<div class="text-center py-8">Seu carrinho está vazio. <a href="/cardapio" class="text-primary underline">Ver cardápio</a></div>`;
       document.getElementById('checkout-btn').disabled = true;
       return;
     }
