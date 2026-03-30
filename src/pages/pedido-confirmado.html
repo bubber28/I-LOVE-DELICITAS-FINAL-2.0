@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pedido Confirmado - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef",
+          "error": "#ba1a1a"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #fff8f7; }
+</style>
+</head>
+<body>
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+    <a href="/"><img class="h-12" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></a>
+    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+  </div>
+</header>
+<main class="pt-24 pb-32 px-4 max-w-3xl mx-auto" id="main">
+  <div class="text-center py-8">Carregando pedido...</div>
+</main>
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function loadOrder() {
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) {
+      document.getElementById('main').innerHTML = '<div class="text-center py-8">Pedido não identificado.</div>';
+      return;
+    }
+    const { data: order } = await supabase.from('orders').select('*').eq('id', id).single();
+    if (!order) {
+      document.getElementById('main').innerHTML = '<div class="text-center py-8">Pedido não encontrado.</div>';
+      return;
+    }
+    const { data: items } = await supabase.from('order_items').select('product_name, quantity, line_total_cents').eq('order_id', id);
+    const date = new Date(order.created_at).toLocaleString();
+    const total = (order.total_cents/100).toFixed(2).replace('.',',');
+    let itemsHtml = items?.map(i => `<div class="flex justify-between text-sm"><span>${i.quantity}x ${escapeHtml(i.product_name)}</span><span>R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</span></div>`).join('') || '<p>Itens não disponíveis</p>';
+
+    document.getElementById('main').innerHTML = `
+      <div class="bg-white rounded-2xl p-6 shadow-sm text-center">
+        <span class="material-symbols-outlined text-6xl text-primary">check_circle</span>
+        <h2 class="text-2xl font-bold mt-2">Pedido confirmado!</h2>
+        <p class="text-on-surface-variant">Agradecemos pela preferência.</p>
+        <div class="text-left mt-6 space-y-2">
+          <div><strong>Pedido #:</strong> ${order.id.slice(0,8)}</div>
+          <div><strong>Data/Hora:</strong> ${date}</div>
+          <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</div>
+          <div><strong>Telefone:</strong> ${order.customer_phone}</div>
+          <div><strong>Endereço:</strong> ${order.delivery_type==='pickup' ? 'Retirada no local' : escapeHtml(order.delivery_address)}</div>
+          <div><strong>Pagamento:</strong> ${order.payment_method}</div>
+          <div><strong>Desconto:</strong> R$ ${(order.discount_cents/100).toFixed(2).replace('.',',')}</div>
+        </div>
+        <div class="mt-4"><strong>Itens:</strong> ${itemsHtml}</div>
+        <div class="text-right font-bold text-primary mt-2">Total: R$ ${total}</div>
+        <div class="flex flex-col sm:flex-row gap-3 mt-6">
+          <a href="/acompanhamento?id=${order.id}" class="bg-primary text-white py-3 rounded-full text-center">Acompanhar pedido</a>
+          <a href="/" class="bg-surface-container text-primary py-3 rounded-full text-center">Voltar ao início</a>
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
+  }
+
+  loadOrder();
+</script>
+</body>
+</html>
