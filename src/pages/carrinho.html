@@ -86,9 +86,21 @@
 
   function loadCart() {
     const stored = localStorage.getItem('cart');
-    cart = stored ? JSON.parse(stored) : [];
+    if (stored) {
+      try {
+        cart = JSON.parse(stored);
+      } catch(e) { cart = []; }
+    } else {
+      cart = [];
+    }
     const storedCoupon = localStorage.getItem('appliedCoupon');
-    appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
+    if (storedCoupon) {
+      try {
+        appliedCoupon = JSON.parse(storedCoupon);
+      } catch(e) { appliedCoupon = null; }
+    } else {
+      appliedCoupon = null;
+    }
     updateCartCount();
     renderCart();
     updateTotals();
@@ -96,7 +108,8 @@
 
   function updateCartCount() {
     const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    document.getElementById('cart-count').innerText = totalItems;
+    const cartCountSpan = document.getElementById('cart-count');
+    if (cartCountSpan) cartCountSpan.innerText = totalItems;
   }
 
   function saveCart() {
@@ -108,44 +121,55 @@
 
   function renderCart() {
     const container = document.getElementById('cart-items');
-    if (!cart.length) {
+    if (!cart || cart.length === 0) {
       container.innerHTML = `<div class="text-center py-8">Seu carrinho está vazio. <a href="/cardapio" class="text-primary underline">Ver cardápio</a></div>`;
-      document.getElementById('checkout-btn').disabled = true;
+      const checkoutBtn = document.getElementById('checkout-btn');
+      if (checkoutBtn) checkoutBtn.disabled = true;
       return;
     }
-    document.getElementById('checkout-btn').disabled = false;
+    const checkoutBtn = document.getElementById('checkout-btn');
+    if (checkoutBtn) checkoutBtn.disabled = false;
     container.innerHTML = cart.map((item, idx) => `
-      <div class="bg-white rounded-lg p-4 flex gap-4">
-        <img class="w-20 h-20 object-cover rounded" src="${item.image_url || 'https://placehold.co/300x200?text=Delícia'}">
+      <div class="bg-white rounded-lg p-4 flex gap-4 shadow-sm">
+        <div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-low">
+          <img class="w-full h-full object-cover" src="${item.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(item.name)}">
+        </div>
         <div class="flex-grow">
           <h3 class="font-bold">${escapeHtml(item.name)}</h3>
           <div class="flex justify-between items-center mt-2">
             <span class="text-primary font-bold">R$ ${((item.price_cents / 100) * (item.quantity || 1)).toFixed(2).replace('.', ',')}</span>
             <div class="flex items-center gap-2">
-              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low" data-idx="${idx}" data-delta="-1">-</button>
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low hover:bg-surface-container" data-idx="${idx}" data-delta="-1">-</button>
               <span class="w-8 text-center">${item.quantity || 1}</span>
-              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low" data-idx="${idx}" data-delta="1">+</button>
-              <button class="remove-btn text-error" data-idx="${idx}">🗑️</button>
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low hover:bg-surface-container" data-idx="${idx}" data-delta="1">+</button>
+              <button class="remove-btn text-error hover:bg-error-container rounded-full w-8 h-8 flex items-center justify-center" data-idx="${idx}">🗑️</button>
             </div>
           </div>
         </div>
       </div>
     `).join('');
+
     document.querySelectorAll('.qty-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.idx);
         const delta = parseInt(btn.dataset.delta);
+        if (isNaN(idx)) return;
         const newQty = (cart[idx].quantity || 1) + delta;
-        if (newQty <= 0) cart.splice(idx, 1);
-        else cart[idx].quantity = newQty;
+        if (newQty <= 0) {
+          cart.splice(idx, 1);
+        } else {
+          cart[idx].quantity = newQty;
+        }
         saveCart();
       });
     });
     document.querySelectorAll('.remove-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.idx);
-        cart.splice(idx, 1);
-        saveCart();
+        if (!isNaN(idx)) {
+          cart.splice(idx, 1);
+          saveCart();
+        }
       });
     });
   }
