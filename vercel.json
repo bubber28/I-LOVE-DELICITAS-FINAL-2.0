@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/src/pages/index.html" },
+    { "source": "/carrinho", "destination": "/src/pages/carrinho.html" },
+    { "source": "/:path*", "destination": "/src/pages/:path*.html" }
+  ]
+}
