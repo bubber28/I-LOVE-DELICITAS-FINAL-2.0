@@ -39,7 +39,7 @@
   .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
 </style>
 </head>
-<body class="bg-surface">
+<body>
 
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
@@ -52,15 +52,10 @@
   <div class="bg-white rounded-2xl p-8 shadow-sm">
     <h1 class="text-2xl font-bold text-primary text-center mb-6">Redefinir senha</h1>
     <form id="reset-form" class="space-y-4">
-      <div>
-        <label class="block font-semibold mb-1">E-mail cadastrado</label>
-        <input type="email" id="email" class="input-field" required>
-      </div>
+      <div><label class="block font-semibold mb-1">E-mail cadastrado</label><input type="email" id="email" class="input-field" required></div>
       <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold">Enviar e-mail de recuperação</button>
     </form>
-    <div class="mt-4 text-center text-sm">
-      <a href="/login" class="text-primary underline">Voltar para o login</a>
-    </div>
+    <div class="mt-4 text-center text-sm"><a href="/login" class="text-primary underline">Voltar para o login</a></div>
     <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
     <p id="success-message" class="text-secondary text-sm text-center mt-3 hidden"></p>
   </div>
@@ -98,9 +93,7 @@
     } else {
       successEl.textContent = 'Enviamos um e‑mail com instruções para redefinir sua senha.';
       successEl.classList.remove('hidden');
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 5000);
+      setTimeout(() => { window.location.href = '/login'; }, 5000);
     }
   });
 </script>
