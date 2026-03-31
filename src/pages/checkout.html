@@ -43,8 +43,22 @@
 
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <a href="/"><img class="h-12" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></a>
-    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+    <div class="flex items-center gap-2">
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-primary">menu</span>
+      </button>
+      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+      <div id="user-menu" class="hidden flex items-center gap-3">
+        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
+        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
+        <span id="user-name" class="text-primary font-semibold"></span>
+        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
+      </div>
+      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
+    </div>
   </div>
 </header>
 
@@ -86,7 +100,7 @@
   let userId = null;
   const freteFixo = 7.00;
 
-  // Carrega dados do carrinho e também preenche os campos do formulário com os dados do perfil se o usuário estiver logado
+  // Carrega dados do carrinho e preenche perfil se logado
   async function loadData() {
     const storedCart = localStorage.getItem('cart');
     cart = storedCart ? JSON.parse(storedCart) : [];
@@ -95,7 +109,6 @@
     updateCartCount();
     renderSummary();
 
-    // Verificar se o usuário está logado e carregar dados do perfil
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       userId = session.user.id;
@@ -159,11 +172,15 @@
       errorEl.classList.remove('hidden');
       return;
     }
+
+    // Calcular valores
     let subtotal = 0;
     cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
     const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
     const total = subtotal + freteFixo - desconto;
     const totalCents = Math.round(total * 100);
+
+    // Dados do pedido
     const orderData = {
       customer_name: name,
       customer_phone: phone,
@@ -173,17 +190,25 @@
       payment_method: payment,
       discount_cents: Math.round(desconto * 100),
       delivery_type: deliveryType,
-      user_id: userId,          // <-- ID do usuário logado (ou null)
+      user_id: userId,
       created_at: new Date().toISOString()
     };
-    const { data: order, error: orderError } = await supabaseClient.from('orders').insert([orderData]).select();
+
+    // Inserir pedido
+    const { data: order, error: orderError } = await supabaseClient
+      .from('orders')
+      .insert([orderData])
+      .select();
     if (orderError) {
       console.error(orderError);
       errorEl.textContent = 'Erro ao criar pedido.';
       errorEl.classList.remove('hidden');
       return;
     }
+
     const orderId = order[0].id;
+
+    // Inserir itens
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
       product_name: i.name,
@@ -191,13 +216,28 @@
       unit_price_cents: i.price_cents,
       line_total_cents: (i.price_cents * (i.quantity || 1))
     }));
-    const { error: itemsError } = await supabaseClient.from('order_items').insert(itemsToInsert);
-    if (itemsError) console.error(itemsError);
-    if (appliedCoupon && appliedCoupon.id) {
-      await supabaseClient.from('cupons').update({ usos_atual: (appliedCoupon.usos_atual || 0) + 1 }).eq('id', appliedCoupon.id);
+
+    const { error: itemsError } = await supabaseClient
+      .from('order_items')
+      .insert(itemsToInsert);
+    if (itemsError) {
+      console.error('Erro ao inserir itens:', itemsError);
+      // Se falhar, o pedido já foi criado, mas os itens não – talvez tentar novamente ou marcar erro.
     }
+
+    // Atualizar uso do cupom, se aplicado
+    if (appliedCoupon && appliedCoupon.id) {
+      await supabaseClient
+        .from('cupons')
+        .update({ usos_atual: (appliedCoupon.usos_atual || 0) + 1 })
+        .eq('id', appliedCoupon.id);
+    }
+
+    // Limpar carrinho e cupom
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
+
+    // Redirecionar para página de confirmação
     window.location.href = `/pedido-confirmado?id=${orderId}`;
   }
 
@@ -208,6 +248,65 @@
     return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
   }
 
+  // Sidebar mobile (simplificado)
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const openBtn = document.getElementById('open-sidebar-btn');
+  const closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
+
+  async function updateHeaderAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const userMenu = document.getElementById('user-menu');
+    const loginLink = document.getElementById('login-link');
+    if (session) {
+      userMenu.classList.remove('hidden');
+      loginLink.classList.add('hidden');
+      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
+      const userName = profile?.name || session.user.email.split('@')[0];
+      document.getElementById('user-name').innerText = userName;
+    } else {
+      userMenu.classList.add('hidden');
+      loginLink.classList.remove('hidden');
+    }
+  }
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  async function updateSidebarAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const loginLink = document.getElementById('sidebar-login-link');
+    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
+    const perfil = document.getElementById('sidebar-perfil');
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (session) {
+      loginLink.classList.add('hidden');
+      meusPedidos.classList.remove('hidden');
+      perfil.classList.remove('hidden');
+      logoutBtn.classList.remove('hidden');
+    } else {
+      loginLink.classList.remove('hidden');
+      meusPedidos.classList.add('hidden');
+      perfil.classList.add('hidden');
+      logoutBtn.classList.add('hidden');
+    }
+  }
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  updateHeaderAuth();
+  updateSidebarAuth();
   loadData();
 </script>
 </body>
