@@ -41,6 +41,31 @@
 </head>
 <body>
 
+<!-- Sidebar (mesmo de antes) -->
+<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
+  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
+    <div class="flex items-center gap-3">
+      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
+      <span class="text-primary font-headline font-bold text-lg">Menu</span>
+    </div>
+    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="flex-1 px-4 py-6 space-y-2">
+    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
+    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
+    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
+    <div id="auth-links-sidebar">
+      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
+      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
+      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
+      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
+    </div>
+  </nav>
+</div>
+
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
     <div class="flex items-center gap-2">
@@ -100,7 +125,6 @@
   let userId = null;
   const freteFixo = 7.00;
 
-  // Carrega dados do carrinho e preenche perfil se logado
   async function loadData() {
     const storedCart = localStorage.getItem('cart');
     cart = storedCart ? JSON.parse(storedCart) : [];
@@ -173,14 +197,13 @@
       return;
     }
 
-    // Calcular valores
     let subtotal = 0;
     cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
     const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
     const total = subtotal + freteFixo - desconto;
     const totalCents = Math.round(total * 100);
 
-    // Dados do pedido
+    // Preparar dados do pedido
     const orderData = {
       customer_name: name,
       customer_phone: phone,
@@ -191,6 +214,12 @@
       discount_cents: Math.round(desconto * 100),
       delivery_type: deliveryType,
       user_id: userId,
+      items: cart.map(i => ({   // <-- Salva os itens também na coluna JSON
+        name: i.name,
+        quantity: i.quantity,
+        price_cents: i.price_cents,
+        line_total_cents: i.price_cents * (i.quantity || 1)
+      })),
       created_at: new Date().toISOString()
     };
 
@@ -208,7 +237,7 @@
 
     const orderId = order[0].id;
 
-    // Inserir itens
+    // Inserir itens na tabela order_items (se falhar, não impede o pedido)
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
       product_name: i.name,
@@ -221,8 +250,8 @@
       .from('order_items')
       .insert(itemsToInsert);
     if (itemsError) {
-      console.error('Erro ao inserir itens:', itemsError);
-      // Se falhar, o pedido já foi criado, mas os itens não – talvez tentar novamente ou marcar erro.
+      console.error('Erro ao inserir itens (tabela order_items):', itemsError);
+      // Não impede o pedido – os itens já estão no campo items JSON
     }
 
     // Atualizar uso do cupom, se aplicado
@@ -248,7 +277,7 @@
     return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
   }
 
-  // Sidebar mobile (simplificado)
+  // Sidebar e auth (mesmo de antes)
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('mobile-overlay');
   const openBtn = document.getElementById('open-sidebar-btn');
