@@ -53,25 +53,82 @@
 </head>
 <body class="bg-surface text-on-surface">
 
+<!-- Sidebar (menu hambúrguer) - mesmo código do index -->
+<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
+  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
+    <div class="flex items-center gap-3">
+      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
+      <span class="text-primary font-headline font-bold text-lg">Menu</span>
+    </div>
+    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="flex-1 px-4 py-6 space-y-2">
+    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors">
+      <span class="material-symbols-outlined">home</span>
+      <span>Início</span>
+    </a>
+    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors">
+      <span class="material-symbols-outlined">menu_book</span>
+      <span>Cardápio</span>
+    </a>
+    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors">
+      <span class="material-symbols-outlined">shopping_cart</span>
+      <span>Carrinho</span>
+    </a>
+    <div id="auth-links-sidebar">
+      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos">
+        <span class="material-symbols-outlined">receipt</span>
+        <span>Meus Pedidos</span>
+      </a>
+      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil">
+        <span class="material-symbols-outlined">person</span>
+        <span>Perfil</span>
+      </a>
+      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors">
+        <span class="material-symbols-outlined">logout</span>
+        <span>Sair</span>
+      </button>
+      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors">
+        <span class="material-symbols-outlined">login</span>
+        <span>Entrar</span>
+      </a>
+    </div>
+  </nav>
+</div>
+
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <a href="/"><img class="h-12" src="https://lh3.googleusercontent.com/aida/ADBb0ug9pEscIuL2DlpA17jlxEDClMUUl57IcXfA7OVPOBmhp5sAf7PwxKnpbI1tY9CcPsm_Q_lnh_6nc7K9s-Ufu8Vl1c-OjwARYp7iAHfnZcmG0DBwt67Xn07BOzLg_PKmoimX0VhBx_7sWyf5BR1B5okOzwW7leBDUVxtd-hraOOegasbSbL6SufvbUq093ykJtCjJbgzAXz6oOZhTDNVOwf2jgT_67YQ89bs9nwJk_awO3yEeaN9p4lZbmtoAwd21a5JeopnxomDwkc"/></a>
-    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+    <div class="flex items-center gap-2">
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-primary">menu</span>
+      </button>
+      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+      <div id="user-menu" class="hidden flex items-center gap-3">
+        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
+        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
+        <span id="user-name" class="text-primary font-semibold"></span>
+        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
+      </div>
+      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
+    </div>
   </div>
 </header>
 
 <main class="pt-24 pb-32 px-4 max-w-7xl mx-auto">
   <h1 class="text-3xl font-bold mb-6">Cardápio</h1>
 
-  <!-- Filtro de categorias -->
   <div class="mb-8 overflow-x-auto no-scrollbar">
     <div id="category-filters" class="flex gap-2 pb-2">
       <button data-category="all" class="category-filter bg-primary text-white px-4 py-2 rounded-full text-sm font-semibold">Todos</button>
-      <!-- as categorias serão inseridas aqui -->
     </div>
   </div>
 
-  <!-- Lista de produtos -->
   <div id="products-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
     <div class="text-center py-8 col-span-full">Carregando produtos...</div>
   </div>
@@ -101,7 +158,6 @@
     const { data } = await supabaseClient.from('categories').select('*').order('name');
     categories = data || [];
     const container = document.getElementById('category-filters');
-    // Limpa os botões existentes, mantendo apenas o "Todos"
     container.innerHTML = '<button data-category="all" class="category-filter bg-primary text-white px-4 py-2 rounded-full text-sm font-semibold">Todos</button>';
     categories.forEach(cat => {
       const btn = document.createElement('button');
@@ -110,11 +166,9 @@
       btn.className = 'category-filter bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold hover:bg-primary-container transition';
       container.appendChild(btn);
     });
-    // Adiciona eventos após criação
     document.querySelectorAll('.category-filter').forEach(btn => {
       btn.addEventListener('click', () => {
         currentCategory = btn.dataset.category;
-        // Atualiza estilo dos botões
         document.querySelectorAll('.category-filter').forEach(b => {
           if (b.dataset.category === currentCategory) {
             b.classList.add('bg-primary', 'text-white');
@@ -182,6 +236,66 @@
     return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
   }
 
+  // ================== HEADER AUTH ==================
+  async function updateHeaderAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const userMenu = document.getElementById('user-menu');
+    const loginLink = document.getElementById('login-link');
+    if (session) {
+      userMenu.classList.remove('hidden');
+      loginLink.classList.add('hidden');
+      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
+      const userName = profile?.name || session.user.email.split('@')[0];
+      document.getElementById('user-name').innerText = userName;
+    } else {
+      userMenu.classList.add('hidden');
+      loginLink.classList.remove('hidden');
+    }
+  }
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  // ================== SIDEBAR ==================
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const openBtn = document.getElementById('open-sidebar-btn');
+  const closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
+
+  async function updateSidebarAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const loginLink = document.getElementById('sidebar-login-link');
+    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
+    const perfil = document.getElementById('sidebar-perfil');
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (session) {
+      loginLink.classList.add('hidden');
+      meusPedidos.classList.remove('hidden');
+      perfil.classList.remove('hidden');
+      logoutBtn.classList.remove('hidden');
+    } else {
+      loginLink.classList.remove('hidden');
+      meusPedidos.classList.add('hidden');
+      perfil.classList.add('hidden');
+      logoutBtn.classList.add('hidden');
+    }
+  }
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  updateHeaderAuth();
+  updateSidebarAuth();
   loadCategories();
   loadProducts();
 </script>
