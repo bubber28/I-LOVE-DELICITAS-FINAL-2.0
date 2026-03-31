@@ -79,19 +79,39 @@
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let cart = [];
   let appliedCoupon = null;
+  let userId = null;
   const freteFixo = 7.00;
 
-  function loadData() {
+  // Carrega dados do carrinho e também preenche os campos do formulário com os dados do perfil se o usuário estiver logado
+  async function loadData() {
     const storedCart = localStorage.getItem('cart');
     cart = storedCart ? JSON.parse(storedCart) : [];
     const storedCoupon = localStorage.getItem('appliedCoupon');
     appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
     updateCartCount();
     renderSummary();
+
+    // Verificar se o usuário está logado e carregar dados do perfil
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      userId = session.user.id;
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('name, phone, address')
+        .eq('id', userId)
+        .single();
+      if (profile) {
+        if (profile.name) document.getElementById('customer-name').value = profile.name;
+        if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
+        if (profile.address) document.getElementById('delivery-address').value = profile.address;
+      }
+    } else {
+      userId = null;
+    }
   }
 
   function updateCartCount() {
@@ -153,10 +173,12 @@
       payment_method: payment,
       discount_cents: Math.round(desconto * 100),
       delivery_type: deliveryType,
+      user_id: userId,          // <-- ID do usuário logado (ou null)
       created_at: new Date().toISOString()
     };
-    const { data: order, error: orderError } = await supabase.from('orders').insert([orderData]).select();
+    const { data: order, error: orderError } = await supabaseClient.from('orders').insert([orderData]).select();
     if (orderError) {
+      console.error(orderError);
       errorEl.textContent = 'Erro ao criar pedido.';
       errorEl.classList.remove('hidden');
       return;
@@ -169,10 +191,10 @@
       unit_price_cents: i.price_cents,
       line_total_cents: (i.price_cents * (i.quantity || 1))
     }));
-    const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
+    const { error: itemsError } = await supabaseClient.from('order_items').insert(itemsToInsert);
     if (itemsError) console.error(itemsError);
     if (appliedCoupon && appliedCoupon.id) {
-      await supabase.from('cupons').update({ usos_atual: (appliedCoupon.usos_atual || 0) + 1 }).eq('id', appliedCoupon.id);
+      await supabaseClient.from('cupons').update({ usos_atual: (appliedCoupon.usos_atual || 0) + 1 }).eq('id', appliedCoupon.id);
     }
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
