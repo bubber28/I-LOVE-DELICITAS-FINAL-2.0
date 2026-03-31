@@ -175,6 +175,18 @@
   }
   updateCartCount();
 
+  // ================== ÍCONES PERSONALIZADOS POR CATEGORIA ==================
+  function getCategoryIcon(categoryName) {
+    const name = categoryName.toLowerCase();
+    // Mapeie conforme suas categorias (case insensitive)
+    if (name.includes('salgado')) return 'fastfood';
+    if (name.includes('doce')) return 'cake';
+    if (name.includes('bebida')) return 'emoji_food_beverage';
+    if (name.includes('combo')) return 'lunch_dining';
+    // fallback
+    return 'category';
+  }
+
   // ================== CATEGORIAS ==================
   async function loadCategories() {
     const { data } = await supabaseClient.from('categories').select('*').order('name');
@@ -185,7 +197,7 @@
     }
     container.innerHTML = data.map(cat => `
       <div class="flex-none w-40 h-48 bg-surface-container-low rounded-lg p-6 flex flex-col justify-between hover:bg-surface-container cursor-pointer" onclick="location.href='/cardapio?categoria=${cat.id}'">
-        <span class="material-symbols-outlined text-4xl text-primary">category</span>
+        <span class="material-symbols-outlined text-4xl text-primary">${getCategoryIcon(cat.name)}</span>
         <span class="font-headline font-bold">${escapeHtml(cat.name)}</span>
       </div>
     `).join('');
