@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Meu Perfil - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef",
+          "error": "#ba1a1a"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #fff8f7; }
+  .input-field { width: 100%; padding: 0.75rem; border-radius: 1rem; border: 1px solid #e0bfbd; background: white; transition: all 0.2s; }
+  .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
+</style>
+</head>
+<body class="bg-surface">
+
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+      <div id="user-menu" class="hidden">
+        <span id="user-name" class="text-primary font-semibold mr-2"></span>
+        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
+      </div>
+      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
+    </div>
+  </div>
+</header>
+
+<main class="pt-24 pb-32 px-4 max-w-md mx-auto">
+  <div id="profile-container">
+    <div class="bg-white rounded-2xl p-8 shadow-sm">
+      <h1 class="text-2xl font-bold text-primary text-center mb-6">Meu Perfil</h1>
+      <form id="profile-form" class="space-y-4">
+        <div>
+          <label class="block font-semibold mb-1">Nome completo</label>
+          <input type="text" id="name" class="input-field" required>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Telefone (WhatsApp)</label>
+          <input type="tel" id="phone" class="input-field" required>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Endereço</label>
+          <input type="text" id="address" class="input-field">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">E-mail</label>
+          <input type="email" id="email" class="input-field" readonly disabled>
+        </div>
+        <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold">Salvar alterações</button>
+      </form>
+      <div class="mt-4 text-center">
+        <button id="change-password-btn" class="text-primary underline">Alterar senha</button>
+      </div>
+      <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
+      <p id="success-message" class="text-secondary text-sm text-center mt-3 hidden"></p>
+    </div>
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    document.getElementById('cart-count').innerText = totalItems;
+  }
+  updateCartCount();
+
+  // Verificar autenticação e carregar perfil
+  async function loadProfile() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const user = session.user;
+    const userId = user.id;
+    const userEmail = user.email;
+
+    // Buscar dados da tabela profiles
+    const { data: profile, error } = await supabaseClient
+      .from('profiles')
+      .select('name, phone, address')
+      .eq('id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error(error);
+    }
+
+    // Preencher formulário
+    document.getElementById('name').value = profile?.name || '';
+    document.getElementById('phone').value = profile?.phone || '';
+    document.getElementById('address').value = profile?.address || '';
+    document.getElementById('email').value = userEmail;
+
+    // Atualizar cabeçalho com nome do usuário e botão de logout
+    const userName = profile?.name || userEmail.split('@')[0];
+    document.getElementById('user-name').innerText = userName;
+    document.getElementById('user-menu').classList.remove('hidden');
+    document.getElementById('login-link').classList.add('hidden');
+  }
+
+  // Salvar alterações
+  const form = document.getElementById('profile-form');
+  const errorEl = document.getElementById('error-message');
+  const successEl = document.getElementById('success-message');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.classList.add('hidden');
+    successEl.classList.add('hidden');
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return;
+
+    const userId = session.user.id;
+    const name = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const address = document.getElementById('address').value.trim();
+
+    const { error } = await supabaseClient
+      .from('profiles')
+      .upsert({
+        id: userId,
+        name,
+        phone,
+        address,
+        email: session.user.email,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      errorEl.textContent = error.message;
+      errorEl.classList.remove('hidden');
+    } else {
+      successEl.textContent = 'Perfil atualizado com sucesso!';
+      successEl.classList.remove('hidden');
+      // Atualizar nome no cabeçalho
+      document.getElementById('user-name').innerText = name || session.user.email.split('@')[0];
+    }
+  });
+
+  // Alterar senha
+  document.getElementById('change-password-btn').addEventListener('click', () => {
+    // Redireciona para a página de redefinição de senha com um parâmetro indicando que é alteração (logado)
+    window.location.href = '/reset-password?from=profile';
+  });
+
+  // Logout
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart'); // opcional: limpar carrinho ao sair
+    window.location.href = '/';
+  });
+
+  loadProfile();
+</script>
+</body>
+</html>
