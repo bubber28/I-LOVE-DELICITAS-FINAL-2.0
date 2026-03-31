@@ -125,7 +125,12 @@
         const { error: profileError } = await supabaseClient
           .from('profiles')
           .upsert({ id: authData.user.id, name, phone, email, updated_at: new Date().toISOString() });
-        if (profileError) console.error('Erro ao salvar perfil:', profileError);
+        if (profileError) {
+          console.error('Erro ao salvar perfil:', profileError);
+          // Se falhar, não impede o cadastro, mas mostramos aviso
+          errorEl.textContent = 'Cadastro concluído, mas houve um erro ao salvar seus dados. Contate o suporte.';
+          errorEl.classList.remove('hidden');
+        }
       }
 
       successEl.textContent = 'Cadastro realizado! Confirme seu e‑mail para ativar a conta.';
