@@ -39,12 +39,16 @@
   .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
 </style>
 </head>
-<body class="bg-surface">
+<body>
 
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
-    <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+    <div class="flex items-center gap-2">
+      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+    </div>
   </div>
 </header>
 
@@ -52,22 +56,12 @@
   <div class="bg-white rounded-2xl p-8 shadow-sm">
     <h1 class="text-2xl font-bold text-primary text-center mb-6">Entrar</h1>
     <form id="login-form" class="space-y-4">
-      <div>
-        <label class="block font-semibold mb-1">E-mail</label>
-        <input type="email" id="email" class="input-field" required>
-      </div>
-      <div>
-        <label class="block font-semibold mb-1">Senha</label>
-        <input type="password" id="password" class="input-field" required>
-      </div>
+      <div><label class="block font-semibold mb-1">E-mail</label><input type="email" id="email" class="input-field" required></div>
+      <div><label class="block font-semibold mb-1">Senha</label><input type="password" id="password" class="input-field" required></div>
       <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold">Entrar</button>
     </form>
-    <div class="mt-4 text-center text-sm">
-      <a href="/esqueci-senha" class="text-primary underline">Esqueci minha senha</a>
-    </div>
-    <div class="mt-4 text-center text-sm">
-      Ainda não tem cadastro? <a href="/cadastro" class="text-primary font-semibold">Cadastre-se</a>
-    </div>
+    <div class="mt-4 text-center text-sm"><a href="/esqueci-senha" class="text-primary underline">Esqueci minha senha</a></div>
+    <div class="mt-4 text-center text-sm">Ainda não tem cadastro? <a href="/cadastro" class="text-primary font-semibold">Cadastre-se</a></div>
     <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
   </div>
 </main>
@@ -98,7 +92,6 @@
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');
     } else {
-      // Login bem-sucedido – redireciona para a home
       window.location.href = '/';
     }
   });
