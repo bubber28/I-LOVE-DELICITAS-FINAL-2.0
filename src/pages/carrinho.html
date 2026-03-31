@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Finalizar Pedido - I Love Delicitas</title>
+<title>Carrinho - I Love Delicitas</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
@@ -35,8 +35,13 @@
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
   body { background-color: #fff8f7; }
-  .input-field { width: 100%; padding: 0.75rem; border-radius: 1rem; border: 1px solid #e0bfbd; background: white; transition: all 0.2s; }
-  .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
+  .cart-item-image {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    width: 80px;
+    height: 80px;
+    border-radius: 0.75rem;
+  }
 </style>
 </head>
 <body>
@@ -48,148 +53,172 @@
   </div>
 </header>
 
-<main class="pt-24 pb-32 px-4 max-w-4xl mx-auto">
-  <h1 class="text-3xl font-bold text-primary mb-6">Finalizar Pedido</h1>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <div class="bg-white rounded-2xl p-6 shadow-sm">
-      <h2 class="text-xl font-bold mb-4">Dados para entrega</h2>
-      <div class="space-y-4">
-        <div><label class="block font-semibold mb-1">Nome completo *</label><input id="customer-name" class="input-field"></div>
-        <div><label class="block font-semibold mb-1">Telefone (WhatsApp) *</label><input id="customer-phone" class="input-field"></div>
-        <div><label class="block font-semibold mb-1">Endereço de entrega</label><input id="delivery-address" class="input-field"></div>
-        <div><label class="block font-semibold mb-1">Tipo de entrega</label><select id="delivery-type" class="input-field"><option value="delivery">Delivery</option><option value="pickup">Retirada no local</option></select></div>
-        <div><label class="block font-semibold mb-1">Forma de pagamento</label><select id="payment-method" class="input-field"><option value="pix">PIX</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option></select></div>
-      </div>
+<main class="pt-24 pb-32 px-4 max-w-5xl mx-auto">
+  <h1 class="text-3xl font-bold mb-6">Seu Carrinho</h1>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div id="cart-items" class="lg:col-span-2 space-y-4">
+      <div class="text-center py-8">Carregando carrinho...</div>
     </div>
-    <div class="bg-white rounded-2xl p-6 shadow-sm">
-      <h2 class="text-xl font-bold mb-4">Resumo do pedido</h2>
-      <div id="cart-items-summary" class="space-y-3 max-h-64 overflow-y-auto"></div>
-      <div class="border-t pt-4 mt-4 space-y-2">
-        <div class="flex justify-between"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
-        <div class="flex justify-between"><span>Entrega</span><span id="frete">R$ 7,00</span></div>
-        <div class="flex justify-between text-secondary"><span>Desconto</span><span id="desconto">- R$ 0,00</span></div>
-        <div class="flex justify-between text-lg font-bold text-primary"><span>Total</span><span id="total">R$ 0,00</span></div>
+    <div class="space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm">
+        <h2 class="text-xl font-bold mb-4">Resumo</h2>
+        <div class="space-y-2">
+          <div class="flex justify-between"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
+          <div class="flex justify-between"><span>Entrega</span><span id="frete">R$ 7,00</span></div>
+          <div class="flex justify-between text-secondary"><span>Desconto</span><span id="desconto">- R$ 0,00</span></div>
+          <div class="border-t pt-2 flex justify-between font-bold text-lg"><span>Total</span><span id="total">R$ 0,00</span></div>
+        </div>
+        <button id="checkout-btn" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-bold">Finalizar Pedido</button>
       </div>
-      <button id="submit-order" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-bold">Confirmar Pedido</button>
-      <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
+      <div class="bg-white rounded-2xl p-6 shadow-sm">
+        <label class="font-bold mb-2 block">Cupom de desconto</label>
+        <div class="flex gap-2">
+          <input id="coupon-input" type="text" class="flex-grow border rounded-full px-4 py-2" placeholder="CUPOM10">
+          <button id="apply-coupon" class="bg-secondary text-white px-4 py-2 rounded-full">Aplicar</button>
+        </div>
+        <p id="coupon-message" class="text-xs mt-2 hidden"></p>
+      </div>
     </div>
   </div>
 </main>
 
 <script>
-  // CORREÇÃO: usar supabaseClient para evitar conflito com a variável global
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let cart = [];
   let appliedCoupon = null;
-  const freteFixo = 7.00;
+  const frete = 7.00;
 
-  function loadData() {
-    const storedCart = localStorage.getItem('cart');
-    cart = storedCart ? JSON.parse(storedCart) : [];
+  function loadCart() {
+    const stored = localStorage.getItem('cart');
+    cart = stored ? JSON.parse(stored) : [];
     const storedCoupon = localStorage.getItem('appliedCoupon');
     appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
     updateCartCount();
-    renderSummary();
+    renderCart();
+    updateTotals();
   }
 
   function updateCartCount() {
     const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    const cartCountSpan = document.getElementById('cart-count');
-    if (cartCountSpan) cartCountSpan.innerText = totalItems;
+    document.getElementById('cart-count').innerText = totalItems;
   }
 
-  function renderSummary() {
-    const container = document.getElementById('cart-items-summary');
+  function saveCart() {
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    renderCart();
+    updateTotals();
+  }
+
+  function renderCart() {
+    const container = document.getElementById('cart-items');
     if (!cart.length) {
-      container.innerHTML = '<div class="text-center py-4">Carrinho vazio. <a href="/cardapio" class="text-primary underline">Escolha produtos</a></div>';
-      document.getElementById('submit-order').disabled = true;
+      container.innerHTML = `<div class="text-center py-8">Seu carrinho está vazio. <a href="/cardapio" class="text-primary underline">Ver cardápio</a></div>`;
+      document.getElementById('checkout-btn').disabled = true;
       return;
     }
+    document.getElementById('checkout-btn').disabled = false;
+    container.innerHTML = cart.map((item, idx) => `
+      <div class="bg-white rounded-lg p-4 flex gap-4 items-center shadow-sm">
+        <img class="cart-item-image" src="${item.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(item.name)}">
+        <div class="flex-grow">
+          <h3 class="font-bold text-lg">${escapeHtml(item.name)}</h3>
+          <div class="flex justify-between items-center mt-2">
+            <span class="text-primary font-bold">R$ ${((item.price_cents / 100) * (item.quantity || 1)).toFixed(2).replace('.', ',')}</span>
+            <div class="flex items-center gap-2">
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center" data-idx="${idx}" data-delta="-1">-</button>
+              <span class="w-8 text-center font-semibold">${item.quantity || 1}</span>
+              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center" data-idx="${idx}" data-delta="1">+</button>
+              <button class="remove-btn text-error" data-idx="${idx}">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    document.querySelectorAll('.qty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        const delta = parseInt(btn.dataset.delta);
+        const newQty = (cart[idx].quantity || 1) + delta;
+        if (newQty <= 0) cart.splice(idx, 1);
+        else cart[idx].quantity = newQty;
+        saveCart();
+      });
+    });
+    document.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        cart.splice(idx, 1);
+        saveCart();
+      });
+    });
+  }
+
+  function updateTotals() {
     let subtotal = 0;
-    const itemsHtml = cart.map(item => {
-      const itemTotal = (item.price_cents / 100) * (item.quantity || 1);
-      subtotal += itemTotal;
-      return `<div class="flex justify-between text-sm"><span>${item.quantity}x ${escapeHtml(item.name)}</span><span>R$ ${itemTotal.toFixed(2).replace('.', ',')}</span></div>`;
-    }).join('');
-    container.innerHTML = itemsHtml;
-    let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    const total = subtotal + freteFixo - desconto;
+    cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
+    let desconto = 0;
+    if (appliedCoupon) desconto = (subtotal * appliedCoupon.desconto) / 100;
+    const total = subtotal + frete - desconto;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-    document.getElementById('frete').innerText = `R$ ${freteFixo.toFixed(2).replace('.', ',')}`;
+    document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
   }
 
-  async function submitOrder() {
-    const name = document.getElementById('customer-name').value.trim();
-    const phone = document.getElementById('customer-phone').value.trim();
-    const address = document.getElementById('delivery-address').value.trim();
-    const deliveryType = document.getElementById('delivery-type').value;
-    const payment = document.getElementById('payment-method').value;
-    const errorEl = document.getElementById('error-message');
-    errorEl.classList.add('hidden');
-    if (!name || !phone) {
-      errorEl.textContent = 'Preencha nome e telefone.';
-      errorEl.classList.remove('hidden');
+  async function applyCoupon() {
+    const code = document.getElementById('coupon-input').value.trim().toUpperCase();
+    const msg = document.getElementById('coupon-message');
+    if (!code) return;
+    const hoje = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabaseClient
+      .from('cupons')
+      .select('*')
+      .eq('codigo', code)
+      .eq('ativo', true)
+      .gte('validade', hoje)
+      .single();
+    if (error || !data) {
+      msg.textContent = 'Cupom inválido ou expirado.';
+      msg.classList.remove('hidden', 'text-secondary');
+      msg.classList.add('text-error');
+      appliedCoupon = null;
+      localStorage.removeItem('appliedCoupon');
+      updateTotals();
       return;
     }
-    if (cart.length === 0) {
-      errorEl.textContent = 'Carrinho vazio.';
-      errorEl.classList.remove('hidden');
+    if (data.usos_atual >= data.uso_maximo) {
+      msg.textContent = 'Cupom já atingiu o limite de uso.';
+      msg.classList.remove('hidden', 'text-secondary');
+      msg.classList.add('text-error');
+      appliedCoupon = null;
+      localStorage.removeItem('appliedCoupon');
+      updateTotals();
       return;
     }
-    let subtotal = 0;
-    cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
-    const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    const total = subtotal + freteFixo - desconto;
-    const totalCents = Math.round(total * 100);
-    const orderData = {
-      customer_name: name,
-      customer_phone: phone,
-      status: 'received',
-      total_cents: totalCents,
-      delivery_address: deliveryType === 'pickup' ? null : address,
-      payment_method: payment,
-      discount_cents: Math.round(desconto * 100),
-      delivery_type: deliveryType,
-      created_at: new Date().toISOString()
-    };
-    const { data: order, error: orderError } = await supabaseClient.from('orders').insert([orderData]).select();
-    if (orderError) {
-      console.error(orderError);
-      errorEl.textContent = 'Erro ao criar pedido.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-    const orderId = order[0].id;
-    const itemsToInsert = cart.map(i => ({
-      order_id: orderId,
-      product_name: i.name,
-      quantity: i.quantity || 1,
-      unit_price_cents: i.price_cents,
-      line_total_cents: (i.price_cents * (i.quantity || 1))
-    }));
-    const { error: itemsError } = await supabaseClient.from('order_items').insert(itemsToInsert);
-    if (itemsError) console.error(itemsError);
-    if (appliedCoupon && appliedCoupon.id) {
-      await supabaseClient.from('cupons').update({ usos_atual: (appliedCoupon.usos_atual || 0) + 1 }).eq('id', appliedCoupon.id);
-    }
-    localStorage.removeItem('cart');
-    localStorage.removeItem('appliedCoupon');
-    window.location.href = `/pedido-confirmado?id=${orderId}`;
+    appliedCoupon = data;
+    localStorage.setItem('appliedCoupon', JSON.stringify(data));
+    msg.textContent = `Cupom aplicado! ${data.desconto}% de desconto.`;
+    msg.classList.remove('hidden', 'text-error');
+    msg.classList.add('text-secondary');
+    updateTotals();
   }
 
-  document.getElementById('submit-order').addEventListener('click', submitOrder);
+  document.getElementById('checkout-btn').addEventListener('click', () => {
+    if (cart.length === 0) alert('Carrinho vazio.');
+    else window.location.href = '/checkout';
+  });
+  document.getElementById('apply-coupon').addEventListener('click', applyCoupon);
 
   function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
   }
 
-  loadData();
+  loadCart();
 </script>
 </body>
 </html>
