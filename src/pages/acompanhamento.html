@@ -35,15 +35,8 @@
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
   body { background-color: #fff8f7; }
-  .progress-line {
+  .progress-bar {
     transition: width 0.5s ease-in-out;
-  }
-  .step-dot {
-    transition: all 0.3s ease;
-  }
-  .step-dot.active {
-    transform: scale(1.2);
-    box-shadow: 0 0 0 4px rgba(0,106,101,0.2);
   }
 </style>
 </head>
@@ -114,71 +107,109 @@
       document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não identificado.</div>';
       return;
     }
-    const { data: order, error } = await supabaseClient.from('orders').select('*').eq('id', id).single();
-    if (error || !order) {
-      document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não encontrado.</div>';
-      return;
-    }
-    const { data: items } = await supabaseClient.from('order_items').select('product_name, quantity, line_total_cents').eq('order_id', id);
-    const date = new Date(order.created_at).toLocaleString();
-    const total = (order.total_cents/100).toFixed(2).replace('.',',');
-    const status = order.status;
-    const currentStep = statusIndex[status] ?? -1;
-    const progressPercent = currentStep >=0 ? (currentStep/3)*100 : 0;
 
-    let itemsHtml = items?.map(i => `<div class="flex justify-between text-sm"><span>${i.quantity}x ${escapeHtml(i.product_name)}</span><span>R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</span></div>`).join('') || '<p>Itens não disponíveis</p>';
+    try {
+      // Buscar pedido
+      const { data: order, error } = await supabaseClient.from('orders').select('*').eq('id', id).single();
+      if (error || !order) {
+        document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não encontrado.</div>';
+        return;
+      }
 
-    // Geração dos dots com ícones animados
-    const dotHtml = steps.map((s, i) => {
-      const active = currentStep >= i;
-      const isCurrent = currentStep === i;
-      const iconMap = {
-        received: 'inbox',
-        preparing: 'cooking',
-        ready: 'check_circle',
-        delivered: 'local_shipping'
-      };
-      const icon = active ? iconMap[s] : 'circle';
-      return `
-        <div class="flex flex-col items-center gap-2 flex-1">
-          <div class="step-dot ${active ? 'active' : ''} relative">
-            <div class="w-8 h-8 rounded-full ${active ? 'bg-secondary text-white' : 'bg-surface-container-highest text-on-surface-variant'} flex items-center justify-center transition-all duration-300 shadow-md">
-              <span class="material-symbols-outlined text-sm">${icon}</span>
+      // Buscar itens do pedido
+      const { data: items, error: itemsError } = await supabaseClient
+        .from('order_items')
+        .select('product_name, quantity, line_total_cents')
+        .eq('order_id', id);
+
+      if (itemsError) console.error('Erro ao buscar itens:', itemsError);
+
+      const date = new Date(order.created_at).toLocaleString();
+      const total = (order.total_cents/100).toFixed(2).replace('.',',');
+      const status = order.status;
+      const currentStep = statusIndex[status] ?? -1;
+      const progress = currentStep >=0 ? (currentStep/3)*100 : 0;
+
+      // Montar HTML dos itens
+      let itemsHtml = '';
+      if (items && items.length > 0) {
+        itemsHtml = items.map(i => `
+          <div class="flex justify-between text-sm py-1">
+            <span>${i.quantity}x ${escapeHtml(i.product_name)}</span>
+            <span>R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</span>
+          </div>
+        `).join('');
+      } else {
+        itemsHtml = '<div class="text-center py-4 text-on-surface-variant">Itens não disponíveis</div>';
+        console.warn('Nenhum item encontrado para o pedido', id);
+      }
+
+      // Gerar os dots da barra de progresso
+      const dotHtml = steps.map((s,i) => {
+        const active = currentStep >= i;
+        const icon = (active && s!=='delivered') ? (s==='received'?'receipt':s==='preparing'?'cooking':'check_circle') : null;
+        return `
+          <div class="flex flex-col items-center gap-2 flex-1">
+            <div class="relative">
+              ${icon ? `
+                <div class="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/20">
+                  <span class="material-symbols-outlined text-sm">${icon}</span>
+                </div>
+              ` : `
+                <div class="w-4 h-4 rounded-full ${active ? 'bg-secondary' : 'bg-gray-300'} border-4 border-white"></div>
+              `}
+            </div>
+            <span class="text-xs font-bold ${active ? 'text-secondary' : 'text-gray-400'}">${statusLabels[s]}</span>
+          </div>
+        `;
+      }).join('');
+
+      const trackingButton = order.tracking_url ? `<a href="${order.tracking_url}" target="_blank" class="block mt-4 bg-primary text-white py-2 rounded-full text-center">Rastrear entregador</a>` : '';
+
+      const mainHtml = `
+        <div class="bg-white rounded-2xl p-6 shadow-sm space-y-4">
+          <div class="flex flex-wrap justify-between items-start gap-2">
+            <div>
+              <h2 class="text-xl font-bold">Pedido #${order.id.slice(0,8)}</h2>
+              <p class="text-sm text-gray-500">${date}</p>
+            </div>
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-secondary-container">${statusLabels[status]}</span>
+          </div>
+
+          <!-- Barra de progresso com animação -->
+          <div class="relative py-4">
+            <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
+            <div id="progress-fill" class="progress-bar absolute top-1/2 left-0 h-1 bg-secondary rounded-full -translate-y-1/2" style="width: ${progress}%"></div>
+            <div class="relative flex justify-between">
+              ${dotHtml}
             </div>
           </div>
-          <span class="text-xs font-bold ${active ? 'text-secondary' : 'text-on-surface-variant/60'}">${statusLabels[s]}</span>
+
+          <div class="mt-4">
+            <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</div>
+            <div><strong>Telefone:</strong> ${order.customer_phone}</div>
+            <div>${order.delivery_type==='pickup' ? '<strong>Retirada no local</strong>' : `<strong>Entrega:</strong> ${escapeHtml(order.delivery_address)}`}</div>
+            <div><strong>Pagamento:</strong> ${order.payment_method}</div>
+            <div><strong>Desconto:</strong> R$ ${(order.discount_cents/100).toFixed(2).replace('.',',')}</div>
+          </div>
+
+          <div class="border-t pt-4">
+            <h3 class="font-bold mb-2">Itens do pedido</h3>
+            ${itemsHtml}
+          </div>
+
+          <div class="text-right font-bold text-primary text-lg">Total: R$ ${total}</div>
+
+          ${trackingButton}
+          <a href="/" class="block text-center text-primary underline mt-2">Voltar ao início</a>
         </div>
       `;
-    }).join('');
 
-    const trackingButton = order.tracking_url ? `<a href="${order.tracking_url}" target="_blank" class="block mt-4 bg-primary text-white py-2 rounded-full text-center">Rastrear entregador</a>` : '';
-
-    document.getElementById('main').innerHTML = `
-      <div class="bg-white rounded-2xl p-6 shadow-sm space-y-4">
-        <div><h2 class="text-xl font-bold">Pedido #${order.id.slice(0,8)}</h2><p>${date}</p><span class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-secondary-container">${statusLabels[status]}</span></div>
-        
-        <!-- Barra de progresso animada -->
-        <div class="relative py-6">
-          <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
-          <div class="progress-line absolute top-1/2 left-0 h-1 bg-secondary rounded-full -translate-y-1/2" style="width: ${progressPercent}%;"></div>
-          <div class="relative flex justify-between">
-            ${dotHtml}
-          </div>
-        </div>
-
-        <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}<br><strong>Telefone:</strong> ${order.customer_phone}<br>${order.delivery_type==='pickup' ? '<strong>Retirada no local</strong>' : `<strong>Entrega:</strong> ${escapeHtml(order.delivery_address)}`}<br><strong>Pagamento:</strong> ${order.payment_method}<br><strong>Desconto:</strong> R$ ${(order.discount_cents/100).toFixed(2).replace('.',',')}</div>
-        <div><strong>Itens:</strong> ${itemsHtml}</div>
-        <div class="text-right font-bold text-primary">Total: R$ ${total}</div>
-        ${trackingButton}
-        <a href="/" class="block text-center text-primary underline">Voltar ao início</a>
-      </div>
-    `;
-
-    // Adiciona um pequeno atraso para garantir que a animação da barra seja visível
-    setTimeout(() => {
-      const progressBar = document.querySelector('.progress-line');
-      if (progressBar) progressBar.style.width = `${progressPercent}%`;
-    }, 50);
+      document.getElementById('main').innerHTML = mainHtml;
+    } catch (err) {
+      console.error('Erro geral:', err);
+      document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Erro ao carregar pedido.</div>';
+    }
   }
 
   function escapeHtml(str) {
@@ -194,7 +225,11 @@
     if (session) {
       userMenu.classList.remove('hidden');
       loginLink.classList.add('hidden');
-      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('name')
+        .eq('id', session.user.id)
+        .single();
       const userName = profile?.name || session.user.email.split('@')[0];
       document.getElementById('user-name').innerText = userName;
     } else {
@@ -243,6 +278,15 @@
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
+
+  // Atualizar contador do carrinho
+  function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    const cartSpan = document.getElementById('cart-count');
+    if (cartSpan) cartSpan.innerText = totalItems;
+  }
+  updateCartCount();
 
   updateHeaderAuth();
   updateSidebarAuth();
