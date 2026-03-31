@@ -39,15 +39,47 @@
   .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
 </style>
 </head>
-<body class="bg-surface">
+<body>
+
+<!-- Sidebar (menu hambúrguer) - igual aos anteriores -->
+<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
+  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
+    <div class="flex items-center gap-3">
+      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
+      <span class="text-primary font-headline font-bold text-lg">Menu</span>
+    </div>
+    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="flex-1 px-4 py-6 space-y-2">
+    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
+    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
+    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
+    <div id="auth-links-sidebar">
+      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
+      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
+      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
+      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
+    </div>
+  </nav>
+</div>
 
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+    <div class="flex items-center gap-2">
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-primary">menu</span>
+      </button>
+      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+    </div>
     <div class="flex items-center gap-4">
       <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
-      <div id="user-menu" class="hidden">
-        <span id="user-name" class="text-primary font-semibold mr-2"></span>
+      <div id="user-menu" class="hidden flex items-center gap-3">
+        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
+        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
+        <span id="user-name" class="text-primary font-semibold"></span>
         <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
       </div>
       <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
@@ -60,27 +92,13 @@
     <div class="bg-white rounded-2xl p-8 shadow-sm">
       <h1 class="text-2xl font-bold text-primary text-center mb-6">Meu Perfil</h1>
       <form id="profile-form" class="space-y-4">
-        <div>
-          <label class="block font-semibold mb-1">Nome completo</label>
-          <input type="text" id="name" class="input-field" required>
-        </div>
-        <div>
-          <label class="block font-semibold mb-1">Telefone (WhatsApp)</label>
-          <input type="tel" id="phone" class="input-field" required>
-        </div>
-        <div>
-          <label class="block font-semibold mb-1">Endereço</label>
-          <input type="text" id="address" class="input-field">
-        </div>
-        <div>
-          <label class="block font-semibold mb-1">E-mail</label>
-          <input type="email" id="email" class="input-field" readonly disabled>
-        </div>
+        <div><label class="block font-semibold mb-1">Nome completo</label><input type="text" id="name" class="input-field" required></div>
+        <div><label class="block font-semibold mb-1">Telefone (WhatsApp)</label><input type="tel" id="phone" class="input-field" required></div>
+        <div><label class="block font-semibold mb-1">Endereço</label><input type="text" id="address" class="input-field"></div>
+        <div><label class="block font-semibold mb-1">E-mail</label><input type="email" id="email" class="input-field" readonly disabled></div>
         <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold">Salvar alterações</button>
       </form>
-      <div class="mt-4 text-center">
-        <button id="change-password-btn" class="text-primary underline">Alterar senha</button>
-      </div>
+      <div class="mt-4 text-center"><button id="change-password-btn" class="text-primary underline">Alterar senha</button></div>
       <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
       <p id="success-message" class="text-secondary text-sm text-center mt-3 hidden"></p>
     </div>
@@ -99,43 +117,30 @@
   }
   updateCartCount();
 
-  // Verificar autenticação e carregar perfil
   async function loadProfile() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-      window.location.href = '/login';
-      return;
-    }
+    if (!session) { window.location.href = '/login'; return; }
+    const userId = session.user.id;
+    const userEmail = session.user.email;
 
-    const user = session.user;
-    const userId = user.id;
-    const userEmail = user.email;
-
-    // Buscar dados da tabela profiles
     const { data: profile, error } = await supabaseClient
       .from('profiles')
       .select('name, phone, address')
       .eq('id', userId)
       .single();
+    if (error && error.code !== 'PGRST116') console.error(error);
 
-    if (error && error.code !== 'PGRST116') {
-      console.error(error);
-    }
-
-    // Preencher formulário
     document.getElementById('name').value = profile?.name || '';
     document.getElementById('phone').value = profile?.phone || '';
     document.getElementById('address').value = profile?.address || '';
     document.getElementById('email').value = userEmail;
 
-    // Atualizar cabeçalho com nome do usuário e botão de logout
     const userName = profile?.name || userEmail.split('@')[0];
     document.getElementById('user-name').innerText = userName;
     document.getElementById('user-menu').classList.remove('hidden');
     document.getElementById('login-link').classList.add('hidden');
   }
 
-  // Salvar alterações
   const form = document.getElementById('profile-form');
   const errorEl = document.getElementById('error-message');
   const successEl = document.getElementById('success-message');
@@ -147,7 +152,6 @@
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) return;
-
     const userId = session.user.id;
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
@@ -155,40 +159,65 @@
 
     const { error } = await supabaseClient
       .from('profiles')
-      .upsert({
-        id: userId,
-        name,
-        phone,
-        address,
-        email: session.user.email,
-        updated_at: new Date().toISOString()
-      });
-
+      .upsert({ id: userId, name, phone, address, email: session.user.email, updated_at: new Date().toISOString() });
     if (error) {
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');
     } else {
       successEl.textContent = 'Perfil atualizado com sucesso!';
       successEl.classList.remove('hidden');
-      // Atualizar nome no cabeçalho
       document.getElementById('user-name').innerText = name || session.user.email.split('@')[0];
     }
   });
 
-  // Alterar senha
   document.getElementById('change-password-btn').addEventListener('click', () => {
-    // Redireciona para a página de redefinição de senha com um parâmetro indicando que é alteração (logado)
     window.location.href = '/reset-password?from=profile';
   });
 
-  // Logout
-  document.getElementById('logout-btn').addEventListener('click', async () => {
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart'); // opcional: limpar carrinho ao sair
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  // ================== SIDEBAR ==================
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const openBtn = document.getElementById('open-sidebar-btn');
+  const closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
+
+  async function updateSidebarAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const loginLink = document.getElementById('sidebar-login-link');
+    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
+    const perfil = document.getElementById('sidebar-perfil');
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (session) {
+      loginLink.classList.add('hidden');
+      meusPedidos.classList.remove('hidden');
+      perfil.classList.remove('hidden');
+      logoutBtn.classList.remove('hidden');
+    } else {
+      loginLink.classList.remove('hidden');
+      meusPedidos.classList.add('hidden');
+      perfil.classList.add('hidden');
+      logoutBtn.classList.add('hidden');
+    }
+  }
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
     window.location.href = '/';
   });
 
   loadProfile();
+  updateSidebarAuth();
 </script>
 </body>
 </html>
