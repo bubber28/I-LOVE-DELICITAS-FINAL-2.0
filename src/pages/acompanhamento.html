@@ -35,11 +35,21 @@
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
   body { background-color: #fff8f7; }
+  .progress-line {
+    transition: width 0.5s ease-in-out;
+  }
+  .step-dot {
+    transition: all 0.3s ease;
+  }
+  .step-dot.active {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 4px rgba(0,106,101,0.2);
+  }
 </style>
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) - igual aos anteriores -->
+<!-- Sidebar (menu hambúrguer) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -114,17 +124,31 @@
     const total = (order.total_cents/100).toFixed(2).replace('.',',');
     const status = order.status;
     const currentStep = statusIndex[status] ?? -1;
-    const progress = currentStep >=0 ? (currentStep/3)*100 : 0;
+    const progressPercent = currentStep >=0 ? (currentStep/3)*100 : 0;
 
     let itemsHtml = items?.map(i => `<div class="flex justify-between text-sm"><span>${i.quantity}x ${escapeHtml(i.product_name)}</span><span>R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</span></div>`).join('') || '<p>Itens não disponíveis</p>';
 
-    const dotHtml = steps.map((s,i) => {
+    // Geração dos dots com ícones animados
+    const dotHtml = steps.map((s, i) => {
       const active = currentStep >= i;
-      const icon = (active && s!=='delivered') ? (s==='received'?'receipt':s==='preparing'?'cooking':'check_circle') : null;
-      return `<div class="flex flex-col items-center gap-2 flex-1">
-        <div class="w-4 h-4 rounded-full ${active ? 'bg-secondary' : 'bg-gray-300'} border-4 border-white"></div>
-        <span class="text-xs font-bold ${active ? 'text-secondary' : 'text-gray-400'}">${statusLabels[s]}</span>
-      </div>`;
+      const isCurrent = currentStep === i;
+      const iconMap = {
+        received: 'inbox',
+        preparing: 'cooking',
+        ready: 'check_circle',
+        delivered: 'local_shipping'
+      };
+      const icon = active ? iconMap[s] : 'circle';
+      return `
+        <div class="flex flex-col items-center gap-2 flex-1">
+          <div class="step-dot ${active ? 'active' : ''} relative">
+            <div class="w-8 h-8 rounded-full ${active ? 'bg-secondary text-white' : 'bg-surface-container-highest text-on-surface-variant'} flex items-center justify-center transition-all duration-300 shadow-md">
+              <span class="material-symbols-outlined text-sm">${icon}</span>
+            </div>
+          </div>
+          <span class="text-xs font-bold ${active ? 'text-secondary' : 'text-on-surface-variant/60'}">${statusLabels[s]}</span>
+        </div>
+      `;
     }).join('');
 
     const trackingButton = order.tracking_url ? `<a href="${order.tracking_url}" target="_blank" class="block mt-4 bg-primary text-white py-2 rounded-full text-center">Rastrear entregador</a>` : '';
@@ -132,7 +156,16 @@
     document.getElementById('main').innerHTML = `
       <div class="bg-white rounded-2xl p-6 shadow-sm space-y-4">
         <div><h2 class="text-xl font-bold">Pedido #${order.id.slice(0,8)}</h2><p>${date}</p><span class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-secondary-container">${statusLabels[status]}</span></div>
-        <div class="relative py-4"><div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200"></div><div class="absolute top-1/2 left-0 h-1 bg-secondary" style="width:${progress}%"></div><div class="relative flex justify-between">${dotHtml}</div></div>
+        
+        <!-- Barra de progresso animada -->
+        <div class="relative py-6">
+          <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
+          <div class="progress-line absolute top-1/2 left-0 h-1 bg-secondary rounded-full -translate-y-1/2" style="width: ${progressPercent}%;"></div>
+          <div class="relative flex justify-between">
+            ${dotHtml}
+          </div>
+        </div>
+
         <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}<br><strong>Telefone:</strong> ${order.customer_phone}<br>${order.delivery_type==='pickup' ? '<strong>Retirada no local</strong>' : `<strong>Entrega:</strong> ${escapeHtml(order.delivery_address)}`}<br><strong>Pagamento:</strong> ${order.payment_method}<br><strong>Desconto:</strong> R$ ${(order.discount_cents/100).toFixed(2).replace('.',',')}</div>
         <div><strong>Itens:</strong> ${itemsHtml}</div>
         <div class="text-right font-bold text-primary">Total: R$ ${total}</div>
@@ -140,6 +173,12 @@
         <a href="/" class="block text-center text-primary underline">Voltar ao início</a>
       </div>
     `;
+
+    // Adiciona um pequeno atraso para garantir que a animação da barra seja visível
+    setTimeout(() => {
+      const progressBar = document.querySelector('.progress-line');
+      if (progressBar) progressBar.style.width = `${progressPercent}%`;
+    }, 50);
   }
 
   function escapeHtml(str) {
