@@ -124,6 +124,12 @@
           <label class="block font-semibold mb-1">Telefone (WhatsApp) *</label>
           <input type="tel" id="customer-phone" class="input-field" required>
         </div>
+        <!-- NOVO CAMPO CPF -->
+        <div>
+          <label class="block font-semibold mb-1">CPF *</label>
+          <input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14" required>
+          <p class="text-xs text-on-surface-variant mt-1">Obrigatório para emissão de nota fiscal.</p>
+        </div>
         <div>
           <label class="block font-semibold mb-1">CEP *</label>
           <div class="flex gap-2">
@@ -185,6 +191,20 @@
   let userId = null;
   let currentFrete = 0;
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00 };
+
+  // ================== MÁSCARA CPF ==================
+  function formatCPF(value) {
+    value = value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 9) {
+      value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+    } else if (value.length > 6) {
+      value = value.replace(/^(\d{3})(\d{3})(\d{0,3})$/, '$1.$2.$3');
+    } else if (value.length > 3) {
+      value = value.replace(/^(\d{3})(\d{0,3})$/, '$1.$2');
+    }
+    return value;
+  }
 
   // ================== REDIRECIONA SE CARRINHO VAZIO ==================
   function redirectIfCartEmpty() {
@@ -326,15 +346,24 @@
       userId = session.user.id;
       const { data: profile } = await supabaseClient
         .from('profiles')
-        .select('name, phone, address')
+        .select('name, phone, address, cpf')
         .eq('id', userId)
         .single();
       if (profile) {
         if (profile.name) document.getElementById('customer-name').value = profile.name;
         if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
+        if (profile.cpf) document.getElementById('cpf').value = formatCPF(profile.cpf);
       }
     } else {
       userId = null;
+    }
+
+    // Adiciona máscara ao campo CPF
+    const cpfInput = document.getElementById('cpf');
+    if (cpfInput) {
+      cpfInput.addEventListener('input', function(e) {
+        this.value = formatCPF(this.value);
+      });
     }
   }
 
@@ -398,6 +427,7 @@
   async function submitOrder() {
     const name = document.getElementById('customer-name').value.trim();
     const phone = document.getElementById('customer-phone').value.trim();
+    const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
     const deliveryType = document.getElementById('delivery-type').value;
     const payment = document.getElementById('payment-method').value;
     const errorEl = document.getElementById('error-message');
@@ -405,6 +435,11 @@
 
     if (!name || !phone) {
       errorEl.textContent = 'Preencha nome e telefone.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+    if (!cpfRaw || cpfRaw.length !== 11) {
+      errorEl.textContent = 'CPF inválido. Digite 11 números.';
       errorEl.classList.remove('hidden');
       return;
     }
@@ -449,6 +484,7 @@
       discount_cents: Math.round(desconto * 100),
       delivery_type: deliveryType,
       user_id: userId,
+      cpf: cpfRaw,
       created_at: new Date().toISOString()
     };
 
