@@ -3,322 +3,204 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Acompanhamento - I Love Delicitas</title>
+<title>Acompanhar Pedido - I Love Delicitas</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script>
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#ae2f34",
-          "primary-container": "#ff6b6b",
-          "secondary": "#006a65",
-          "surface": "#fff8f7",
-          "on-surface": "#251818",
-          "on-surface-variant": "#584140",
-          "surface-container-low": "#fff0ef",
-          "error": "#ba1a1a"
-        },
-        fontFamily: {
-          "headline": ["Plus Jakarta Sans"],
-          "body": ["Be Vietnam Pro"]
-        },
-        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
 <style>
-  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-  body { background-color: #fff8f7; }
-  .progress-bar {
-    transition: width 0.5s ease-in-out;
+  body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
+  .container-custom { max-width: 800px; margin: 0 auto; }
+  .track-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .status-steps { display: flex; justify-content: space-between; margin: 2rem 0; position: relative; }
+  .status-step { text-align: center; flex: 1; position: relative; z-index: 2; background: white; }
+  .status-step .icon { background: #e5e7eb; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; transition: all 0.3s; }
+  .status-step.active .icon { background: #ae2f34; color: white; }
+  .status-step.completed .icon { background: #10b981; color: white; }
+  .status-step .label { font-size: 0.75rem; font-weight: 600; color: #6b7280; }
+  .status-step.active .label { color: #ae2f34; }
+  .status-step.completed .label { color: #10b981; }
+  .progress-line { position: absolute; top: 20px; left: 0; right: 0; height: 4px; background: #e5e7eb; z-index: 1; }
+  .progress-line-fill { height: 100%; background: #10b981; width: 0%; transition: width 0.5s; }
+  @media (max-width: 640px) {
+    .status-steps { flex-wrap: wrap; gap: 1rem; }
+    .status-step { flex: none; width: calc(50% - 0.5rem); }
+    .progress-line { display: none; }
   }
 </style>
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) -->
-<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
-<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
-  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
-    <div class="flex items-center gap-3">
-      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
-      <span class="text-primary font-headline font-bold text-lg">Menu</span>
-    </div>
-    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
-      <span class="material-symbols-outlined">close</span>
-    </button>
-  </div>
-  <nav class="flex-1 px-4 py-6 space-y-2">
-    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
-    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
-    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
-    <div id="auth-links-sidebar">
-      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
-      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
-      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
-      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
-    </div>
-  </nav>
-</div>
-
-<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
-  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <div class="flex items-center gap-2">
-      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
-        <span class="material-symbols-outlined text-primary">menu</span>
-      </button>
-      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
-    </div>
-    <div class="flex items-center gap-4">
-      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
-      <div id="user-menu" class="hidden flex items-center gap-3">
-        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
-        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
-        <span id="user-name" class="text-primary font-semibold"></span>
-        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
-      </div>
-      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
-    </div>
+<header class="bg-surface-container-low py-4 px-6 shadow-sm">
+  <div class="container-custom">
+    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
   </div>
 </header>
 
-<main class="pt-24 pb-32 px-4 max-w-3xl mx-auto" id="main">
-  <div class="text-center py-8">Carregando pedido...</div>
+<main class="container-custom px-4 py-8">
+  <div class="track-card">
+    <h1 class="text-2xl font-bold mb-2">Acompanhar Pedido</h1>
+    <p class="text-on-surface-variant mb-6">Acompanhe em tempo real o status do seu pedido.</p>
+
+    <div id="order-info" class="mb-6">
+      <p><strong>Pedido #:</strong> <span id="order-id"></span></p>
+      <p><strong>Data:</strong> <span id="order-date"></span></p>
+      <p><strong>Cliente:</strong> <span id="customer-name"></span></p>
+    </div>
+
+    <div class="status-steps relative">
+      <div class="progress-line"><div id="progress-fill" class="progress-line-fill"></div></div>
+      <div class="status-step" data-step="received">
+        <div class="icon"><span class="material-symbols-outlined">receipt</span></div>
+        <div class="label">Recebido</div>
+      </div>
+      <div class="status-step" data-step="preparing">
+        <div class="icon"><span class="material-symbols-outlined">cooking</span></div>
+        <div class="label">Preparando</div>
+      </div>
+      <div class="status-step" data-step="delivery">
+        <div class="icon"><span class="material-symbols-outlined">motorcycle</span></div>
+        <div class="label">Saiu para entrega</div>
+      </div>
+      <div class="status-step" data-step="delivered">
+        <div class="icon"><span class="material-symbols-outlined">check_circle</span></div>
+        <div class="label">Entregue</div>
+      </div>
+    </div>
+
+    <div id="status-message" class="mt-6 p-4 bg-primary-container/10 rounded-lg text-center">
+      Carregando...
+    </div>
+
+    <div class="mt-8 flex flex-col sm:flex-row gap-4">
+      <a href="/" class="btn-primary text-center">Voltar ao início</a>
+      <a href="/cardapio" class="btn-outline text-center">Fazer novo pedido</a>
+    </div>
+  </div>
 </main>
+
+<style>
+  .btn-primary { background-color: #ae2f34; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; transition: all 0.2s; text-align: center; }
+  .btn-primary:hover { background-color: #8f2529; transform: scale(1.02); }
+  .btn-outline { border: 1px solid #ae2f34; color: #ae2f34; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; background: white; transition: all 0.2s; text-align: center; }
+  .btn-outline:hover { background-color: #fff0ef; }
+  @media (max-width: 640px) { 
+    .btn-primary, .btn-outline { display: block; width: 100%; margin-bottom: 0.5rem; }
+  }
+</style>
 
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const statusIndex = { 'received':0, 'preparing':1, 'ready':2, 'delivered':3 };
-  const statusLabels = { received:'Recebido', preparing:'Preparando', ready:'Pronto', delivered:'Entregue', canceled:'Cancelado' };
-  const steps = ['received','preparing','ready','delivered'];
+  let orderId = null;
+  let currentStatus = null;
+
+  // Mapeamento de status para ordem
+  const statusOrder = ['received', 'preparing', 'delivery', 'delivered'];
+  const statusLabels = {
+    received: 'Recebido',
+    preparing: 'Preparando',
+    delivery: 'Saiu para entrega',
+    delivered: 'Entregue'
+  };
 
   async function loadOrder() {
-    const id = new URLSearchParams(location.search).get('id');
-    if (!id) {
-      document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não identificado.</div>';
+    const urlParams = new URLSearchParams(window.location.search);
+    orderId = urlParams.get('id');
+    if (!orderId) {
+      document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não identificado.</p>';
       return;
     }
 
-    try {
-      const { data: order, error } = await supabaseClient.from('orders').select('*').eq('id', id).single();
-      if (error || !order) {
-        document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não encontrado.</div>';
-        return;
-      }
+    // Buscar dados do pedido
+    const { data: order, error } = await supabaseClient
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .single();
 
-      let items = [];
-      try {
-        const { data, error: err } = await supabaseClient
-          .from('order_items')
-          .select('product_name, quantity, line_total_cents, product_id')
-          .eq('order_id', id);
-        if (!err && data && data.length > 0) {
-          items = data;
-        } else if (err) {
-          console.warn('Erro ao buscar order_items:', err);
-        }
-      } catch (e) {
-        console.warn(e);
-      }
+    if (error || !order) {
+      console.error(error);
+      document.getElementById('order-info').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
+      return;
+    }
 
-      if (items.length === 0 && order.items && Array.isArray(order.items)) {
-        console.log('Usando fallback: items da coluna JSON');
-        items = order.items.map(i => ({
-          product_name: i.name || i.product_name,
-          quantity: i.quantity,
-          line_total_cents: i.price_cents * i.quantity
-        }));
-      } else if (items.length === 0) {
-        console.warn('Nenhum item encontrado para o pedido', id);
-      }
+    currentStatus = order.status;
+    document.getElementById('order-id').innerText = orderId.substring(0,8);
+    document.getElementById('order-date').innerText = new Date(order.created_at).toLocaleString('pt-BR');
+    document.getElementById('customer-name').innerText = order.customer_name;
 
-      // Buscar imagens dos produtos
-      let productImages = {};
-      if (items.length > 0 && items[0].product_id) {
-        const productIds = [...new Set(items.map(i => i.product_id).filter(id => id))];
-        if (productIds.length) {
-          const { data: products } = await supabaseClient
-            .from('products')
-            .select('id, image_url')
-            .in('id', productIds);
-          if (products) {
-            products.forEach(p => { productImages[p.id] = p.image_url; });
+    updateStatusUI(currentStatus);
+
+    // Inscrever para mudanças em tempo real
+    const channel = supabaseClient
+      .channel(`order-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          if (newStatus !== currentStatus) {
+            currentStatus = newStatus;
+            updateStatusUI(currentStatus);
           }
         }
+      )
+      .subscribe();
+
+    // Limpar inscrição ao sair da página
+    window.addEventListener('beforeunload', () => {
+      supabaseClient.removeChannel(channel);
+    });
+  }
+
+  function updateStatusUI(status) {
+    // Atualizar classes dos steps
+    const steps = document.querySelectorAll('.status-step');
+    steps.forEach(step => {
+      step.classList.remove('active', 'completed');
+      const stepName = step.dataset.step;
+      const stepIndex = statusOrder.indexOf(stepName);
+      const currentIndex = statusOrder.indexOf(status);
+      if (stepIndex < currentIndex) {
+        step.classList.add('completed');
+      } else if (stepIndex === currentIndex) {
+        step.classList.add('active');
       }
+    });
 
-      const date = new Date(order.created_at).toLocaleString();
-      const total = (order.total_cents/100).toFixed(2).replace('.',',');
-      const status = order.status;
-      const currentStep = statusIndex[status] ?? -1;
-      const progress = currentStep >=0 ? (currentStep/3)*100 : 0;
+    // Atualizar barra de progresso
+    const progressPercent = ((statusOrder.indexOf(status) + 1) / statusOrder.length) * 100;
+    document.getElementById('progress-fill').style.width = `${progressPercent}%`;
 
-      let itemsHtml = '';
-      if (items.length > 0) {
-        itemsHtml = items.map(i => {
-          const imageUrl = i.product_id ? productImages[i.product_id] : null;
-          return `
-            <div class="flex items-center gap-3 py-2 border-b border-outline-variant/20 last:border-0">
-              ${imageUrl ? `<img src="${imageUrl}" class="w-12 h-12 rounded-lg object-cover" alt="${escapeHtml(i.product_name)}">` : `<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant">fastfood</span></div>`}
-              <div class="flex-1">
-                <div class="font-medium">${escapeHtml(i.product_name)}</div>
-                <div class="text-sm text-on-surface-variant">${i.quantity}x R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</div>
-              </div>
-              <div class="font-bold text-primary">R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</div>
-            </div>
-          `;
-        }).join('');
-      } else {
-        itemsHtml = '<div class="text-center py-4 text-on-surface-variant">Itens não disponíveis</div>';
-      }
-
-      const dotHtml = steps.map((s,i) => {
-        const active = currentStep >= i;
-        const icon = (active && s!=='delivered') ? (s==='received'?'receipt':s==='preparing'?'cooking':'check_circle') : null;
-        return `
-          <div class="flex flex-col items-center gap-2 flex-1">
-            <div class="relative">
-              ${icon ? `
-                <div class="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/20">
-                  <span class="material-symbols-outlined text-sm">${icon}</span>
-                </div>
-              ` : `
-                <div class="w-4 h-4 rounded-full ${active ? 'bg-secondary' : 'bg-gray-300'} border-4 border-white"></div>
-              `}
-            </div>
-            <span class="text-xs font-bold ${active ? 'text-secondary' : 'text-gray-400'}">${statusLabels[s]}</span>
-          </div>
-        `;
-      }).join('');
-
-      const trackingButton = order.tracking_url ? `<a href="${order.tracking_url}" target="_blank" class="block mt-4 bg-primary text-white py-2 rounded-full text-center">Rastrear entregador</a>` : '';
-
-      const mainHtml = `
-        <div class="bg-white rounded-2xl p-6 shadow-sm space-y-4">
-          <div class="flex flex-wrap justify-between items-start gap-2">
-            <div>
-              <h2 class="text-xl font-bold">Pedido #${order.id.slice(0,8)}</h2>
-              <p class="text-sm text-gray-500">${date}</p>
-            </div>
-            <span class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-secondary-container">${statusLabels[status]}</span>
-          </div>
-
-          <div class="relative py-4">
-            <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
-            <div id="progress-fill" class="progress-bar absolute top-1/2 left-0 h-1 bg-secondary rounded-full -translate-y-1/2" style="width: ${progress}%"></div>
-            <div class="relative flex justify-between">
-              ${dotHtml}
-            </div>
-          </div>
-
-          <div class="mt-4">
-            <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</div>
-            <div><strong>Telefone:</strong> ${order.customer_phone}</div>
-            <div>${order.delivery_type==='pickup' ? '<strong>Retirada no local</strong>' : `<strong>Entrega:</strong> ${escapeHtml(order.delivery_address)}`}</div>
-            <div><strong>Pagamento:</strong> ${order.payment_method}</div>
-            <div><strong>Desconto:</strong> R$ ${(order.discount_cents/100).toFixed(2).replace('.',',')}</div>
-          </div>
-
-          <div class="border-t pt-4">
-            <h3 class="font-bold mb-3">Itens do pedido</h3>
-            ${itemsHtml}
-          </div>
-
-          <div class="text-right font-bold text-primary text-lg">Total: R$ ${total}</div>
-
-          ${trackingButton}
-          <a href="/" class="block text-center text-primary underline mt-2">Voltar ao início</a>
-        </div>
-      `;
-
-      document.getElementById('main').innerHTML = mainHtml;
-    } catch (err) {
-      console.error('Erro geral:', err);
-      document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Erro ao carregar pedido.</div>';
+    // Mensagem amigável
+    let message = '';
+    switch (status) {
+      case 'received':
+        message = '✅ Pedido recebido! Em breve começaremos a preparar.';
+        break;
+      case 'preparing':
+        message = '🍳 Seu pedido está sendo preparado com todo carinho!';
+        break;
+      case 'delivery':
+        message = '🛵 Saiu para entrega! Fique atento(a) ao seu celular.';
+        break;
+      case 'delivered':
+        message = '🎉 Pedido entregue! Aproveite e avalie nossa loja.';
+        break;
+      default:
+        message = 'Aguardando atualização...';
     }
+    document.getElementById('status-message').innerHTML = message;
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
-  }
-
-  // ================== HEADER AUTH ==================
-  async function updateHeaderAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const userMenu = document.getElementById('user-menu');
-    const loginLink = document.getElementById('login-link');
-    if (session) {
-      userMenu.classList.remove('hidden');
-      loginLink.classList.add('hidden');
-      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
-      const userName = profile?.name || session.user.email.split('@')[0];
-      document.getElementById('user-name').innerText = userName;
-    } else {
-      userMenu.classList.add('hidden');
-      loginLink.classList.remove('hidden');
-    }
-  }
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-
-  // ================== SIDEBAR ==================
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('mobile-overlay');
-  const openBtn = document.getElementById('open-sidebar-btn');
-  const closeBtn = document.getElementById('close-sidebar-btn');
-  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
-  if (openBtn) openBtn.addEventListener('click', openSidebar);
-  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-  if (overlay) overlay.addEventListener('click', closeSidebar);
-  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
-
-  async function updateSidebarAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const loginLink = document.getElementById('sidebar-login-link');
-    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
-    const perfil = document.getElementById('sidebar-perfil');
-    const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (session) {
-      loginLink.classList.add('hidden');
-      meusPedidos.classList.remove('hidden');
-      perfil.classList.remove('hidden');
-      logoutBtn.classList.remove('hidden');
-    } else {
-      loginLink.classList.remove('hidden');
-      meusPedidos.classList.add('hidden');
-      perfil.classList.add('hidden');
-      logoutBtn.classList.add('hidden');
-    }
-  }
-  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-
-  function updateCartCount() {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    document.getElementById('cart-count').innerText = totalItems;
-  }
-  updateCartCount();
-
-  updateHeaderAuth();
-  updateSidebarAuth();
   loadOrder();
 </script>
 </body>
