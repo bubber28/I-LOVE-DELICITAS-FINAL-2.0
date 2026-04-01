@@ -41,7 +41,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) - igual aos anteriores -->
+<!-- Sidebar (menu hambúrguer) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -98,7 +98,7 @@
         <div>
           <label class="block font-semibold mb-1">CPF</label>
           <input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14">
-          <p class="text-xs text-on-surface-variant mt-1">Digite apenas números – será formatado automaticamente.</p>
+          <p class="text-xs text-on-surface-variant mt-1">Apenas números – será formatado automaticamente.</p>
         </div>
         <div><label class="block font-semibold mb-1">Endereço</label><input type="text" id="address" class="input-field"></div>
         <div><label class="block font-semibold mb-1">E-mail</label><input type="email" id="email" class="input-field" readonly disabled></div>
@@ -123,18 +123,18 @@
   }
   updateCartCount();
 
-  // Máscara para CPF
-  function formatCpf(value) {
-    let numbers = value.replace(/\D/g, '');
-    if (numbers.length > 11) numbers = numbers.slice(0, 11);
-    if (numbers.length > 9) {
-      numbers = numbers.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
-    } else if (numbers.length > 6) {
-      numbers = numbers.replace(/^(\d{3})(\d{3})(\d{0,3})$/, '$1.$2.$3');
-    } else if (numbers.length > 3) {
-      numbers = numbers.replace(/^(\d{3})(\d{0,3})$/, '$1.$2');
+  // Máscara de CPF
+  function formatCPF(value) {
+    value = value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 9) {
+      value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+    } else if (value.length > 6) {
+      value = value.replace(/^(\d{3})(\d{3})(\d{0,3})$/, '$1.$2.$3');
+    } else if (value.length > 3) {
+      value = value.replace(/^(\d{3})(\d{0,3})$/, '$1.$2');
     }
-    return numbers;
+    return value;
   }
 
   async function loadProfile() {
@@ -153,10 +153,8 @@
     document.getElementById('name').value = profile?.name || '';
     document.getElementById('phone').value = profile?.phone || '';
     document.getElementById('address').value = profile?.address || '';
+    document.getElementById('cpf').value = profile?.cpf ? formatCPF(profile.cpf) : '';
     document.getElementById('email').value = userEmail;
-    if (profile?.cpf) {
-      document.getElementById('cpf').value = formatCpf(profile.cpf);
-    }
 
     const userName = profile?.name || userEmail.split('@')[0];
     document.getElementById('user-name').innerText = userName;
@@ -164,11 +162,11 @@
     document.getElementById('login-link').classList.add('hidden');
   }
 
-  // Aplicar máscara ao digitar
+  // Aplicar máscara enquanto digita
   const cpfInput = document.getElementById('cpf');
   if (cpfInput) {
     cpfInput.addEventListener('input', function(e) {
-      e.target.value = formatCpf(e.target.value);
+      this.value = formatCPF(this.value);
     });
   }
 
@@ -187,18 +185,17 @@
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const address = document.getElementById('address').value.trim();
-    const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, ''); // remove máscara
-
-    // Opcional: validar CPF (apenas números e 11 dígitos)
-    if (cpfRaw && cpfRaw.length !== 11) {
-      errorEl.textContent = 'CPF inválido. Deve conter 11 números.';
+    let cpf = document.getElementById('cpf').value.replace(/\D/g, '');
+    if (cpf && cpf.length !== 11) {
+      errorEl.textContent = 'CPF inválido. Deve ter 11 dígitos.';
       errorEl.classList.remove('hidden');
       return;
     }
+    if (cpf === '') cpf = null; // permite salvar vazio
 
     const { error } = await supabaseClient
       .from('profiles')
-      .upsert({ id: userId, name, phone, address, cpf: cpfRaw || null, email: session.user.email, updated_at: new Date().toISOString() });
+      .upsert({ id: userId, name, phone, address, cpf, email: session.user.email, updated_at: new Date().toISOString() });
     if (error) {
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');
@@ -219,7 +216,7 @@
     window.location.href = '/';
   });
 
-  // ================== SIDEBAR ==================
+  // Sidebar
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('mobile-overlay');
   const openBtn = document.getElementById('open-sidebar-btn');
