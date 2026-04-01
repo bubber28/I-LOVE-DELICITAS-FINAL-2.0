@@ -122,13 +122,17 @@
       }
 
       if (authData.user) {
+        // Aguarda um segundo para garantir que a sessão seja criada
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         const { error: profileError } = await supabaseClient
           .from('profiles')
           .upsert({ id: authData.user.id, name, phone, email, updated_at: new Date().toISOString() });
+
         if (profileError) {
           console.error('Erro ao salvar perfil:', profileError);
-          // Se falhar, não impede o cadastro, mas mostramos aviso
-          errorEl.textContent = 'Cadastro concluído, mas houve um erro ao salvar seus dados. Contate o suporte.';
+          // Não bloqueia o fluxo, mas avisa o usuário
+          errorEl.textContent = 'Cadastro concluído, mas houve um problema ao salvar seus dados adicionais. Entre em contato se necessário.';
           errorEl.classList.remove('hidden');
         }
       }
