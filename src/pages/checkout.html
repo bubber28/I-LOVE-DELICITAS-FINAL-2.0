@@ -60,7 +60,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) – omitido por brevidade, igual ao código anterior -->
+<!-- Sidebar (menu hambúrguer) – igual ao código anterior -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -190,12 +190,22 @@
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+  // Configuração da API do Google Maps (substitua pela sua chave)
+  const GOOGLE_API_KEY = 'YOUR_GOOGLE_API_KEY'; // 👈 coloque sua chave aqui
+
   let cart = [];
   let appliedCoupon = null;
   let userId = null;
   let currentFrete = 0;
-  let config = { frete_gratis_minimo: 0, frete_padrao: 7.00 };
+  let config = {
+    frete_gratis_minimo: 0,
+    frete_padrao: 7.00,
+    frete_gratis_distancia_maxima: 5, // km
+    store_lat: null,
+    store_lng: null
+  };
   let cepValido = false;
+  let currentDistance = null; // distância em km (se calculada)
 
   // ================== MÁSCARA CPF ==================
   function formatCPF(value) {
@@ -215,16 +225,54 @@
   async function loadConfig() {
     const { data, error } = await supabaseClient
       .from('app_config')
-      .select('frete_gratis_minimo, frete_padrao')
+      .select('frete_gratis_minimo, frete_padrao, frete_gratis_distancia_maxima, store_lat, store_lng')
       .limit(1)
       .single();
     if (!error && data) {
       config.frete_gratis_minimo = parseFloat(data.frete_gratis_minimo) || 0;
       config.frete_padrao = parseFloat(data.frete_padrao) || 7.00;
+      config.frete_gratis_distancia_maxima = parseInt(data.frete_gratis_distancia_maxima) || 5;
+      config.store_lat = data.store_lat ? parseFloat(data.store_lat) : null;
+      config.store_lng = data.store_lng ? parseFloat(data.store_lng) : null;
       console.log('Config carregada:', config);
     } else {
       console.warn('Usando valores padrão para frete', error);
     }
+  }
+
+  // ================== GEOCODIFICAÇÃO (Google Maps) ==================
+  async function geocodeAddress(address) {
+    if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'YOUR_GOOGLE_API_KEY') {
+      console.warn('Chave do Google Maps não configurada. Ignorando verificação de distância.');
+      return null;
+    }
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_API_KEY}`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === 'OK' && data.results.length > 0) {
+        const { lat, lng } = data.results[0].geometry.location;
+        return { lat, lng };
+      } else {
+        console.error('Geocodificação falhou:', data.status);
+        return null;
+      }
+    } catch (err) {
+      console.error('Erro na geocodificação:', err);
+      return null;
+    }
+  }
+
+  // ================== CÁLCULO DE DISTÂNCIA (Haversine) ==================
+  function haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   }
 
   // ================== BUSCAR ENDEREÇO VIA CEP ==================
@@ -243,12 +291,11 @@
     }
   }
 
-  // ================== CALCULAR FRETE ==================
-  async function calcularFrete(cep) {
-    if (!cep || cep.length < 8) return config.frete_padrao;
-    const cepLimpo = cep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) return config.frete_padrao;
+  // ================== CALCULAR FRETE (com distância) ==================
+  async function calcularFrete(cep, addressString) {
+    if (!cep || cep.replace(/\D/g, '').length !== 8) return config.frete_padrao;
 
+    const cepLimpo = cep.replace(/\D/g, '');
     console.log('Consultando frete para CEP:', cepLimpo);
     const { data: regiao, error } = await supabaseClient
       .from('frete_regioes')
@@ -257,13 +304,35 @@
       .gte('cep_fim', cepLimpo)
       .maybeSingle();
 
+    let frete = regiao ? parseFloat(regiao.valor) : config.frete_padrao;
     if (error) {
       console.error('Erro ao buscar frete:', error);
-      return config.frete_padrao;
+      frete = config.frete_padrao;
     }
-    const valor = regiao ? parseFloat(regiao.valor) : config.frete_padrao;
-    console.log('Frete encontrado:', valor);
-    return valor;
+
+    // Calcular distância se tivermos coordenadas da loja e endereço
+    let distancia = null;
+    if (config.store_lat && config.store_lng && addressString) {
+      const coords = await geocodeAddress(addressString);
+      if (coords) {
+        distancia = haversineDistance(config.store_lat, config.store_lng, coords.lat, coords.lng);
+        currentDistance = distancia;
+        console.log(`Distância calculada: ${distancia.toFixed(2)} km`);
+      } else {
+        currentDistance = null;
+      }
+    } else {
+      currentDistance = null;
+    }
+
+    // Verificar se frete grátis é aplicável
+    const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
+    const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima);
+    if (freeShippingAvailable && subtotal >= config.frete_gratis_minimo) {
+      console.log('Frete grátis aplicado (distância dentro do limite e valor mínimo atingido)');
+      return 0;
+    }
+    return frete;
   }
 
   async function atualizarFrete() {
@@ -289,20 +358,26 @@
       return;
     }
 
-    let frete = await calcularFrete(cep);
-    const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
-    console.log('Subtotal:', subtotal, 'Mínimo frete grátis:', config.frete_gratis_minimo);
-    if (subtotal >= config.frete_gratis_minimo) {
-      frete = 0;
-      console.log('Frete grátis aplicado (valor mínimo atingido)');
+    // Montar endereço completo para geocodificação
+    const rua = document.getElementById('rua').value;
+    const numero = document.getElementById('numero').value;
+    const bairro = document.getElementById('bairro').value;
+    const cidade = document.getElementById('cidade').value;
+    const uf = document.getElementById('uf').value;
+    let addressString = '';
+    if (rua && numero && bairro && cidade && uf) {
+      addressString = `${rua}, ${numero} - ${bairro}, ${cidade} - ${uf}`;
+    } else {
+      addressString = ''; // ainda não preenchido
     }
 
+    let frete = await calcularFrete(cep, addressString);
     currentFrete = frete;
     document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     cepValido = true;
     atualizarTotal();
     atualizarAvisoFreteGratis();
-    console.log('Frete final:', currentFrete);
+    console.log('Frete final:', currentFrete, 'Distância:', currentDistance);
   }
 
   function atualizarTotal() {
@@ -319,10 +394,11 @@
     const deliveryType = document.getElementById('delivery-type').value;
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
+    const freeShippingEligible = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima);
 
-    console.log('Aviso frete grátis: subtotal', subtotal, 'min', min, 'cepValido', cepValido, 'deliveryType', deliveryType);
+    console.log('Aviso frete grátis: subtotal', subtotal, 'min', min, 'cepValido', cepValido, 'deliveryType', deliveryType, 'distancia', currentDistance, 'elegível', freeShippingEligible);
 
-    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || !cepValido || subtotal >= min) {
+    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || !cepValido || !freeShippingEligible || subtotal >= min) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
       return;
@@ -370,7 +446,7 @@
       userId = null;
     }
 
-    // Adiciona máscara ao campo CPF
+    // Máscara CPF
     const cpfInput = document.getElementById('cpf');
     if (cpfInput) {
       cpfInput.addEventListener('input', function(e) {
@@ -424,6 +500,7 @@
       document.getElementById('cidade').value = endereco.localidade || '';
       document.getElementById('uf').value = endereco.uf || '';
       document.getElementById('numero').focus();
+      // Após preencher, recalcula frete com o endereço completo
       await atualizarFrete();
     }
   });
@@ -440,6 +517,17 @@
       cepValido = false;
       atualizarAvisoFreteGratis();
     }
+  });
+
+  // Quando os campos de endereço forem alterados, podemos refazer o cálculo
+  const addressFields = ['rua', 'numero', 'bairro', 'cidade', 'uf'];
+  addressFields.forEach(field => {
+    document.getElementById(field).addEventListener('change', () => {
+      const cep = document.getElementById('cep').value;
+      if (cep && cep.replace(/\D/g, '').length === 8) {
+        atualizarFrete();
+      }
+    });
   });
 
   document.getElementById('delivery-type').addEventListener('change', () => {
