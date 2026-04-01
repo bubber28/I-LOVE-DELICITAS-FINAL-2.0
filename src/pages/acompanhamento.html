@@ -121,7 +121,7 @@
       try {
         const { data, error: err } = await supabaseClient
           .from('order_items')
-          .select('product_name, quantity, line_total_cents')
+          .select('product_name, quantity, line_total_cents, product_id')
           .eq('order_id', id);
         if (!err && data && data.length > 0) {
           items = data;
@@ -132,7 +132,7 @@
         console.warn(e);
       }
 
-      // Fallback: se não encontrou itens, tenta usar a coluna 'items' (JSON) do pedido
+      // Se não encontrou itens, tenta fallback (coluna JSON)
       if (items.length === 0 && order.items && Array.isArray(order.items)) {
         console.log('Usando fallback: items da coluna JSON');
         items = order.items.map(i => ({
@@ -144,21 +144,43 @@
         console.warn('Nenhum item encontrado para o pedido', id);
       }
 
+      // Buscar imagens dos produtos (apenas se tivermos product_id)
+      let productImages = {};
+      if (items.length > 0 && items[0].product_id) {
+        const productIds = [...new Set(items.map(i => i.product_id).filter(id => id))];
+        if (productIds.length) {
+          const { data: products } = await supabaseClient
+            .from('products')
+            .select('id, image_url')
+            .in('id', productIds);
+          if (products) {
+            products.forEach(p => { productImages[p.id] = p.image_url; });
+          }
+        }
+      }
+
       const date = new Date(order.created_at).toLocaleString();
       const total = (order.total_cents/100).toFixed(2).replace('.',',');
       const status = order.status;
       const currentStep = statusIndex[status] ?? -1;
       const progress = currentStep >=0 ? (currentStep/3)*100 : 0;
 
-      // Montar HTML dos itens
+      // Montar HTML dos itens com miniaturas
       let itemsHtml = '';
       if (items.length > 0) {
-        itemsHtml = items.map(i => `
-          <div class="flex justify-between text-sm py-1">
-            <span>${i.quantity}x ${escapeHtml(i.product_name)}</span>
-            <span>R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</span>
-          </div>
-        `).join('');
+        itemsHtml = items.map(i => {
+          const imageUrl = i.product_id ? productImages[i.product_id] : null;
+          return `
+            <div class="flex items-center gap-3 py-2 border-b border-outline-variant/20 last:border-0">
+              ${imageUrl ? `<img src="${imageUrl}" class="w-12 h-12 rounded-lg object-cover" alt="${escapeHtml(i.product_name)}">` : `<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant">fastfood</span></div>`}
+              <div class="flex-1">
+                <div class="font-medium">${escapeHtml(i.product_name)}</div>
+                <div class="text-sm text-on-surface-variant">${i.quantity}x R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</div>
+              </div>
+              <div class="font-bold text-primary">R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</div>
+            </div>
+          `;
+        }).join('');
       } else {
         itemsHtml = '<div class="text-center py-4 text-on-surface-variant">Itens não disponíveis</div>';
       }
@@ -213,7 +235,7 @@
           </div>
 
           <div class="border-t pt-4">
-            <h3 class="font-bold mb-2">Itens do pedido</h3>
+            <h3 class="font-bold mb-3">Itens do pedido</h3>
             ${itemsHtml}
           </div>
 
