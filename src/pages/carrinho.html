@@ -260,22 +260,34 @@
     updateTotals();
   }
 
-  // ================== CROSS‑SELL ==================
+  // ================== CROSS‑SELL (com depuração) ==================
   async function loadCrossSell() {
     if (cart.length === 0) return;
 
-    // Extrair IDs e categorias dos produtos no carrinho
+    // Extrair IDs dos produtos no carrinho
     const productIds = cart.map(i => i.id);
-    const { data: productsInCart } = await supabaseClient
+    console.log('Produtos no carrinho IDs:', productIds);
+
+    // Buscar categorias dos produtos no carrinho
+    const { data: productsInCart, error: prodError } = await supabaseClient
       .from('products')
       .select('id, category_id')
       .in('id', productIds);
+    if (prodError) {
+      console.error('Erro ao buscar categorias dos produtos:', prodError);
+      return;
+    }
+    console.log('Produtos no carrinho (com categoria):', productsInCart);
 
     const categoryIds = [...new Set(productsInCart.map(p => p.category_id).filter(id => id))];
-    if (categoryIds.length === 0) return;
+    if (categoryIds.length === 0) {
+      console.log('Nenhuma categoria encontrada nos produtos do carrinho');
+      return;
+    }
+    console.log('Categorias envolvidas:', categoryIds);
 
     // Buscar produtos da mesma categoria, excluindo os que já estão no carrinho
-    const { data: suggestions } = await supabaseClient
+    const { data: suggestions, error: suggError } = await supabaseClient
       .from('products')
       .select('*')
       .in('category_id', categoryIds)
@@ -283,11 +295,19 @@
       .eq('active', true)
       .gt('stock', 0)
       .limit(3);
-
-    if (!suggestions || suggestions.length === 0) return;
+    if (suggError) {
+      console.error('Erro ao buscar sugestões:', suggError);
+      return;
+    }
+    console.log('Sugestões encontradas:', suggestions);
 
     const container = document.getElementById('cross-sell-container');
     const section = document.getElementById('cross-sell-section');
+    if (!suggestions || suggestions.length === 0) {
+      section.classList.add('hidden');
+      return;
+    }
+
     container.innerHTML = suggestions.map(prod => `
       <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
         <div class="mb-4 overflow-hidden rounded-xl">
