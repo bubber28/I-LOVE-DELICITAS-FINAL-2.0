@@ -94,7 +94,6 @@
       <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
     </div>
     <div class="flex items-center gap-4">
-      <!-- Ícone do carrinho voltou a ser shopping_bag -->
       <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef] transition-colors">
         <span class="material-symbols-outlined text-primary text-2xl">shopping_bag</span>
         <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
@@ -125,7 +124,6 @@
           <label class="block font-semibold mb-1">Telefone (WhatsApp) *</label>
           <input type="tel" id="customer-phone" class="input-field" required>
         </div>
-        <!-- CPF opcional -->
         <div>
           <label class="block font-semibold mb-1">CPF (opcional)</label>
           <input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14">
@@ -195,8 +193,9 @@
   let cart = [];
   let appliedCoupon = null;
   let userId = null;
-  let currentFrete = 0;
+  let currentFrete = null; // null significa "não calculado"
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00 };
+  let lastCalculatedCep = null; // evita recalcular desnecessariamente
 
   // ================== MÁSCARA CPF ==================
   function formatCPF(value) {
@@ -283,15 +282,33 @@
     }
 
     const cep = document.getElementById('cep').value;
-    let frete = await calcularFrete(cep);
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) {
+      // CEP incompleto – não calcula
+      currentFrete = null;
+      document.getElementById('frete').innerText = '--';
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
+      return;
+    }
 
-    // Aplicar frete grátis por valor mínimo
+    // Evita recalcular o mesmo CEP várias vezes
+    if (lastCalculatedCep === cepLimpo && currentFrete !== null) {
+      // já calculado, só atualiza exibição
+      document.getElementById('frete').innerText = `R$ ${currentFrete.toFixed(2).replace('.', ',')}`;
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
+      return;
+    }
+
+    let frete = await calcularFrete(cepLimpo);
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     if (subtotal >= config.frete_gratis_minimo) {
       frete = 0;
     }
 
     currentFrete = frete;
+    lastCalculatedCep = cepLimpo;
     document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     atualizarTotal();
     atualizarAvisoFreteGratis();
@@ -300,7 +317,10 @@
   function atualizarTotal() {
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     const desconto = parseFloat(document.getElementById('desconto').innerText.replace('- R$ ', '').replace(',', '.') || 0);
-    const total = subtotal + currentFrete - desconto;
+    let total = subtotal - desconto;
+    if (currentFrete !== null && !isNaN(currentFrete)) {
+      total += currentFrete;
+    }
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
   }
 
@@ -312,7 +332,7 @@
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
 
-    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0) {
+    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || currentFrete === null) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
       return;
@@ -395,7 +415,16 @@
     let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
-    atualizarFrete(); // recalcula frete e atualiza aviso
+    // Força reavaliação do frete (com base no CEP atual, se houver)
+    const cep = document.getElementById('cep').value.replace(/\D/g, '');
+    if (cep.length === 8) {
+      atualizarFrete();
+    } else {
+      currentFrete = null;
+      document.getElementById('frete').innerText = '--';
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
+    }
   }
 
   // ================== EVENTOS ==================
@@ -422,11 +451,32 @@
     cep = cep.replace(/\D/g, '');
     if (cep.length === 8) {
       await atualizarFrete();
+    } else {
+      currentFrete = null;
+      document.getElementById('frete').innerText = '--';
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
     }
   });
 
   document.getElementById('delivery-type').addEventListener('change', () => {
-    atualizarFrete();
+    if (document.getElementById('delivery-type').value === 'pickup') {
+      currentFrete = 0;
+      document.getElementById('frete').innerText = 'R$ 0,00';
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
+    } else {
+      // Se voltar para entrega, recalcula com o CEP atual (se válido)
+      const cep = document.getElementById('cep').value.replace(/\D/g, '');
+      if (cep.length === 8) {
+        atualizarFrete();
+      } else {
+        currentFrete = null;
+        document.getElementById('frete').innerText = '--';
+        atualizarTotal();
+        atualizarAvisoFreteGratis();
+      }
+    }
   });
 
   // ================== SUBMETER PEDIDO ==================
@@ -477,7 +527,10 @@
     let subtotal = 0;
     cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
     const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    const total = subtotal + currentFrete - desconto;
+    let total = subtotal - desconto;
+    if (currentFrete !== null && !isNaN(currentFrete)) {
+      total += currentFrete;
+    }
     const totalCents = Math.round(total * 100);
 
     const orderData = {
