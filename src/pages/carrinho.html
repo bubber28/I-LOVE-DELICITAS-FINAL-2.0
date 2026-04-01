@@ -103,7 +103,6 @@
         <h2 class="text-xl font-bold mb-4">Resumo</h2>
         <div class="space-y-2">
           <div class="flex justify-between"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
-          <div class="flex justify-between"><span>Entrega</span><span id="frete">R$ 7,00</span></div>
           <div class="flex justify-between text-secondary"><span>Desconto</span><span id="desconto">- R$ 0,00</span></div>
           <div class="border-t pt-2 flex justify-between font-bold text-lg"><span>Total</span><span id="total">R$ 0,00</span></div>
         </div>
@@ -136,7 +135,6 @@
 
   let cart = [];
   let appliedCoupon = null;
-  const frete = 7.00;
 
   function loadCart() {
     const stored = localStorage.getItem('cart');
@@ -211,9 +209,8 @@
     cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
     let desconto = 0;
     if (appliedCoupon) desconto = (subtotal * appliedCoupon.desconto) / 100;
-    const total = subtotal + frete - desconto;
+    const total = subtotal - desconto;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-    document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
   }
@@ -260,60 +257,21 @@
     updateTotals();
   }
 
-  // ================== CROSS‑SELL (com fallback para mais vendidos) ==================
+  // ================== CROSS‑SELL SIMPLES ==================
   async function loadCrossSell() {
     if (cart.length === 0) return;
 
     const productIds = cart.map(i => i.id);
-    let suggestions = [];
-
-    // Tentar produtos da mesma categoria
-    const { data: productsInCart } = await supabaseClient
+    // Buscar produtos ativos com estoque, excluindo os que já estão no carrinho
+    let { data: suggestions, error } = await supabaseClient
       .from('products')
-      .select('id, category_id')
-      .in('id', productIds);
-    const categoryIds = [...new Set(productsInCart.map(p => p.category_id).filter(id => id))];
+      .select('*')
+      .eq('active', true)
+      .gt('stock', 0)
+      .not('id', 'in', `(${productIds.map(id => `'${id}'`).join(',')})`)
+      .limit(3);
 
-    if (categoryIds.length > 0) {
-      const { data: sameCategory } = await supabaseClient
-        .from('products')
-        .select('*')
-        .in('category_id', categoryIds)
-        .not('id', 'in', `(${productIds.map(id => `'${id}'`).join(',')})`)
-        .eq('active', true)
-        .gt('stock', 0)
-        .limit(3);
-      if (sameCategory && sameCategory.length) {
-        suggestions = sameCategory;
-      }
-    }
-
-    // Se não encontrou sugestões, buscar os produtos mais vendidos (excluindo os que já estão no carrinho)
-    if (suggestions.length === 0) {
-      const { data: bestSellers } = await supabaseClient
-        .from('order_items')
-        .select('product_id, product_name, sum(quantity) as total')
-        .eq('product_id', 'is not', null)
-        .group('product_id, product_name')
-        .order('total', { ascending: false })
-        .limit(5);
-      if (bestSellers && bestSellers.length) {
-        const topProductIds = bestSellers.map(b => b.product_id).filter(id => !productIds.includes(id));
-        if (topProductIds.length) {
-          const { data: topProducts } = await supabaseClient
-            .from('products')
-            .select('*')
-            .in('id', topProductIds.slice(0, 3))
-            .eq('active', true)
-            .gt('stock', 0);
-          if (topProducts && topProducts.length) {
-            suggestions = topProducts;
-          }
-        }
-      }
-    }
-
-    if (suggestions.length === 0) return;
+    if (error || !suggestions || suggestions.length === 0) return;
 
     const container = document.getElementById('cross-sell-container');
     const section = document.getElementById('cross-sell-section');
