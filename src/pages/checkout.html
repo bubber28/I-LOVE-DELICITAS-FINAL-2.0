@@ -39,6 +39,19 @@
   .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
   .address-row { display: flex; gap: 1rem; flex-wrap: wrap; }
   .address-row > div { flex: 1; }
+  .progress-bar-container {
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    height: 8px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .progress-fill {
+    background-color: #ae2f34;
+    width: 0%;
+    height: 100%;
+    transition: width 0.3s ease;
+  }
   @media (max-width: 640px) {
     .address-row { flex-direction: column; gap: 0.75rem; }
     .address-row > div { width: 100%; }
@@ -146,6 +159,16 @@
         <div class="flex justify-between text-secondary"><span>Desconto</span><span id="desconto">- R$ 0,00</span></div>
         <div class="flex justify-between text-lg font-bold text-primary"><span>Total</span><span id="total">R$ 0,00</span></div>
       </div>
+
+      <!-- Aviso e barra de frete grátis -->
+      <div id="frete-gratis-aviso" class="mt-4 p-3 bg-primary-container/20 rounded-lg text-center text-sm hidden">
+        <span class="material-symbols-outlined text-primary text-sm align-middle">redeem</span>
+        <span id="frete-gratis-mensagem"></span>
+      </div>
+      <div id="frete-gratis-bar" class="progress-bar-container mt-2 hidden">
+        <div id="frete-gratis-fill" class="progress-fill"></div>
+      </div>
+
       <button id="submit-order" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-bold">Confirmar Pedido</button>
       <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
     </div>
@@ -161,13 +184,24 @@
   let appliedCoupon = null;
   let userId = null;
   let currentFrete = 0;
-  const FRETE_GRATIS_MINIMO = 50.00; // R$ 50 – pode ser configurável depois
+  let config = { frete_gratis_minimo: 0, frete_padrao: 7.00 };
 
-  // ================== FUNÇÕES AUXILIARES ==================
-  function formatCep(value) {
-    return value.replace(/\D/g, '').replace(/^(\d{5})(\d{1,3})/, '$1-$2');
+  // ================== CARREGAR CONFIGURAÇÕES DO ADMIN ==================
+  async function loadConfig() {
+    const { data, error } = await supabaseClient
+      .from('app_config')
+      .select('frete_gratis_minimo, frete_padrao')
+      .limit(1)
+      .single();
+    if (!error && data) {
+      config.frete_gratis_minimo = parseFloat(data.frete_gratis_minimo) || 0;
+      config.frete_padrao = parseFloat(data.frete_padrao) || 7.00;
+    } else {
+      console.warn('Usando valores padrão para frete');
+    }
   }
 
+  // ================== BUSCAR ENDEREÇO VIA CEP ==================
   async function buscarEnderecoPorCep(cep) {
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return null;
@@ -183,12 +217,12 @@
     }
   }
 
+  // ================== CALCULAR FRETE ==================
   async function calcularFrete(cep) {
-    if (!cep || cep.length < 8) return 7.00;
+    if (!cep || cep.length < 8) return config.frete_padrao;
     const cepLimpo = cep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) return 7.00;
+    if (cepLimpo.length !== 8) return config.frete_padrao;
 
-    // Buscar região de frete
     const { data: regiao, error } = await supabaseClient
       .from('frete_regioes')
       .select('valor')
@@ -198,21 +232,34 @@
 
     if (error) {
       console.error('Erro ao buscar frete:', error);
-      return 7.00;
+      return config.frete_padrao;
     }
-    return regiao ? parseFloat(regiao.valor) : 7.00;
+    return regiao ? parseFloat(regiao.valor) : config.frete_padrao;
   }
 
   async function atualizarFrete() {
+    const deliveryType = document.getElementById('delivery-type').value;
+    if (deliveryType === 'pickup') {
+      currentFrete = 0;
+      document.getElementById('frete').innerText = 'R$ 0,00';
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
+      return;
+    }
+
     const cep = document.getElementById('cep').value;
-    const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     let frete = await calcularFrete(cep);
-    if (subtotal >= FRETE_GRATIS_MINIMO) {
+
+    // Aplicar frete grátis por valor mínimo
+    const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
+    if (subtotal >= config.frete_gratis_minimo) {
       frete = 0;
     }
+
     currentFrete = frete;
     document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     atualizarTotal();
+    atualizarAvisoFreteGratis();
   }
 
   function atualizarTotal() {
@@ -222,8 +269,37 @@
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
   }
 
-  // ================== CARREGAR DADOS DO CARRINHO E PERFIL ==================
+  // ================== AVISO DE FRETE GRÁTIS ==================
+  function atualizarAvisoFreteGratis() {
+    const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
+    const min = config.frete_gratis_minimo;
+    const deliveryType = document.getElementById('delivery-type').value;
+    const avisoDiv = document.getElementById('frete-gratis-aviso');
+    const barDiv = document.getElementById('frete-gratis-bar');
+
+    if (deliveryType === 'pickup' || min <= 0) {
+      avisoDiv.classList.add('hidden');
+      barDiv.classList.add('hidden');
+      return;
+    }
+
+    if (subtotal >= min) {
+      avisoDiv.classList.add('hidden');
+      barDiv.classList.add('hidden');
+    } else {
+      const falta = (min - subtotal).toFixed(2);
+      const percentual = (subtotal / min) * 100;
+      document.getElementById('frete-gratis-mensagem').innerHTML = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>!`;
+      document.getElementById('frete-gratis-fill').style.width = `${percentual}%`;
+      avisoDiv.classList.remove('hidden');
+      barDiv.classList.remove('hidden');
+    }
+  }
+
+  // ================== CARREGAR DADOS DO CARRINHO ==================
   async function loadData() {
+    await loadConfig();
+
     const storedCart = localStorage.getItem('cart');
     cart = storedCart ? JSON.parse(storedCart) : [];
     const storedCoupon = localStorage.getItem('appliedCoupon');
@@ -242,11 +318,6 @@
       if (profile) {
         if (profile.name) document.getElementById('customer-name').value = profile.name;
         if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
-        // Tentar extrair endereço se estiver salvo como string única
-        if (profile.address) {
-          // Podemos tentar dividir, mas por simplicidade, deixamos o usuário preencher
-          // Se tiver CEP no perfil, poderia preencher, mas por enquanto apenas nome e telefone
-        }
       }
     } else {
       userId = null;
@@ -275,7 +346,7 @@
     let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
-    atualizarFrete();
+    atualizarFrete(); // recalcula frete e atualiza aviso
   }
 
   // ================== EVENTOS ==================
@@ -305,6 +376,10 @@
     }
   });
 
+  document.getElementById('delivery-type').addEventListener('change', () => {
+    atualizarFrete();
+  });
+
   // ================== SUBMETER PEDIDO ==================
   async function submitOrder() {
     const name = document.getElementById('customer-name').value.trim();
@@ -325,7 +400,6 @@
       return;
     }
 
-    // Montar endereço completo
     let enderecoCompleto = '';
     if (deliveryType === 'delivery') {
       const rua = document.getElementById('rua').value.trim();
