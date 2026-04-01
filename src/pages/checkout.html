@@ -60,7 +60,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) – omitido por brevidade, igual ao código anterior -->
+<!-- Sidebar (menu hambúrguer) – igual ao código anterior -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -204,7 +204,6 @@
   let cepValido = false;
   let currentDistance = null;
 
-  // ================== MÁSCARA CPF ==================
   function formatCPF(value) {
     value = value.replace(/\D/g, '');
     if (value.length > 11) value = value.slice(0, 11);
@@ -218,7 +217,6 @@
     return value;
   }
 
-  // ================== CARREGAR CONFIGURAÇÕES DO ADMIN ==================
   async function loadConfig() {
     const { data, error } = await supabaseClient
       .from('app_config')
@@ -237,7 +235,6 @@
     }
   }
 
-  // ================== GEOCODIFICAÇÃO (OpenStreetMap) ==================
   async function geocodeAddress(address) {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
     try {
@@ -259,7 +256,6 @@
     }
   }
 
-  // ================== CÁLCULO DE DISTÂNCIA (Haversine) ==================
   function haversineDistance(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -271,7 +267,6 @@
     return R * c;
   }
 
-  // ================== BUSCAR ENDEREÇO VIA CEP ==================
   async function buscarEnderecoPorCep(cep) {
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return null;
@@ -287,12 +282,10 @@
     }
   }
 
-  // ================== CALCULAR FRETE (com distância) ==================
   async function calcularFrete(cep, addressString) {
     if (!cep || cep.replace(/\D/g, '').length !== 8) return config.frete_padrao;
 
     const cepLimpo = cep.replace(/\D/g, '');
-    console.log('Consultando frete para CEP:', cepLimpo);
     const { data: regiao, error } = await supabaseClient
       .from('frete_regioes')
       .select('valor')
@@ -337,7 +330,6 @@
       atualizarTotal();
       atualizarAvisoFreteGratis();
       cepValido = true;
-      console.log('Pickup – frete zerado');
       return;
     }
 
@@ -348,7 +340,6 @@
       atualizarTotal();
       atualizarAvisoFreteGratis();
       cepValido = false;
-      console.log('CEP inválido – frete indefinido');
       return;
     }
 
@@ -360,8 +351,6 @@
     let addressString = '';
     if (rua && numero && bairro && cidade && uf) {
       addressString = `${rua}, ${numero} - ${bairro}, ${cidade} - ${uf}`;
-    } else {
-      addressString = '';
     }
 
     let frete = await calcularFrete(cep, addressString);
@@ -370,7 +359,6 @@
     cepValido = true;
     atualizarTotal();
     atualizarAvisoFreteGratis();
-    console.log('Frete final:', currentFrete, 'Distância:', currentDistance);
   }
 
   function atualizarTotal() {
@@ -378,7 +366,6 @@
     const desconto = parseFloat(document.getElementById('desconto').innerText.replace('- R$ ', '').replace(',', '.') || 0);
     const total = subtotal + currentFrete - desconto;
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
-    console.log('Total atualizado:', total);
   }
 
   function atualizarAvisoFreteGratis() {
@@ -388,8 +375,6 @@
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
     const freeShippingEligible = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima);
-
-    console.log('Aviso frete grátis: subtotal', subtotal, 'min', min, 'cepValido', cepValido, 'deliveryType', deliveryType, 'distancia', currentDistance, 'elegível', freeShippingEligible);
 
     if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || !cepValido || !freeShippingEligible || subtotal >= min) {
       avisoDiv.classList.add('hidden');
@@ -403,10 +388,8 @@
     document.getElementById('frete-gratis-fill').style.width = `${percentual}%`;
     avisoDiv.classList.remove('hidden');
     barDiv.classList.remove('hidden');
-    console.log('Aviso exibido: falta', falta);
   }
 
-  // ================== CARREGAR DADOS DO CARRINHO ==================
   async function loadData() {
     await loadConfig();
 
@@ -473,74 +456,8 @@
     let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
-    console.log('Subtotal carregado:', subtotal);
   }
 
-  // ================== EVENTOS ==================
-  document.getElementById('buscar-cep').addEventListener('click', async () => {
-    let cep = document.getElementById('cep').value;
-    cep = cep.replace(/\D/g, '');
-    if (cep.length !== 8) {
-      alert('Digite um CEP válido com 8 dígitos');
-      return;
-    }
-    const endereco = await buscarEnderecoPorCep(cep);
-    if (endereco) {
-      document.getElementById('rua').value = endereco.logradouro || '';
-      document.getElementById('bairro').value = endereco.bairro || '';
-      document.getElementById('cidade').value = endereco.localidade || '';
-      document.getElementById('uf').value = endereco.uf || '';
-      document.getElementById('numero').focus();
-      await atualizarFrete();
-    }
-  });
-
-  document.getElementById('cep').addEventListener('blur', async () => {
-    let cep = document.getElementById('cep').value;
-    cep = cep.replace(/\D/g, '');
-    if (cep.length === 8) {
-      await atualizarFrete();
-    } else {
-      document.getElementById('frete').innerText = '--';
-      currentFrete = 0;
-      atualizarTotal();
-      cepValido = false;
-      atualizarAvisoFreteGratis();
-    }
-  });
-
-  const addressFields = ['rua', 'numero', 'bairro', 'cidade', 'uf'];
-  addressFields.forEach(field => {
-    document.getElementById(field).addEventListener('change', () => {
-      const cep = document.getElementById('cep').value;
-      if (cep && cep.replace(/\D/g, '').length === 8) {
-        atualizarFrete();
-      }
-    });
-  });
-
-  document.getElementById('delivery-type').addEventListener('change', () => {
-    if (document.getElementById('delivery-type').value === 'pickup') {
-      currentFrete = 0;
-      document.getElementById('frete').innerText = 'R$ 0,00';
-      atualizarTotal();
-      cepValido = true;
-      atualizarAvisoFreteGratis();
-    } else {
-      const cep = document.getElementById('cep').value;
-      if (cep && cep.replace(/\D/g, '').length === 8) {
-        atualizarFrete();
-      } else {
-        document.getElementById('frete').innerText = '--';
-        currentFrete = 0;
-        atualizarTotal();
-        cepValido = false;
-        atualizarAvisoFreteGratis();
-      }
-    }
-  });
-
-  // ================== SUBMETER PEDIDO ==================
   async function submitOrder() {
     const name = document.getElementById('customer-name').value.trim();
     const phone = document.getElementById('customer-phone').value.trim();
@@ -605,8 +522,7 @@
       created_at: new Date().toISOString()
     };
 
-    console.log('OrderData:', orderData);
-    console.log('currentFrete usado:', currentFrete);
+    console.log('Enviando pedido:', orderData);
 
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
@@ -620,9 +536,10 @@
       return;
     }
 
-    const orderId = order[0].id;
-    console.log('ORDER ID (UUID completo):', orderId);
+    const orderId = order[0].id; // UUID completo
+    console.log('Pedido criado com ID:', orderId);
 
+    // Inserir itens
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
       product_name: i.name,
@@ -636,8 +553,9 @@
     const { error: itemsError } = await supabaseClient
       .from('order_items')
       .insert(itemsToInsert);
+
     if (itemsError) {
-      console.error('Erro detalhado ao inserir itens:', itemsError);
+      console.error('Erro ao inserir itens:', itemsError);
       errorEl.textContent = 'Erro ao salvar itens. O pedido foi criado, mas não conseguimos registrar os produtos. Contate o suporte.';
       errorEl.classList.remove('hidden');
     } else {
@@ -653,12 +571,75 @@
 
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
+    // Redireciona com o UUID completo
     window.location.href = `/pedido-confirmado?id=${orderId}`;
   }
 
   document.getElementById('submit-order').addEventListener('click', submitOrder);
+  document.getElementById('buscar-cep').addEventListener('click', async () => {
+    let cep = document.getElementById('cep').value;
+    cep = cep.replace(/\D/g, '');
+    if (cep.length !== 8) {
+      alert('Digite um CEP válido com 8 dígitos');
+      return;
+    }
+    const endereco = await buscarEnderecoPorCep(cep);
+    if (endereco) {
+      document.getElementById('rua').value = endereco.logradouro || '';
+      document.getElementById('bairro').value = endereco.bairro || '';
+      document.getElementById('cidade').value = endereco.localidade || '';
+      document.getElementById('uf').value = endereco.uf || '';
+      document.getElementById('numero').focus();
+      await atualizarFrete();
+    }
+  });
 
-  // ================== HEADER AUTH ==================
+  document.getElementById('cep').addEventListener('blur', async () => {
+    let cep = document.getElementById('cep').value;
+    cep = cep.replace(/\D/g, '');
+    if (cep.length === 8) {
+      await atualizarFrete();
+    } else {
+      document.getElementById('frete').innerText = '--';
+      currentFrete = 0;
+      atualizarTotal();
+      cepValido = false;
+      atualizarAvisoFreteGratis();
+    }
+  });
+
+  const addressFields = ['rua', 'numero', 'bairro', 'cidade', 'uf'];
+  addressFields.forEach(field => {
+    document.getElementById(field).addEventListener('change', () => {
+      const cep = document.getElementById('cep').value;
+      if (cep && cep.replace(/\D/g, '').length === 8) {
+        atualizarFrete();
+      }
+    });
+  });
+
+  document.getElementById('delivery-type').addEventListener('change', () => {
+    if (document.getElementById('delivery-type').value === 'pickup') {
+      currentFrete = 0;
+      document.getElementById('frete').innerText = 'R$ 0,00';
+      atualizarTotal();
+      cepValido = true;
+      atualizarAvisoFreteGratis();
+    } else {
+      const cep = document.getElementById('cep').value;
+      if (cep && cep.replace(/\D/g, '').length === 8) {
+        atualizarFrete();
+      } else {
+        document.getElementById('frete').innerText = '--';
+        currentFrete = 0;
+        atualizarTotal();
+        cepValido = false;
+        atualizarAvisoFreteGratis();
+      }
+    }
+  });
+
+  // Header auth e sidebar (mesmo código anterior)
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
@@ -680,7 +661,6 @@
     window.location.href = '/';
   });
 
-  // ================== SIDEBAR ==================
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('mobile-overlay');
   const openBtn = document.getElementById('open-sidebar-btn');
@@ -697,7 +677,6 @@
     const meusPedidos = document.getElementById('sidebar-meus-pedidos');
     const perfil = document.getElementById('sidebar-perfil');
     const logoutBtn = document.getElementById('sidebar-logout-btn');
-
     if (loginLink && meusPedidos && perfil && logoutBtn) {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
