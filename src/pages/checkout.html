@@ -37,11 +37,17 @@
   body { background-color: #fff8f7; }
   .input-field { width: 100%; padding: 0.75rem; border-radius: 1rem; border: 1px solid #e0bfbd; background: white; transition: all 0.2s; }
   .input-field:focus { outline: none; border-color: #ae2f34; box-shadow: 0 0 0 2px rgba(174,47,52,0.2); }
+  .address-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .address-row > div { flex: 1; }
+  @media (max-width: 640px) {
+    .address-row { flex-direction: column; gap: 0.75rem; }
+    .address-row > div { width: 100%; }
+  }
 </style>
 </head>
 <body>
 
-<!-- Sidebar (mesmo de antes) -->
+<!-- Sidebar (menu hambúrguer) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -75,7 +81,10 @@
       <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
     </div>
     <div class="flex items-center gap-4">
-      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+      <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef] transition-colors">
+        <span class="material-symbols-outlined text-primary text-2xl">delivery</span>
+        <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+      </a>
       <div id="user-menu" class="hidden flex items-center gap-3">
         <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
         <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
@@ -90,22 +99,50 @@
 <main class="pt-24 pb-32 px-4 max-w-4xl mx-auto">
   <h1 class="text-3xl font-bold text-primary mb-6">Finalizar Pedido</h1>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Formulário de entrega -->
     <div class="bg-white rounded-2xl p-6 shadow-sm">
       <h2 class="text-xl font-bold mb-4">Dados para entrega</h2>
-      <div class="space-y-4">
-        <div><label class="block font-semibold mb-1">Nome completo *</label><input id="customer-name" class="input-field"></div>
-        <div><label class="block font-semibold mb-1">Telefone (WhatsApp) *</label><input id="customer-phone" class="input-field"></div>
-        <div><label class="block font-semibold mb-1">Endereço de entrega</label><input id="delivery-address" class="input-field"></div>
+      <form id="delivery-form" class="space-y-4">
+        <div>
+          <label class="block font-semibold mb-1">Nome completo *</label>
+          <input type="text" id="customer-name" class="input-field" required>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Telefone (WhatsApp) *</label>
+          <input type="tel" id="customer-phone" class="input-field" required>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">CEP *</label>
+          <div class="flex gap-2">
+            <input type="text" id="cep" class="input-field flex-1" placeholder="00000-000" maxlength="9" required>
+            <button type="button" id="buscar-cep" class="bg-secondary text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-secondary/80 transition">Buscar</button>
+          </div>
+        </div>
+        <div class="address-row">
+          <div><label class="block font-semibold mb-1">Rua *</label><input type="text" id="rua" class="input-field" required></div>
+          <div><label class="block font-semibold mb-1">Número *</label><input type="text" id="numero" class="input-field" required></div>
+        </div>
+        <div class="address-row">
+          <div><label class="block font-semibold mb-1">Bairro *</label><input type="text" id="bairro" class="input-field" required></div>
+          <div><label class="block font-semibold mb-1">Complemento</label><input type="text" id="complemento" class="input-field" placeholder="Apto, bloco, etc."></div>
+        </div>
+        <div class="address-row">
+          <div><label class="block font-semibold mb-1">Cidade *</label><input type="text" id="cidade" class="input-field" required></div>
+          <div><label class="block font-semibold mb-1">UF *</label><input type="text" id="uf" class="input-field" maxlength="2" required></div>
+        </div>
+        <div><label class="block font-semibold mb-1">Ponto de referência (opcional)</label><input type="text" id="referencia" class="input-field" placeholder="Próximo ao mercado, etc."></div>
         <div><label class="block font-semibold mb-1">Tipo de entrega</label><select id="delivery-type" class="input-field"><option value="delivery">Delivery</option><option value="pickup">Retirada no local</option></select></div>
         <div><label class="block font-semibold mb-1">Forma de pagamento</label><select id="payment-method" class="input-field"><option value="pix">PIX</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option></select></div>
-      </div>
+      </form>
     </div>
+
+    <!-- Resumo do pedido -->
     <div class="bg-white rounded-2xl p-6 shadow-sm">
       <h2 class="text-xl font-bold mb-4">Resumo do pedido</h2>
       <div id="cart-items-summary" class="space-y-3 max-h-64 overflow-y-auto"></div>
       <div class="border-t pt-4 mt-4 space-y-2">
         <div class="flex justify-between"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
-        <div class="flex justify-between"><span>Entrega</span><span id="frete">R$ 7,00</span></div>
+        <div class="flex justify-between"><span>Entrega</span><span id="frete">--</span></div>
         <div class="flex justify-between text-secondary"><span>Desconto</span><span id="desconto">- R$ 0,00</span></div>
         <div class="flex justify-between text-lg font-bold text-primary"><span>Total</span><span id="total">R$ 0,00</span></div>
       </div>
@@ -123,8 +160,69 @@
   let cart = [];
   let appliedCoupon = null;
   let userId = null;
-  const freteFixo = 7.00;
+  let currentFrete = 0;
+  const FRETE_GRATIS_MINIMO = 50.00; // R$ 50 – pode ser configurável depois
 
+  // ================== FUNÇÕES AUXILIARES ==================
+  function formatCep(value) {
+    return value.replace(/\D/g, '').replace(/^(\d{5})(\d{1,3})/, '$1-$2');
+  }
+
+  async function buscarEnderecoPorCep(cep) {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return null;
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      if (data.erro) throw new Error('CEP não encontrado');
+      return data;
+    } catch (err) {
+      console.error(err);
+      alert('CEP inválido ou não encontrado');
+      return null;
+    }
+  }
+
+  async function calcularFrete(cep) {
+    if (!cep || cep.length < 8) return 7.00;
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return 7.00;
+
+    // Buscar região de frete
+    const { data: regiao, error } = await supabaseClient
+      .from('frete_regioes')
+      .select('valor')
+      .lte('cep_inicio', cepLimpo)
+      .gte('cep_fim', cepLimpo)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erro ao buscar frete:', error);
+      return 7.00;
+    }
+    return regiao ? parseFloat(regiao.valor) : 7.00;
+  }
+
+  async function atualizarFrete() {
+    const cep = document.getElementById('cep').value;
+    const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
+    let frete = await calcularFrete(cep);
+    if (subtotal >= FRETE_GRATIS_MINIMO) {
+      frete = 0;
+    }
+    currentFrete = frete;
+    document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
+    atualizarTotal();
+  }
+
+  function atualizarTotal() {
+    const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
+    const desconto = parseFloat(document.getElementById('desconto').innerText.replace('- R$ ', '').replace(',', '.') || 0);
+    const total = subtotal + currentFrete - desconto;
+    document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+  }
+
+  // ================== CARREGAR DADOS DO CARRINHO E PERFIL ==================
   async function loadData() {
     const storedCart = localStorage.getItem('cart');
     cart = storedCart ? JSON.parse(storedCart) : [];
@@ -144,7 +242,11 @@
       if (profile) {
         if (profile.name) document.getElementById('customer-name').value = profile.name;
         if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
-        if (profile.address) document.getElementById('delivery-address').value = profile.address;
+        // Tentar extrair endereço se estiver salvo como string única
+        if (profile.address) {
+          // Podemos tentar dividir, mas por simplicidade, deixamos o usuário preencher
+          // Se tiver CEP no perfil, poderia preencher, mas por enquanto apenas nome e telefone
+        }
       }
     } else {
       userId = null;
@@ -171,21 +273,47 @@
     }).join('');
     container.innerHTML = itemsHtml;
     let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    const total = subtotal + freteFixo - desconto;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-    document.getElementById('frete').innerText = `R$ ${freteFixo.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
-    document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+    atualizarFrete();
   }
 
+  // ================== EVENTOS ==================
+  document.getElementById('buscar-cep').addEventListener('click', async () => {
+    let cep = document.getElementById('cep').value;
+    cep = cep.replace(/\D/g, '');
+    if (cep.length !== 8) {
+      alert('Digite um CEP válido com 8 dígitos');
+      return;
+    }
+    const endereco = await buscarEnderecoPorCep(cep);
+    if (endereco) {
+      document.getElementById('rua').value = endereco.logradouro || '';
+      document.getElementById('bairro').value = endereco.bairro || '';
+      document.getElementById('cidade').value = endereco.localidade || '';
+      document.getElementById('uf').value = endereco.uf || '';
+      document.getElementById('numero').focus();
+      await atualizarFrete();
+    }
+  });
+
+  document.getElementById('cep').addEventListener('blur', async () => {
+    let cep = document.getElementById('cep').value;
+    cep = cep.replace(/\D/g, '');
+    if (cep.length === 8) {
+      await atualizarFrete();
+    }
+  });
+
+  // ================== SUBMETER PEDIDO ==================
   async function submitOrder() {
     const name = document.getElementById('customer-name').value.trim();
     const phone = document.getElementById('customer-phone').value.trim();
-    const address = document.getElementById('delivery-address').value.trim();
     const deliveryType = document.getElementById('delivery-type').value;
     const payment = document.getElementById('payment-method').value;
     const errorEl = document.getElementById('error-message');
     errorEl.classList.add('hidden');
+
     if (!name || !phone) {
       errorEl.textContent = 'Preencha nome e telefone.';
       errorEl.classList.remove('hidden');
@@ -197,33 +325,45 @@
       return;
     }
 
+    // Montar endereço completo
+    let enderecoCompleto = '';
+    if (deliveryType === 'delivery') {
+      const rua = document.getElementById('rua').value.trim();
+      const numero = document.getElementById('numero').value.trim();
+      const bairro = document.getElementById('bairro').value.trim();
+      const cidade = document.getElementById('cidade').value.trim();
+      const uf = document.getElementById('uf').value.trim();
+      const complemento = document.getElementById('complemento').value.trim();
+      const referencia = document.getElementById('referencia').value.trim();
+
+      if (!rua || !numero || !bairro || !cidade || !uf) {
+        errorEl.textContent = 'Preencha todos os campos do endereço (rua, número, bairro, cidade, UF).';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      enderecoCompleto = `${rua}, ${numero}${complemento ? `, ${complemento}` : ''} - ${bairro}, ${cidade} - ${uf}`;
+      if (referencia) enderecoCompleto += ` (ref: ${referencia})`;
+    }
+
     let subtotal = 0;
     cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
     const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    const total = subtotal + freteFixo - desconto;
+    const total = subtotal + currentFrete - desconto;
     const totalCents = Math.round(total * 100);
 
-    // Preparar dados do pedido
     const orderData = {
       customer_name: name,
       customer_phone: phone,
       status: 'received',
       total_cents: totalCents,
-      delivery_address: deliveryType === 'pickup' ? null : address,
+      delivery_address: deliveryType === 'pickup' ? null : enderecoCompleto,
       payment_method: payment,
       discount_cents: Math.round(desconto * 100),
       delivery_type: deliveryType,
       user_id: userId,
-      items: cart.map(i => ({   // <-- Salva os itens também na coluna JSON
-        name: i.name,
-        quantity: i.quantity,
-        price_cents: i.price_cents,
-        line_total_cents: i.price_cents * (i.quantity || 1)
-      })),
       created_at: new Date().toISOString()
     };
 
-    // Inserir pedido
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
       .insert([orderData])
@@ -236,8 +376,6 @@
     }
 
     const orderId = order[0].id;
-
-    // Inserir itens na tabela order_items (se falhar, não impede o pedido)
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
       product_name: i.name,
@@ -249,12 +387,8 @@
     const { error: itemsError } = await supabaseClient
       .from('order_items')
       .insert(itemsToInsert);
-    if (itemsError) {
-      console.error('Erro ao inserir itens (tabela order_items):', itemsError);
-      // Não impede o pedido – os itens já estão no campo items JSON
-    }
+    if (itemsError) console.error('Erro ao inserir itens:', itemsError);
 
-    // Atualizar uso do cupom, se aplicado
     if (appliedCoupon && appliedCoupon.id) {
       await supabaseClient
         .from('cupons')
@@ -262,33 +396,14 @@
         .eq('id', appliedCoupon.id);
     }
 
-    // Limpar carrinho e cupom
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
-
-    // Redirecionar para página de confirmação
     window.location.href = `/pedido-confirmado?id=${orderId}`;
   }
 
   document.getElementById('submit-order').addEventListener('click', submitOrder);
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
-  }
-
-  // Sidebar e auth (mesmo de antes)
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('mobile-overlay');
-  const openBtn = document.getElementById('open-sidebar-btn');
-  const closeBtn = document.getElementById('close-sidebar-btn');
-  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
-  if (openBtn) openBtn.addEventListener('click', openSidebar);
-  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-  if (overlay) overlay.addEventListener('click', closeSidebar);
-  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
-
+  // ================== HEADER AUTH ==================
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
@@ -309,6 +424,18 @@
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
+
+  // ================== SIDEBAR ==================
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const openBtn = document.getElementById('open-sidebar-btn');
+  const closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
 
   async function updateSidebarAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -333,6 +460,11 @@
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  }
 
   updateHeaderAuth();
   updateSidebarAuth();
