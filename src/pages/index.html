@@ -50,6 +50,44 @@
     height: auto;
     border-radius: 1rem;
   }
+  /* Toast personalizado */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #10b981;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 9999px;
+    font-weight: 600;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  }
+  @media (max-width: 640px) {
+    .toast { white-space: normal; text-align: center; width: 90%; font-size: 14px; }
+  }
+  /* Ajuste do carrinho */
+  .cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background-color: #ae2f34;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
 </style>
 </head>
 <body class="bg-background text-on-surface font-body">
@@ -90,9 +128,9 @@
       </a>
     </div>
     <div class="flex items-center gap-4">
-      <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef]">
-        <span class="material-symbols-outlined text-primary">shopping_bag</span>
-        <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+      <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef] transition-colors">
+        <span class="material-symbols-outlined text-primary">local_mall</span>
+        <span id="cart-count" class="cart-badge">0</span>
       </a>
       <div id="user-menu" class="hidden flex items-center gap-3">
         <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
@@ -135,7 +173,7 @@
     </div>
   </section>
 
-  <!-- Seção de recomendações personalizadas (só aparece se o usuário estiver logado e tiver histórico) -->
+  <!-- Seção de recomendações personalizadas -->
   <section id="recommendations-section" class="hidden mb-16">
     <h2 class="font-headline font-bold text-2xl mb-8">✨ Talvez você também goste</h2>
     <div id="recommendations-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -152,6 +190,27 @@
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ================== TOAST ==================
+  function showToast(message, isError = false) {
+    // Remove qualquer toast existente
+    const existingToast = document.querySelector('.toast');
+    if (existingToast) existingToast.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    if (isError) toast.style.backgroundColor = '#ba1a1a';
+    else toast.style.backgroundColor = '#10b981';
+    document.body.appendChild(toast);
+    // Força reflow
+    toast.offsetHeight;
+    toast.style.opacity = '1';
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 2000);
+  }
 
   // ================== CARRINHO ==================
   function updateCartCount() {
@@ -222,22 +281,20 @@
   // ================== RECOMENDAÇÕES PERSONALIZADAS ==================
   async function loadRecommendations() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) return; // não logado, não mostra recomendações
+    if (!session) return;
 
     const userId = session.user.id;
-    // Buscar itens dos pedidos já entregues (ou todos os pedidos do usuário)
     const { data: orders } = await supabaseClient
       .from('orders')
       .select('id')
       .eq('user_id', userId)
-      .in('status', ['delivered']); // só pedidos entregues (histórico)
+      .in('status', ['delivered']);
 
-    if (!orders || orders.length === 0) return; // sem histórico
+    if (!orders || orders.length === 0) return;
 
     const orderIds = orders.map(o => o.id);
     if (orderIds.length === 0) return;
 
-    // Buscar itens desses pedidos
     const { data: items } = await supabaseClient
       .from('order_items')
       .select('product_id, product_name, quantity')
@@ -245,7 +302,6 @@
 
     if (!items || items.length === 0) return;
 
-    // Contar frequência de cada produto
     const freq = {};
     items.forEach(item => {
       const id = item.product_id;
@@ -256,13 +312,11 @@
 
     if (Object.keys(freq).length === 0) return;
 
-    // Pegar os 3 produtos mais comprados
     const topIds = Object.entries(freq)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(entry => entry[0]);
 
-    // Buscar detalhes dos produtos
     const { data: products } = await supabaseClient
       .from('products')
       .select('*')
@@ -300,7 +354,7 @@
     else cart.push({ id, name, price_cents: priceCents, quantity: 1, image_url: imageUrl });
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
-    alert('Produto adicionado ao carrinho!');
+    showToast(`✅ ${name} adicionado ao carrinho!`);
   }
 
   function escapeHtml(str) {
@@ -389,7 +443,7 @@
   updateSidebarAuth();
   loadCategories();
   loadProducts();
-  loadRecommendations(); // carrega recomendações se usuário logado
+  loadRecommendations();
 </script>
 </body>
 </html>
