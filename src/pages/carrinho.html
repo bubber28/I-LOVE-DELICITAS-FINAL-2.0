@@ -46,7 +46,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) -->
+<!-- Sidebar (menu hambúrguer) – igual ao das outras páginas -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -122,7 +122,7 @@
 
   <!-- Seção de cross‑sell -->
   <div id="cross-sell-section" class="mt-12 hidden">
-    <h2 class="text-2xl font-bold mb-6">✨ Aproveite também</h2>
+    <h2 class="text-2xl font-bold mb-6">✨ Você também pode gostar</h2>
     <div id="cross-sell-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <!-- produtos sugeridos serão inseridos aqui -->
     </div>
@@ -146,7 +146,7 @@
     updateCartCount();
     renderCart();
     updateTotals();
-    loadCrossSell(); // carrega sugestões de produtos
+    loadCrossSell(); // carrega sugestões
   }
 
   function updateCartCount() {
@@ -159,7 +159,7 @@
     updateCartCount();
     renderCart();
     updateTotals();
-    loadCrossSell(); // recarrega sugestões após alteração
+    loadCrossSell();
   }
 
   function renderCart() {
@@ -260,54 +260,63 @@
     updateTotals();
   }
 
-  // ================== CROSS‑SELL (com depuração) ==================
+  // ================== CROSS‑SELL (com fallback para mais vendidos) ==================
   async function loadCrossSell() {
     if (cart.length === 0) return;
 
-    // Extrair IDs dos produtos no carrinho
     const productIds = cart.map(i => i.id);
-    console.log('Produtos no carrinho IDs:', productIds);
+    let suggestions = [];
 
-    // Buscar categorias dos produtos no carrinho
-    const { data: productsInCart, error: prodError } = await supabaseClient
+    // Tentar produtos da mesma categoria
+    const { data: productsInCart } = await supabaseClient
       .from('products')
       .select('id, category_id')
       .in('id', productIds);
-    if (prodError) {
-      console.error('Erro ao buscar categorias dos produtos:', prodError);
-      return;
-    }
-    console.log('Produtos no carrinho (com categoria):', productsInCart);
-
     const categoryIds = [...new Set(productsInCart.map(p => p.category_id).filter(id => id))];
-    if (categoryIds.length === 0) {
-      console.log('Nenhuma categoria encontrada nos produtos do carrinho');
-      return;
-    }
-    console.log('Categorias envolvidas:', categoryIds);
 
-    // Buscar produtos da mesma categoria, excluindo os que já estão no carrinho
-    const { data: suggestions, error: suggError } = await supabaseClient
-      .from('products')
-      .select('*')
-      .in('category_id', categoryIds)
-      .not('id', 'in', `(${productIds.map(id => `'${id}'`).join(',')})`)
-      .eq('active', true)
-      .gt('stock', 0)
-      .limit(3);
-    if (suggError) {
-      console.error('Erro ao buscar sugestões:', suggError);
-      return;
+    if (categoryIds.length > 0) {
+      const { data: sameCategory } = await supabaseClient
+        .from('products')
+        .select('*')
+        .in('category_id', categoryIds)
+        .not('id', 'in', `(${productIds.map(id => `'${id}'`).join(',')})`)
+        .eq('active', true)
+        .gt('stock', 0)
+        .limit(3);
+      if (sameCategory && sameCategory.length) {
+        suggestions = sameCategory;
+      }
     }
-    console.log('Sugestões encontradas:', suggestions);
+
+    // Se não encontrou sugestões, buscar os produtos mais vendidos (excluindo os que já estão no carrinho)
+    if (suggestions.length === 0) {
+      const { data: bestSellers } = await supabaseClient
+        .from('order_items')
+        .select('product_id, product_name, sum(quantity) as total')
+        .eq('product_id', 'is not', null)
+        .group('product_id, product_name')
+        .order('total', { ascending: false })
+        .limit(5);
+      if (bestSellers && bestSellers.length) {
+        const topProductIds = bestSellers.map(b => b.product_id).filter(id => !productIds.includes(id));
+        if (topProductIds.length) {
+          const { data: topProducts } = await supabaseClient
+            .from('products')
+            .select('*')
+            .in('id', topProductIds.slice(0, 3))
+            .eq('active', true)
+            .gt('stock', 0);
+          if (topProducts && topProducts.length) {
+            suggestions = topProducts;
+          }
+        }
+      }
+    }
+
+    if (suggestions.length === 0) return;
 
     const container = document.getElementById('cross-sell-container');
     const section = document.getElementById('cross-sell-section');
-    if (!suggestions || suggestions.length === 0) {
-      section.classList.add('hidden');
-      return;
-    }
-
     container.innerHTML = suggestions.map(prod => `
       <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
         <div class="mb-4 overflow-hidden rounded-xl">
@@ -332,7 +341,7 @@
     if (existing) existing.quantity = (existing.quantity || 1) + 1;
     else cart.push({ id, name, price_cents: priceCents, quantity: 1, image_url: imageUrl });
     localStorage.setItem('cart', JSON.stringify(cart));
-    loadCart(); // recarrega todo o carrinho e cross‑sell
+    loadCart(); // recarrega tudo
     alert('Produto adicionado ao carrinho!');
   }
 
@@ -382,21 +391,24 @@
   document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
 
   async function updateSidebarAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
     const loginLink = document.getElementById('sidebar-login-link');
     const meusPedidos = document.getElementById('sidebar-meus-pedidos');
     const perfil = document.getElementById('sidebar-perfil');
     const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (session) {
-      loginLink.classList.add('hidden');
-      meusPedidos.classList.remove('hidden');
-      perfil.classList.remove('hidden');
-      logoutBtn.classList.remove('hidden');
-    } else {
-      loginLink.classList.remove('hidden');
-      meusPedidos.classList.add('hidden');
-      perfil.classList.add('hidden');
-      logoutBtn.classList.add('hidden');
+
+    if (loginLink && meusPedidos && perfil && logoutBtn) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        loginLink.classList.add('hidden');
+        meusPedidos.classList.remove('hidden');
+        perfil.classList.remove('hidden');
+        logoutBtn.classList.remove('hidden');
+      } else {
+        loginLink.classList.remove('hidden');
+        meusPedidos.classList.add('hidden');
+        perfil.classList.add('hidden');
+        logoutBtn.classList.add('hidden');
+      }
     }
   }
   document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
