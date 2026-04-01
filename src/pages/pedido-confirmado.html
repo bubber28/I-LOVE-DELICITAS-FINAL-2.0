@@ -19,7 +19,10 @@
   .btn-primary:hover { background-color: #8f2529; transform: scale(1.02); }
   .btn-outline { border: 1px solid #ae2f34; color: #ae2f34; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; background: white; transition: all 0.2s; }
   .btn-outline:hover { background-color: #fff0ef; }
-  @media (max-width: 640px) { .order-card { padding: 1rem; } .btn-primary, .btn-outline { display: block; width: 100%; text-align: center; margin-bottom: 0.5rem; } }
+  @media (max-width: 640px) { 
+    .order-card { padding: 1rem; } 
+    .btn-primary, .btn-outline { display: block; width: 100%; text-align: center; margin-bottom: 0.5rem; }
+  }
 </style>
 </head>
 <body>
@@ -39,13 +42,13 @@
     </div>
 
     <div id="order-details" class="space-y-4">
-      <!-- carregando -->
       <p class="text-center text-gray-500">Carregando informações do pedido...</p>
     </div>
 
     <div class="flex flex-col sm:flex-row gap-4 mt-8">
-      <a href="/" class="btn-primary text-center">Voltar ao início</a>
+      <a href="/acompanhar-pedido?id={{orderId}}" id="track-link" class="btn-primary text-center">🚚 Acompanhar pedido</a>
       <a href="/cardapio" class="btn-outline text-center">➕ Fazer novo pedido</a>
+      <a href="/" class="btn-outline text-center">🏠 Voltar ao início</a>
     </div>
   </div>
 </main>
@@ -63,7 +66,9 @@
       return;
     }
 
-    console.log('Buscando pedido ID:', orderId);
+    // Atualiza o link de acompanhamento com o ID correto
+    const trackLink = document.getElementById('track-link');
+    if (trackLink) trackLink.href = `/acompanhar-pedido?id=${orderId}`;
 
     // Buscar dados do pedido
     const { data: order, error: orderError } = await supabaseClient
@@ -114,7 +119,7 @@
     const discount = order.discount_cents > 0 ? `<p><strong>Desconto:</strong> - R$ ${formatMoney(order.discount_cents)}</p>` : '';
 
     const html = `
-      <p><strong>Pedido #:</strong> ${orderId}</p>
+      <p><strong>Pedido #:</strong> ${orderId.substring(0,8)}</p>
       <p><strong>Data/Hora:</strong> ${formatDate(order.created_at)}</p>
       <p><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</p>
       <p><strong>Telefone:</strong> ${escapeHtml(order.customer_phone)}</p>
