@@ -109,14 +109,12 @@
     }
 
     try {
-      // Buscar pedido
       const { data: order, error } = await supabaseClient.from('orders').select('*').eq('id', id).single();
       if (error || !order) {
         document.getElementById('main').innerHTML = '<div class="text-center py-8 text-error">Pedido não encontrado.</div>';
         return;
       }
 
-      // Buscar itens na tabela order_items
       let items = [];
       try {
         const { data, error: err } = await supabaseClient
@@ -132,7 +130,6 @@
         console.warn(e);
       }
 
-      // Se não encontrou itens, tenta fallback (coluna JSON)
       if (items.length === 0 && order.items && Array.isArray(order.items)) {
         console.log('Usando fallback: items da coluna JSON');
         items = order.items.map(i => ({
@@ -144,7 +141,7 @@
         console.warn('Nenhum item encontrado para o pedido', id);
       }
 
-      // Buscar imagens dos produtos (apenas se tivermos product_id)
+      // Buscar imagens dos produtos
       let productImages = {};
       if (items.length > 0 && items[0].product_id) {
         const productIds = [...new Set(items.map(i => i.product_id).filter(id => id))];
@@ -165,7 +162,6 @@
       const currentStep = statusIndex[status] ?? -1;
       const progress = currentStep >=0 ? (currentStep/3)*100 : 0;
 
-      // Montar HTML dos itens com miniaturas
       let itemsHtml = '';
       if (items.length > 0) {
         itemsHtml = items.map(i => {
@@ -185,7 +181,6 @@
         itemsHtml = '<div class="text-center py-4 text-on-surface-variant">Itens não disponíveis</div>';
       }
 
-      // Gerar os dots da barra de progresso
       const dotHtml = steps.map((s,i) => {
         const active = currentStep >= i;
         const icon = (active && s!=='delivered') ? (s==='received'?'receipt':s==='preparing'?'cooking':'check_circle') : null;
@@ -217,7 +212,6 @@
             <span class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-secondary-container">${statusLabels[status]}</span>
           </div>
 
-          <!-- Barra de progresso com animação -->
           <div class="relative py-4">
             <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
             <div id="progress-fill" class="progress-bar absolute top-1/2 left-0 h-1 bg-secondary rounded-full -translate-y-1/2" style="width: ${progress}%"></div>
@@ -266,11 +260,7 @@
     if (session) {
       userMenu.classList.remove('hidden');
       loginLink.classList.add('hidden');
-      const { data: profile } = await supabaseClient
-        .from('profiles')
-        .select('name')
-        .eq('id', session.user.id)
-        .single();
+      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
       const userName = profile?.name || session.user.email.split('@')[0];
       document.getElementById('user-name').innerText = userName;
     } else {
@@ -320,12 +310,10 @@
     window.location.href = '/';
   });
 
-  // Atualizar contador do carrinho
   function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    const cartSpan = document.getElementById('cart-count');
-    if (cartSpan) cartSpan.innerText = totalItems;
+    document.getElementById('cart-count').innerText = totalItems;
   }
   updateCartCount();
 
