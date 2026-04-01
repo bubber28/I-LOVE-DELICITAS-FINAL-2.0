@@ -124,11 +124,11 @@
           <label class="block font-semibold mb-1">Telefone (WhatsApp) *</label>
           <input type="tel" id="customer-phone" class="input-field" required>
         </div>
-        <!-- NOVO CAMPO CPF -->
+        <!-- CPF opcional -->
         <div>
-          <label class="block font-semibold mb-1">CPF *</label>
-          <input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14" required>
-          <p class="text-xs text-on-surface-variant mt-1">Obrigatório para emissão de nota fiscal.</p>
+          <label class="block font-semibold mb-1">CPF (opcional)</label>
+          <input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14">
+          <p class="text-xs text-on-surface-variant mt-1">Necessário apenas para emissão de nota fiscal.</p>
         </div>
         <div>
           <label class="block font-semibold mb-1">CEP *</label>
@@ -438,8 +438,9 @@
       errorEl.classList.remove('hidden');
       return;
     }
-    if (!cpfRaw || cpfRaw.length !== 11) {
-      errorEl.textContent = 'CPF inválido. Digite 11 números.';
+    // Valida CPF apenas se foi preenchido
+    if (cpfRaw && cpfRaw.length !== 11) {
+      errorEl.textContent = 'CPF inválido. Deve conter 11 dígitos.';
       errorEl.classList.remove('hidden');
       return;
     }
@@ -484,7 +485,7 @@
       discount_cents: Math.round(desconto * 100),
       delivery_type: deliveryType,
       user_id: userId,
-      cpf: cpfRaw,
+      cpf: cpfRaw || null,
       created_at: new Date().toISOString()
     };
 
