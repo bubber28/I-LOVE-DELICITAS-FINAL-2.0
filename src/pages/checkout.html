@@ -186,6 +186,15 @@
   let currentFrete = 0;
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00 };
 
+  // ================== REDIRECIONA SE CARRINHO VAZIO ==================
+  function redirectIfCartEmpty() {
+    const storedCart = localStorage.getItem('cart');
+    const cartItems = storedCart ? JSON.parse(storedCart) : [];
+    if (cartItems.length === 0) {
+      window.location.href = '/carrinho';
+    }
+  }
+
   // ================== CARREGAR CONFIGURAÇÕES DO ADMIN ==================
   async function loadConfig() {
     const { data, error } = await supabaseClient
@@ -277,7 +286,7 @@
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
 
-    if (deliveryType === 'pickup' || min <= 0) {
+    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
       return;
@@ -302,6 +311,11 @@
 
     const storedCart = localStorage.getItem('cart');
     cart = storedCart ? JSON.parse(storedCart) : [];
+    if (cart.length === 0) {
+      window.location.href = '/carrinho';
+      return;
+    }
+
     const storedCoupon = localStorage.getItem('appliedCoupon');
     appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
     updateCartCount();
