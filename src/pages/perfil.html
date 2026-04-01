@@ -94,6 +94,12 @@
       <form id="profile-form" class="space-y-4">
         <div><label class="block font-semibold mb-1">Nome completo</label><input type="text" id="name" class="input-field" required></div>
         <div><label class="block font-semibold mb-1">Telefone (WhatsApp)</label><input type="tel" id="phone" class="input-field" required></div>
+        <!-- NOVO CAMPO CPF -->
+        <div>
+          <label class="block font-semibold mb-1">CPF</label>
+          <input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14">
+          <p class="text-xs text-on-surface-variant mt-1">Digite apenas números – será formatado automaticamente.</p>
+        </div>
         <div><label class="block font-semibold mb-1">Endereço</label><input type="text" id="address" class="input-field"></div>
         <div><label class="block font-semibold mb-1">E-mail</label><input type="email" id="email" class="input-field" readonly disabled></div>
         <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold">Salvar alterações</button>
@@ -117,6 +123,20 @@
   }
   updateCartCount();
 
+  // Máscara para CPF
+  function formatCpf(value) {
+    let numbers = value.replace(/\D/g, '');
+    if (numbers.length > 11) numbers = numbers.slice(0, 11);
+    if (numbers.length > 9) {
+      numbers = numbers.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+    } else if (numbers.length > 6) {
+      numbers = numbers.replace(/^(\d{3})(\d{3})(\d{0,3})$/, '$1.$2.$3');
+    } else if (numbers.length > 3) {
+      numbers = numbers.replace(/^(\d{3})(\d{0,3})$/, '$1.$2');
+    }
+    return numbers;
+  }
+
   async function loadProfile() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) { window.location.href = '/login'; return; }
@@ -125,7 +145,7 @@
 
     const { data: profile, error } = await supabaseClient
       .from('profiles')
-      .select('name, phone, address')
+      .select('name, phone, address, cpf')
       .eq('id', userId)
       .single();
     if (error && error.code !== 'PGRST116') console.error(error);
@@ -134,11 +154,22 @@
     document.getElementById('phone').value = profile?.phone || '';
     document.getElementById('address').value = profile?.address || '';
     document.getElementById('email').value = userEmail;
+    if (profile?.cpf) {
+      document.getElementById('cpf').value = formatCpf(profile.cpf);
+    }
 
     const userName = profile?.name || userEmail.split('@')[0];
     document.getElementById('user-name').innerText = userName;
     document.getElementById('user-menu').classList.remove('hidden');
     document.getElementById('login-link').classList.add('hidden');
+  }
+
+  // Aplicar máscara ao digitar
+  const cpfInput = document.getElementById('cpf');
+  if (cpfInput) {
+    cpfInput.addEventListener('input', function(e) {
+      e.target.value = formatCpf(e.target.value);
+    });
   }
 
   const form = document.getElementById('profile-form');
@@ -156,10 +187,18 @@
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const address = document.getElementById('address').value.trim();
+    const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, ''); // remove máscara
+
+    // Opcional: validar CPF (apenas números e 11 dígitos)
+    if (cpfRaw && cpfRaw.length !== 11) {
+      errorEl.textContent = 'CPF inválido. Deve conter 11 números.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
 
     const { error } = await supabaseClient
       .from('profiles')
-      .upsert({ id: userId, name, phone, address, email: session.user.email, updated_at: new Date().toISOString() });
+      .upsert({ id: userId, name, phone, address, cpf: cpfRaw || null, email: session.user.email, updated_at: new Date().toISOString() });
     if (error) {
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');
