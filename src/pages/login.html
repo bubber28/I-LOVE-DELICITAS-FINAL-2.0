@@ -41,9 +41,37 @@
 </head>
 <body>
 
+<!-- Sidebar (menu hambúrguer) -->
+<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
+  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
+    <div class="flex items-center gap-3">
+      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
+      <span class="text-primary font-headline font-bold text-lg">Menu</span>
+    </div>
+    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="flex-1 px-4 py-6 space-y-2">
+    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
+    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
+    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
+    <div id="auth-links-sidebar">
+      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
+      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
+      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
+      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
+    </div>
+  </nav>
+</div>
+
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
     <div class="flex items-center gap-2">
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-primary">menu</span>
+      </button>
       <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
     </div>
     <div class="flex items-center gap-4">
@@ -84,7 +112,6 @@
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorEl.classList.add('hidden');
-
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
 
