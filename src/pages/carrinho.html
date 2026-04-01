@@ -46,7 +46,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) - mesmo código -->
+<!-- Sidebar (menu hambúrguer) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -119,6 +119,14 @@
       </div>
     </div>
   </div>
+
+  <!-- Seção de cross‑sell -->
+  <div id="cross-sell-section" class="mt-12 hidden">
+    <h2 class="text-2xl font-bold mb-6">✨ Aproveite também</h2>
+    <div id="cross-sell-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- produtos sugeridos serão inseridos aqui -->
+    </div>
+  </div>
 </main>
 
 <script>
@@ -138,6 +146,7 @@
     updateCartCount();
     renderCart();
     updateTotals();
+    loadCrossSell(); // carrega sugestões de produtos
   }
 
   function updateCartCount() {
@@ -150,6 +159,7 @@
     updateCartCount();
     renderCart();
     updateTotals();
+    loadCrossSell(); // recarrega sugestões após alteração
   }
 
   function renderCart() {
@@ -212,6 +222,7 @@
     const code = document.getElementById('coupon-input').value.trim().toUpperCase();
     const msg = document.getElementById('coupon-message');
     if (!code) return;
+
     const hoje = new Date().toISOString().split('T')[0];
     const { data, error } = await supabaseClient
       .from('cupons')
@@ -219,7 +230,8 @@
       .eq('codigo', code)
       .eq('ativo', true)
       .gte('validade', hoje)
-      .single();
+      .maybeSingle();
+
     if (error || !data) {
       msg.textContent = 'Cupom inválido ou expirado.';
       msg.classList.remove('hidden', 'text-secondary');
@@ -229,8 +241,9 @@
       updateTotals();
       return;
     }
+
     if (data.usos_atual >= data.uso_maximo) {
-      msg.textContent = 'Cupom já atingiu o limite de uso.';
+      msg.textContent = 'Este cupom já atingiu o limite de uso.';
       msg.classList.remove('hidden', 'text-secondary');
       msg.classList.add('text-error');
       appliedCoupon = null;
@@ -238,12 +251,69 @@
       updateTotals();
       return;
     }
+
     appliedCoupon = data;
     localStorage.setItem('appliedCoupon', JSON.stringify(data));
     msg.textContent = `Cupom aplicado! ${data.desconto}% de desconto.`;
     msg.classList.remove('hidden', 'text-error');
     msg.classList.add('text-secondary');
     updateTotals();
+  }
+
+  // ================== CROSS‑SELL ==================
+  async function loadCrossSell() {
+    if (cart.length === 0) return;
+
+    // Extrair IDs e categorias dos produtos no carrinho
+    const productIds = cart.map(i => i.id);
+    const { data: productsInCart } = await supabaseClient
+      .from('products')
+      .select('id, category_id')
+      .in('id', productIds);
+
+    const categoryIds = [...new Set(productsInCart.map(p => p.category_id).filter(id => id))];
+    if (categoryIds.length === 0) return;
+
+    // Buscar produtos da mesma categoria, excluindo os que já estão no carrinho
+    const { data: suggestions } = await supabaseClient
+      .from('products')
+      .select('*')
+      .in('category_id', categoryIds)
+      .not('id', 'in', `(${productIds.map(id => `'${id}'`).join(',')})`)
+      .eq('active', true)
+      .gt('stock', 0)
+      .limit(3);
+
+    if (!suggestions || suggestions.length === 0) return;
+
+    const container = document.getElementById('cross-sell-container');
+    const section = document.getElementById('cross-sell-section');
+    container.innerHTML = suggestions.map(prod => `
+      <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
+        <div class="mb-4 overflow-hidden rounded-xl">
+          <img class="product-image" src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(prod.name)}">
+        </div>
+        <h3 class="font-headline font-bold text-xl mb-1">${escapeHtml(prod.name)}</h3>
+        <p class="text-sm text-on-surface-variant mb-3 line-clamp-2">${escapeHtml(prod.description || 'Delícia artesanal')}</p>
+        <div class="flex justify-between items-center">
+          <span class="text-2xl font-black text-on-surface">R$ ${(prod.price_cents / 100).toFixed(2).replace('.', ',')}</span>
+          <button onclick="addToCartCrossSell('${prod.id}', '${escapeHtml(prod.name)}', ${prod.price_cents}, '${prod.image_url || ''}')" class="bg-secondary text-white p-3 rounded-full hover:scale-110 transition">
+            <span class="material-symbols-outlined">add_shopping_cart</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+    section.classList.remove('hidden');
+  }
+
+  function addToCartCrossSell(id, name, priceCents, imageUrl) {
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existing = cart.find(i => i.id === id);
+    if (existing) existing.quantity = (existing.quantity || 1) + 1;
+    else cart.push({ id, name, price_cents: priceCents, quantity: 1, image_url: imageUrl });
+    localStorage.setItem('cart', JSON.stringify(cart));
+    loadCart(); // recarrega todo o carrinho e cross‑sell
+    alert('Produto adicionado ao carrinho!');
   }
 
   document.getElementById('checkout-btn').addEventListener('click', () => {
