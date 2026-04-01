@@ -8,85 +8,46 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script>
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#ae2f34",
-          "primary-container": "#ff6b6b",
-          "secondary": "#006a65",
-          "surface": "#fff8f7",
-          "on-surface": "#251818",
-          "on-surface-variant": "#584140",
-          "surface-container-low": "#fff0ef",
-          "error": "#ba1a1a"
-        },
-        fontFamily: {
-          "headline": ["Plus Jakarta Sans"],
-          "body": ["Be Vietnam Pro"]
-        },
-        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
 <style>
-  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-  body { background-color: #fff8f7; }
+  body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
+  .container-custom { max-width: 800px; margin: 0 auto; }
+  .order-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .order-header { border-bottom: 2px dashed #ff6b6b; padding-bottom: 1rem; margin-bottom: 1rem; }
+  .item-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #f0e0df; }
+  .total-row { font-weight: bold; font-size: 1.2rem; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #ae2f34; }
+  .btn-primary { background-color: #ae2f34; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; transition: all 0.2s; }
+  .btn-primary:hover { background-color: #8f2529; transform: scale(1.02); }
+  .btn-outline { border: 1px solid #ae2f34; color: #ae2f34; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; background: white; transition: all 0.2s; }
+  .btn-outline:hover { background-color: #fff0ef; }
+  @media (max-width: 640px) { .order-card { padding: 1rem; } .btn-primary, .btn-outline { display: block; width: 100%; text-align: center; margin-bottom: 0.5rem; } }
 </style>
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) -->
-<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
-<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
-  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
-    <div class="flex items-center gap-3">
-      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
-      <span class="text-primary font-headline font-bold text-lg">Menu</span>
-    </div>
-    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
-      <span class="material-symbols-outlined">close</span>
-    </button>
-  </div>
-  <nav class="flex-1 px-4 py-6 space-y-2">
-    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
-    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
-    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
-    <div id="auth-links-sidebar">
-      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
-      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
-      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
-      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
-    </div>
-  </nav>
-</div>
-
-<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
-  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <div class="flex items-center gap-2">
-      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
-        <span class="material-symbols-outlined text-primary">menu</span>
-      </button>
-      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
-    </div>
-    <div class="flex items-center gap-4">
-      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
-      <div id="user-menu" class="hidden flex items-center gap-3">
-        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
-        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
-        <span id="user-name" class="text-primary font-semibold"></span>
-        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
-      </div>
-      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
-    </div>
+<header class="bg-surface-container-low py-4 px-6 shadow-sm">
+  <div class="container-custom">
+    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
   </div>
 </header>
 
-<main class="pt-24 pb-32 px-4 max-w-3xl mx-auto" id="main">
-  <div class="text-center py-8">Carregando pedido...</div>
+<main class="container-custom px-4 py-8">
+  <div class="order-card">
+    <div class="order-header">
+      <span class="material-symbols-outlined text-primary text-4xl">check_circle</span>
+      <h1 class="text-2xl font-bold mt-2">Pedido confirmado!</h1>
+      <p class="text-on-surface-variant">Agradecemos pela preferência.</p>
+    </div>
+
+    <div id="order-details" class="space-y-4">
+      <!-- carregando -->
+      <p class="text-center text-gray-500">Carregando informações do pedido...</p>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-4 mt-8">
+      <a href="/" class="btn-primary text-center">Voltar ao início</a>
+      <a href="/cardapio" class="btn-outline text-center">➕ Fazer novo pedido</a>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -95,117 +56,88 @@
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   async function loadOrder() {
-    const id = new URLSearchParams(location.search).get('id');
-    if (!id) {
-      document.getElementById('main').innerHTML = '<div class="text-center py-8">Pedido não identificado.</div>';
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('id');
+    if (!orderId) {
+      document.getElementById('order-details').innerHTML = '<p class="text-error">Pedido não identificado.</p>';
       return;
     }
-    const { data: order } = await supabaseClient.from('orders').select('*').eq('id', id).single();
-    if (!order) {
-      document.getElementById('main').innerHTML = '<div class="text-center py-8">Pedido não encontrado.</div>';
-      return;
-    }
-    const { data: items } = await supabaseClient.from('order_items').select('product_name, quantity, line_total_cents').eq('order_id', id);
-    const date = new Date(order.created_at).toLocaleString();
-    const total = (order.total_cents/100).toFixed(2).replace('.',',');
-    let itemsHtml = items?.map(i => `<div class="flex justify-between text-sm"><span>${i.quantity}x ${escapeHtml(i.product_name)}</span><span>R$ ${(i.line_total_cents/100).toFixed(2).replace('.',',')}</span></div>`).join('') || '<p>Itens não disponíveis</p>';
 
-    document.getElementById('main').innerHTML = `
-      <div class="bg-white rounded-2xl p-6 shadow-sm text-center">
-        <span class="material-symbols-outlined text-6xl text-primary">check_circle</span>
-        <h2 class="text-2xl font-bold mt-2">Pedido confirmado!</h2>
-        <p class="text-on-surface-variant">Agradecemos pela preferência.</p>
-        <div class="text-left mt-6 space-y-2">
-          <div><strong>Pedido #:</strong> ${order.id.slice(0,8)}</div>
-          <div><strong>Data/Hora:</strong> ${date}</div>
-          <div><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</div>
-          <div><strong>Telefone:</strong> ${order.customer_phone}</div>
-          <div><strong>Endereço:</strong> ${order.delivery_type==='pickup' ? 'Retirada no local' : escapeHtml(order.delivery_address)}</div>
-          <div><strong>Pagamento:</strong> ${order.payment_method}</div>
-          <div><strong>Desconto:</strong> R$ ${(order.discount_cents/100).toFixed(2).replace('.',',')}</div>
+    console.log('Buscando pedido ID:', orderId);
+
+    // Buscar dados do pedido
+    const { data: order, error: orderError } = await supabaseClient
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .single();
+
+    if (orderError || !order) {
+      console.error(orderError);
+      document.getElementById('order-details').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
+      return;
+    }
+
+    // Buscar itens do pedido
+    const { data: items, error: itemsError } = await supabaseClient
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
+
+    if (itemsError) {
+      console.error(itemsError);
+    }
+
+    const formatDate = (iso) => {
+      const d = new Date(iso);
+      return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    };
+
+    const formatMoney = (cents) => {
+      return (cents / 100).toFixed(2).replace('.', ',');
+    };
+
+    let itemsHtml = '';
+    if (items && items.length > 0) {
+      itemsHtml = items.map(item => `
+        <div class="item-row">
+          <span>${item.quantity}x ${escapeHtml(item.product_name)}</span>
+          <span>R$ ${formatMoney(item.line_total_cents)}</span>
         </div>
-        <div class="mt-4"><strong>Itens:</strong> ${itemsHtml}</div>
-        <div class="text-right font-bold text-primary mt-2">Total: R$ ${total}</div>
-        <div class="flex flex-col sm:flex-row gap-3 mt-6">
-          <a href="/acompanhamento?id=${order.id}" class="bg-primary text-white py-3 rounded-full text-center">Acompanhar pedido</a>
-          <a href="/" class="bg-surface-container text-primary py-3 rounded-full text-center">Voltar ao início</a>
-        </div>
+      `).join('');
+    } else {
+      itemsHtml = '<div class="text-center text-error p-4">⚠️ Itens não disponíveis para exibição, mas seu pedido foi registrado. Entre em contato conosco se necessário.</div>';
+    }
+
+    const deliveryAddress = order.delivery_address ? `<p><strong>Endereço:</strong> ${escapeHtml(order.delivery_address)}</p>` : '';
+    const paymentMethod = order.payment_method === 'pix' ? 'PIX' : (order.payment_method === 'cartao' ? 'Cartão' : 'Dinheiro');
+    const discount = order.discount_cents > 0 ? `<p><strong>Desconto:</strong> - R$ ${formatMoney(order.discount_cents)}</p>` : '';
+
+    const html = `
+      <p><strong>Pedido #:</strong> ${orderId}</p>
+      <p><strong>Data/Hora:</strong> ${formatDate(order.created_at)}</p>
+      <p><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</p>
+      <p><strong>Telefone:</strong> ${escapeHtml(order.customer_phone)}</p>
+      ${deliveryAddress}
+      <p><strong>Pagamento:</strong> ${paymentMethod}</p>
+      ${discount}
+      <div class="mt-4">
+        <h3 class="font-bold">Itens:</h3>
+        <div class="mt-2">${itemsHtml}</div>
+      </div>
+      <div class="total-row">
+        <div class="flex justify-between"><span>Total:</span><span class="text-primary text-xl">R$ ${formatMoney(order.total_cents)}</span></div>
       </div>
     `;
+
+    document.getElementById('order-details').innerHTML = html;
   }
 
   function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
   }
 
-  // ================== HEADER AUTH ==================
-  async function updateHeaderAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const userMenu = document.getElementById('user-menu');
-    const loginLink = document.getElementById('login-link');
-    if (session) {
-      userMenu.classList.remove('hidden');
-      loginLink.classList.add('hidden');
-      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
-      const userName = profile?.name || session.user.email.split('@')[0];
-      document.getElementById('user-name').innerText = userName;
-    } else {
-      userMenu.classList.add('hidden');
-      loginLink.classList.remove('hidden');
-    }
-  }
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-
-  // ================== SIDEBAR ==================
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('mobile-overlay');
-  const openBtn = document.getElementById('open-sidebar-btn');
-  const closeBtn = document.getElementById('close-sidebar-btn');
-  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
-  if (openBtn) openBtn.addEventListener('click', openSidebar);
-  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-  if (overlay) overlay.addEventListener('click', closeSidebar);
-  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
-
-  async function updateSidebarAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const loginLink = document.getElementById('sidebar-login-link');
-    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
-    const perfil = document.getElementById('sidebar-perfil');
-    const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (session) {
-      loginLink.classList.add('hidden');
-      meusPedidos.classList.remove('hidden');
-      perfil.classList.remove('hidden');
-      logoutBtn.classList.remove('hidden');
-    } else {
-      loginLink.classList.remove('hidden');
-      meusPedidos.classList.add('hidden');
-      perfil.classList.add('hidden');
-      logoutBtn.classList.add('hidden');
-    }
-  }
-  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-
-  function updateCartCount() {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    document.getElementById('cart-count').innerText = totalItems;
-  }
-  updateCartCount();
-
-  updateHeaderAuth();
-  updateSidebarAuth();
   loadOrder();
 </script>
 </body>
