@@ -60,7 +60,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) – igual ao código anterior -->
+<!-- Sidebar (menu hambúrguer) – omitido por brevidade, igual ao código anterior -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -190,9 +190,6 @@
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Configuração da API do Google Maps (substitua pela sua chave)
-  const GOOGLE_API_KEY = 'YOUR_GOOGLE_API_KEY'; // 👈 coloque sua chave aqui
-
   let cart = [];
   let appliedCoupon = null;
   let userId = null;
@@ -240,23 +237,23 @@
     }
   }
 
-  // ================== GEOCODIFICAÇÃO (Google Maps) ==================
+  // ================== GEOCODIFICAÇÃO (OpenStreetMap) ==================
   async function geocodeAddress(address) {
-    if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'YOUR_GOOGLE_API_KEY') {
-      console.warn('Chave do Google Maps não configurada. Ignorando verificação de distância.');
-      return null;
-    }
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_API_KEY}`;
+    // Usando OpenStreetMap Nominatim (gratuito)
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'MeuDeliveryApp/1.0' } // identificação obrigatória
+      });
       const data = await response.json();
-      if (data.status === 'OK' && data.results.length > 0) {
-        const { lat, lng } = data.results[0].geometry.location;
-        return { lat, lng };
-      } else {
-        console.error('Geocodificação falhou:', data.status);
-        return null;
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        };
       }
+      console.warn('Endereço não encontrado:', address);
+      return null;
     } catch (err) {
       console.error('Erro na geocodificação:', err);
       return null;
