@@ -193,9 +193,8 @@
   let cart = [];
   let appliedCoupon = null;
   let userId = null;
-  let currentFrete = null; // null significa "não calculado"
+  let currentFrete = 0;
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00 };
-  let lastCalculatedCep = null; // evita recalcular desnecessariamente
 
   // ================== MÁSCARA CPF ==================
   function formatCPF(value) {
@@ -209,15 +208,6 @@
       value = value.replace(/^(\d{3})(\d{0,3})$/, '$1.$2');
     }
     return value;
-  }
-
-  // ================== REDIRECIONA SE CARRINHO VAZIO ==================
-  function redirectIfCartEmpty() {
-    const storedCart = localStorage.getItem('cart');
-    const cartItems = storedCart ? JSON.parse(storedCart) : [];
-    if (cartItems.length === 0) {
-      window.location.href = '/carrinho';
-    }
   }
 
   // ================== CARREGAR CONFIGURAÇÕES DO ADMIN ==================
@@ -273,6 +263,8 @@
 
   async function atualizarFrete() {
     const deliveryType = document.getElementById('delivery-type').value;
+    const cep = document.getElementById('cep').value;
+    const cepLimpo = cep.replace(/\D/g, '');
     if (deliveryType === 'pickup') {
       currentFrete = 0;
       document.getElementById('frete').innerText = 'R$ 0,00';
@@ -280,35 +272,22 @@
       atualizarAvisoFreteGratis();
       return;
     }
-
-    const cep = document.getElementById('cep').value;
-    const cepLimpo = cep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) {
-      // CEP incompleto – não calcula
-      currentFrete = null;
-      document.getElementById('frete').innerText = '--';
-      atualizarTotal();
-      atualizarAvisoFreteGratis();
+    // Se não há CEP válido, mostra "--" e não calcula frete
+    if (!cep || cepLimpo.length !== 8) {
+      document.getElementById('frete').innerText = '---';
+      const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
+      document.getElementById('total').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
       return;
     }
 
-    // Evita recalcular o mesmo CEP várias vezes
-    if (lastCalculatedCep === cepLimpo && currentFrete !== null) {
-      // já calculado, só atualiza exibição
-      document.getElementById('frete').innerText = `R$ ${currentFrete.toFixed(2).replace('.', ',')}`;
-      atualizarTotal();
-      atualizarAvisoFreteGratis();
-      return;
-    }
-
-    let frete = await calcularFrete(cepLimpo);
+    let frete = await calcularFrete(cep);
+    // Aplicar frete grátis por valor mínimo
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     if (subtotal >= config.frete_gratis_minimo) {
       frete = 0;
     }
 
     currentFrete = frete;
-    lastCalculatedCep = cepLimpo;
     document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     atualizarTotal();
     atualizarAvisoFreteGratis();
@@ -317,10 +296,7 @@
   function atualizarTotal() {
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     const desconto = parseFloat(document.getElementById('desconto').innerText.replace('- R$ ', '').replace(',', '.') || 0);
-    let total = subtotal - desconto;
-    if (currentFrete !== null && !isNaN(currentFrete)) {
-      total += currentFrete;
-    }
+    const total = subtotal + currentFrete - desconto;
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
   }
 
@@ -331,8 +307,9 @@
     const deliveryType = document.getElementById('delivery-type').value;
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
-
-    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || currentFrete === null) {
+    const cep = document.getElementById('cep').value;
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || !cep || cepLimpo.length !== 8) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
       return;
@@ -384,7 +361,6 @@
       userId = null;
     }
 
-    // Adiciona máscara ao campo CPF
     const cpfInput = document.getElementById('cpf');
     if (cpfInput) {
       cpfInput.addEventListener('input', function(e) {
@@ -415,16 +391,7 @@
     let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
-    // Força reavaliação do frete (com base no CEP atual, se houver)
-    const cep = document.getElementById('cep').value.replace(/\D/g, '');
-    if (cep.length === 8) {
-      atualizarFrete();
-    } else {
-      currentFrete = null;
-      document.getElementById('frete').innerText = '--';
-      atualizarTotal();
-      atualizarAvisoFreteGratis();
-    }
+    atualizarFrete(); // recalcula frete e atualiza aviso
   }
 
   // ================== EVENTOS ==================
@@ -451,32 +418,11 @@
     cep = cep.replace(/\D/g, '');
     if (cep.length === 8) {
       await atualizarFrete();
-    } else {
-      currentFrete = null;
-      document.getElementById('frete').innerText = '--';
-      atualizarTotal();
-      atualizarAvisoFreteGratis();
     }
   });
 
   document.getElementById('delivery-type').addEventListener('change', () => {
-    if (document.getElementById('delivery-type').value === 'pickup') {
-      currentFrete = 0;
-      document.getElementById('frete').innerText = 'R$ 0,00';
-      atualizarTotal();
-      atualizarAvisoFreteGratis();
-    } else {
-      // Se voltar para entrega, recalcula com o CEP atual (se válido)
-      const cep = document.getElementById('cep').value.replace(/\D/g, '');
-      if (cep.length === 8) {
-        atualizarFrete();
-      } else {
-        currentFrete = null;
-        document.getElementById('frete').innerText = '--';
-        atualizarTotal();
-        atualizarAvisoFreteGratis();
-      }
-    }
+    atualizarFrete();
   });
 
   // ================== SUBMETER PEDIDO ==================
@@ -527,10 +473,7 @@
     let subtotal = 0;
     cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
     const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    let total = subtotal - desconto;
-    if (currentFrete !== null && !isNaN(currentFrete)) {
-      total += currentFrete;
-    }
+    const total = subtotal + currentFrete - desconto;
     const totalCents = Math.round(total * 100);
 
     const orderData = {
@@ -559,6 +502,9 @@
     }
 
     const orderId = order[0].id;
+    console.log('Pedido criado:', orderId);
+    console.log('Itens a inserir:', cart);
+
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
       product_name: i.name,
@@ -570,7 +516,13 @@
     const { error: itemsError } = await supabaseClient
       .from('order_items')
       .insert(itemsToInsert);
-    if (itemsError) console.error('Erro ao inserir itens:', itemsError);
+    if (itemsError) {
+      console.error('Erro ao inserir itens:', itemsError);
+      errorEl.textContent = 'Erro ao salvar itens do pedido. Contate o suporte.';
+      errorEl.classList.remove('hidden');
+    } else {
+      console.log('Itens inseridos com sucesso');
+    }
 
     if (appliedCoupon && appliedCoupon.id) {
       await supabaseClient
