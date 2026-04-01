@@ -197,12 +197,12 @@
   let config = {
     frete_gratis_minimo: 0,
     frete_padrao: 7.00,
-    frete_gratis_distancia_maxima: 5, // km
+    frete_gratis_distancia_maxima: 5,
     store_lat: null,
     store_lng: null
   };
   let cepValido = false;
-  let currentDistance = null; // distância em km (se calculada)
+  let currentDistance = null;
 
   // ================== MÁSCARA CPF ==================
   function formatCPF(value) {
@@ -239,11 +239,10 @@
 
   // ================== GEOCODIFICAÇÃO (OpenStreetMap) ==================
   async function geocodeAddress(address) {
-    // Usando OpenStreetMap Nominatim (gratuito)
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
     try {
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'MeuDeliveryApp/1.0' } // identificação obrigatória
+        headers: { 'User-Agent': 'MeuDeliveryApp/1.0' }
       });
       const data = await response.json();
       if (data && data.length > 0) {
@@ -262,7 +261,7 @@
 
   // ================== CÁLCULO DE DISTÂNCIA (Haversine) ==================
   function haversineDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -307,7 +306,6 @@
       frete = config.frete_padrao;
     }
 
-    // Calcular distância se tivermos coordenadas da loja e endereço
     let distancia = null;
     if (config.store_lat && config.store_lng && addressString) {
       const coords = await geocodeAddress(addressString);
@@ -322,7 +320,6 @@
       currentDistance = null;
     }
 
-    // Verificar se frete grátis é aplicável
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima);
     if (freeShippingAvailable && subtotal >= config.frete_gratis_minimo) {
@@ -355,7 +352,6 @@
       return;
     }
 
-    // Montar endereço completo para geocodificação
     const rua = document.getElementById('rua').value;
     const numero = document.getElementById('numero').value;
     const bairro = document.getElementById('bairro').value;
@@ -365,7 +361,7 @@
     if (rua && numero && bairro && cidade && uf) {
       addressString = `${rua}, ${numero} - ${bairro}, ${cidade} - ${uf}`;
     } else {
-      addressString = ''; // ainda não preenchido
+      addressString = '';
     }
 
     let frete = await calcularFrete(cep, addressString);
@@ -443,7 +439,6 @@
       userId = null;
     }
 
-    // Máscara CPF
     const cpfInput = document.getElementById('cpf');
     if (cpfInput) {
       cpfInput.addEventListener('input', function(e) {
@@ -451,7 +446,6 @@
       });
     }
 
-    // Inicializa o frete como não calculado
     document.getElementById('frete').innerText = '--';
     currentFrete = 0;
     atualizarTotal();
@@ -497,7 +491,6 @@
       document.getElementById('cidade').value = endereco.localidade || '';
       document.getElementById('uf').value = endereco.uf || '';
       document.getElementById('numero').focus();
-      // Após preencher, recalcula frete com o endereço completo
       await atualizarFrete();
     }
   });
@@ -516,7 +509,6 @@
     }
   });
 
-  // Quando os campos de endereço forem alterados, podemos refazer o cálculo
   const addressFields = ['rua', 'numero', 'bairro', 'cidade', 'uf'];
   addressFields.forEach(field => {
     document.getElementById(field).addEventListener('change', () => {
@@ -620,6 +612,7 @@
       .from('orders')
       .insert([orderData])
       .select();
+
     if (orderError) {
       console.error(orderError);
       errorEl.textContent = 'Erro ao criar pedido.';
@@ -628,6 +621,7 @@
     }
 
     const orderId = order[0].id;
+    console.log('ORDER ID (UUID completo):', orderId);
 
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
@@ -643,9 +637,11 @@
       .from('order_items')
       .insert(itemsToInsert);
     if (itemsError) {
-      console.error('Erro ao inserir itens:', itemsError);
+      console.error('Erro detalhado ao inserir itens:', itemsError);
       errorEl.textContent = 'Erro ao salvar itens. O pedido foi criado, mas não conseguimos registrar os produtos. Contate o suporte.';
       errorEl.classList.remove('hidden');
+    } else {
+      console.log('Itens inseridos com sucesso!');
     }
 
     if (appliedCoupon && appliedCoupon.id) {
