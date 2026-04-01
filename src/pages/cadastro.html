@@ -117,7 +117,7 @@
   }
   updateCartCount();
 
-  // ========== HEADER / SIDEBAR AUTH (para manter consistência) ==========
+  // ========== HEADER / SIDEBAR AUTH ==========
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
@@ -178,7 +178,7 @@
   updateHeaderAuth();
   updateSidebarAuth();
 
-  // ========== CADASTRO ==========
+  // ========== FORMULÁRIO DE CADASTRO ==========
   const form = document.getElementById('register-form');
   const errorEl = document.getElementById('error-message');
   const successEl = document.getElementById('success-message');
@@ -219,17 +219,14 @@
       }
 
       if (authData.user) {
-        // Aguarda 1 segundo para a sessão ser estabelecida
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Tenta salvar o perfil
         const { error: profileError } = await supabaseClient
           .from('profiles')
           .upsert({ id: authData.user.id, name, phone, email, updated_at: new Date().toISOString() });
 
         if (profileError) {
           console.error('Erro ao salvar perfil:', profileError);
-          // Se falhar por permissão, tenta novamente após 2 segundos
           if (profileError.message.includes('violates row-level security policy')) {
             await new Promise(resolve => setTimeout(resolve, 2000));
             const { error: retryError } = await supabaseClient
@@ -246,7 +243,6 @@
         }
 
         // Redireciona para a página inicial (já logado)
-        // Aguarda mais um pouco para garantir que a sessão seja reconhecida
         setTimeout(() => {
           window.location.href = '/';
         }, 1500);
