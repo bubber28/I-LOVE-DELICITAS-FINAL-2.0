@@ -122,8 +122,7 @@
   <!-- Seção de cross‑sell -->
   <div id="cross-sell-section" class="mt-12 hidden">
     <h2 class="text-2xl font-bold mb-6">✨ Você também pode gostar</h2>
-    <div id="cross-sell-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    </div>
+    <div id="cross-sell-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
   </div>
 </main>
 
@@ -154,9 +153,9 @@
   function saveCart() {
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
-    renderCart();
-    updateTotals();
-    loadCrossSell();
+    renderCart();     // recria os elementos com as novas quantidades
+    updateTotals();   // recalcula subtotal e total
+    loadCrossSell();  // atualiza sugestões
   }
 
   function renderCart() {
@@ -167,13 +166,15 @@
       return;
     }
     document.getElementById('checkout-btn').disabled = false;
-    container.innerHTML = cart.map((item, idx) => `
-      <div class="bg-white rounded-lg p-4 flex gap-4 items-center shadow-sm">
+    container.innerHTML = cart.map((item, idx) => {
+      const itemTotal = (item.price_cents / 100) * (item.quantity || 1);
+      return `
+      <div class="bg-white rounded-lg p-4 flex gap-4 items-center shadow-sm" data-index="${idx}">
         <img class="cart-item-image" src="${item.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(item.name)}">
         <div class="flex-grow">
           <h3 class="font-bold text-lg">${escapeHtml(item.name)}</h3>
           <div class="flex justify-between items-center mt-2">
-            <span class="text-primary font-bold">R$ ${((item.price_cents / 100) * (item.quantity || 1)).toFixed(2).replace('.', ',')}</span>
+            <span class="text-primary font-bold">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>
             <div class="flex items-center gap-2">
               <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center" data-idx="${idx}" data-delta="-1">-</button>
               <span class="w-8 text-center font-semibold">${item.quantity || 1}</span>
@@ -183,35 +184,58 @@
           </div>
         </div>
       </div>
-    `).join('');
+    `}).join('');
+
+    // Adiciona eventos aos botões recém-criados
     document.querySelectorAll('.qty-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
-        const delta = parseInt(btn.dataset.delta);
-        const newQty = (cart[idx].quantity || 1) + delta;
-        if (newQty <= 0) cart.splice(idx, 1);
-        else cart[idx].quantity = newQty;
-        saveCart();
-      });
+      btn.removeEventListener('click', handleQuantityClick);
+      btn.addEventListener('click', handleQuantityClick);
     });
     document.querySelectorAll('.remove-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
-        cart.splice(idx, 1);
-        saveCart();
-      });
+      btn.removeEventListener('click', handleRemoveClick);
+      btn.addEventListener('click', handleRemoveClick);
     });
+  }
+
+  function handleQuantityClick(e) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const idx = parseInt(btn.dataset.idx);
+    const delta = parseInt(btn.dataset.delta);
+    if (isNaN(idx)) return;
+    const newQty = (cart[idx].quantity || 1) + delta;
+    if (newQty <= 0) {
+      cart.splice(idx, 1);
+    } else {
+      cart[idx].quantity = newQty;
+    }
+    saveCart();  // salva, recarrega tela e atualiza totais
+  }
+
+  function handleRemoveClick(e) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const idx = parseInt(btn.dataset.idx);
+    if (isNaN(idx)) return;
+    cart.splice(idx, 1);
+    saveCart();
   }
 
   function updateTotals() {
     let subtotal = 0;
-    cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
+    for (let i = 0; i < cart.length; i++) {
+      const item = cart[i];
+      subtotal += (item.price_cents / 100) * (item.quantity || 1);
+    }
     let desconto = 0;
-    if (appliedCoupon) desconto = (subtotal * appliedCoupon.desconto) / 100;
+    if (appliedCoupon && appliedCoupon.desconto) {
+      desconto = (subtotal * appliedCoupon.desconto) / 100;
+    }
     const total = subtotal - desconto;
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+    console.log('Totais atualizados:', { subtotal, desconto, total });
   }
 
   async function applyCoupon() {
@@ -256,11 +280,10 @@
     updateTotals();
   }
 
-  // ================== CROSS‑SELL CORRIGIDO ==================
+  // ================== CROSS‑SELL ==================
   async function loadCrossSell() {
     if (cart.length === 0) return;
-
-    const productIds = cart.map(i => i.id);
+    const productIds = cart.map(i => i.id).filter(id => id);
     if (productIds.length === 0) return;
 
     let query = supabaseClient
@@ -275,7 +298,6 @@
     }
 
     const { data: suggestions, error } = await query;
-
     if (error || !suggestions || suggestions.length === 0) return;
 
     const container = document.getElementById('cross-sell-container');
@@ -283,7 +305,7 @@
     container.innerHTML = suggestions.map(prod => `
       <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
         <div class="mb-4 overflow-hidden rounded-xl">
-          <img class="product-image" src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(prod.name)}">
+          <img class="product-image w-full h-40 object-cover" src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(prod.name)}">
         </div>
         <h3 class="font-headline font-bold text-xl mb-1">${escapeHtml(prod.name)}</h3>
         <p class="text-sm text-on-surface-variant mb-3 line-clamp-2">${escapeHtml(prod.description || 'Delícia artesanal')}</p>
@@ -298,7 +320,7 @@
     section.classList.remove('hidden');
   }
 
-  function addToCartCrossSell(id, name, priceCents, imageUrl) {
+  window.addToCartCrossSell = function(id, name, priceCents, imageUrl) {
     let cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const existing = cart.find(i => i.id === id);
     if (existing) existing.quantity = (existing.quantity || 1) + 1;
@@ -306,7 +328,7 @@
     localStorage.setItem('cart', JSON.stringify(cart));
     loadCart();
     alert('Produto adicionado ao carrinho!');
-  }
+  };
 
   document.getElementById('checkout-btn').addEventListener('click', () => {
     if (cart.length === 0) alert('Carrinho vazio.');
@@ -358,7 +380,6 @@
     const meusPedidos = document.getElementById('sidebar-meus-pedidos');
     const perfil = document.getElementById('sidebar-perfil');
     const logoutBtn = document.getElementById('sidebar-logout-btn');
-
     if (loginLink && meusPedidos && perfil && logoutBtn) {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
