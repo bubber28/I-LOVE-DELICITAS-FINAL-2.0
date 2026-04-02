@@ -113,7 +113,7 @@
     </div>
 
     <div class="flex flex-col sm:flex-row gap-4 mt-8">
-      <!-- Link corrigido: usa a rota limpa /acompanhamento -->
+      <!-- LINK CORRIGIDO: /acompanhamento (nome exato do arquivo) -->
       <a href="/acompanhamento?id={{orderId}}" id="track-link" class="btn-primary text-center">🚚 Acompanhar pedido</a>
       <a href="/cardapio" class="btn-outline text-center">➕ Fazer novo pedido</a>
       <a href="/" class="btn-outline text-center">🏠 Voltar ao início</a>
@@ -136,11 +136,10 @@
       return;
     }
 
-    // Atualiza o link de acompanhamento com o ID real
+    // Atualiza o link com o ID real
     const trackLink = document.getElementById('track-link');
     if (trackLink) trackLink.href = `/acompanhamento?id=${orderId}`;
 
-    // Buscar dados do pedido
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
       .select('*')
@@ -153,27 +152,18 @@
       return;
     }
 
-    // Buscar itens do pedido
     const { data: items, error: itemsError } = await supabaseClient
       .from('order_items')
       .select('*')
       .eq('order_id', orderId);
 
-    if (itemsError) {
-      console.error(itemsError);
-    }
+    if (itemsError) console.error(itemsError);
 
-    const formatDate = (iso) => {
-      const d = new Date(iso);
-      return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-    };
-
-    const formatMoney = (cents) => {
-      return (cents / 100).toFixed(2).replace('.', ',');
-    };
+    const formatDate = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const formatMoney = (cents) => (cents / 100).toFixed(2).replace('.', ',');
 
     let itemsHtml = '';
-    if (items && items.length > 0) {
+    if (items && items.length) {
       itemsHtml = items.map(item => `
         <div class="item-row">
           <span>${item.quantity}x ${escapeHtml(item.product_name)}</span>
