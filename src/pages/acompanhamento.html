@@ -3,91 +3,122 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Acompanhar Pedido - I Love Delicitas</title>
+<title>Pedido Confirmado - I Love Delicitas</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#ae2f34",
+          "primary-container": "#ff6b6b",
+          "secondary": "#006a65",
+          "surface": "#fff8f7",
+          "on-surface": "#251818",
+          "on-surface-variant": "#584140",
+          "surface-container-low": "#fff0ef",
+          "error": "#ba1a1a"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Be Vietnam Pro"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
 <style>
-  body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
-  .container-custom { max-width: 800px; margin: 0 auto; }
-  .track-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  .status-steps { display: flex; justify-content: space-between; margin: 2rem 0; position: relative; }
-  .status-step { text-align: center; flex: 1; position: relative; z-index: 2; background: white; }
-  .status-step .icon { background: #e5e7eb; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; transition: all 0.3s; }
-  .status-step.active .icon { background: #ae2f34; color: white; }
-  .status-step.completed .icon { background: #10b981; color: white; }
-  .status-step .label { font-size: 0.75rem; font-weight: 600; color: #6b7280; }
-  .status-step.active .label { color: #ae2f34; }
-  .status-step.completed .label { color: #10b981; }
-  .progress-line { position: absolute; top: 20px; left: 0; right: 0; height: 4px; background: #e5e7eb; z-index: 1; }
-  .progress-line-fill { height: 100%; background: #10b981; width: 0%; transition: width 0.5s; }
-  @media (max-width: 640px) {
-    .status-steps { flex-wrap: wrap; gap: 1rem; }
-    .status-step { flex: none; width: calc(50% - 0.5rem); }
-    .progress-line { display: none; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #fff8f7; }
+  .sidebar { position: fixed; top: 0; left: 0; width: 280px; height: 100%; background: #fff0ef; border-right: 1px solid #e0bfbd; flex-direction: column; z-index: 60; transition: left 0.3s ease; }
+  @media (max-width: 1279px) { .sidebar { left: -280px; } .sidebar.open { left: 0; } .overlay-mobile { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 55; display: none; } .overlay-mobile.active { display: block; } .main-content { margin-left: 0 !important; } }
+  @media (min-width: 1280px) { .sidebar { left: 0 !important; } .overlay-mobile { display: none !important; } .main-content { margin-left: 280px; } }
+  .order-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .order-header { border-bottom: 2px dashed #ff6b6b; padding-bottom: 1rem; margin-bottom: 1rem; }
+  .item-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #f0e0df; }
+  .total-row { font-weight: bold; font-size: 1.2rem; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #ae2f34; }
+  .btn-primary { background-color: #ae2f34; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; transition: all 0.2s; }
+  .btn-primary:hover { background-color: #8f2529; transform: scale(1.02); }
+  .btn-outline { border: 1px solid #ae2f34; color: #ae2f34; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; background: white; transition: all 0.2s; }
+  .btn-outline:hover { background-color: #fff0ef; }
+  @media (max-width: 640px) { 
+    .order-card { padding: 1rem; } 
+    .btn-primary, .btn-outline { display: block; width: 100%; text-align: center; margin-bottom: 0.5rem; }
   }
 </style>
 </head>
 <body>
 
-<header class="bg-surface-container-low py-4 px-6 shadow-sm">
-  <div class="container-custom">
-    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+<!-- Sidebar -->
+<div id="mobile-overlay" class="overlay-mobile"></div>
+<div id="sidebar" class="sidebar flex flex-col w-64 bg-surface-container-low border-r border-outline-variant/30">
+  <div class="px-6 py-8 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full bg-primary-container overflow-hidden"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw5FGYSyP8asznSAbSfewPuVjJ0dcNClHXhXW_L9LnCIAJyDR-31LGPL2dewpMlxO6H2GJL9UlkGv_YxTE6Dci-GgAc0dwhH3WcNPdZnv6hIQjsfdvytZ5D7B4T5lccIJEZfZf18AVZ3TsU6F7PCyNF4VpYGWJwoqqTidQ2HyROC4rJrCFtgBe9aT8FqGjmF8LRR-w3dhOcqH7TFWp1KGRgqw9smQRtjc8ypmhM5nS8iGcmLaFYxFmVnqs25z5rCCg1ocy5tH7AJ3f"/></div>
+      <div class="flex flex-col"><span class="text-primary font-headline font-bold text-xl tracking-tight">SweetAdmin</span><span class="text-[10px] text-on-surface-variant font-semibold uppercase tracking-widest">Cliente</span></div>
+    </div>
+    <button id="close-sidebar-btn" class="lg:hidden text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
+  </div>
+  <nav class="flex-1 px-4 space-y-2">
+    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high"><span class="material-symbols-outlined">home</span><span>Início</span></a>
+    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
+    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
+    <div id="auth-links-sidebar">
+      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
+      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
+      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
+      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
+    </div>
+  </nav>
+</div>
+
+<!-- Header -->
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+    <div class="flex items-center gap-2">
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-primary">menu</span>
+      </button>
+      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full">0</span></a>
+      <div id="user-menu" class="hidden flex items-center gap-3">
+        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
+        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
+        <span id="user-name" class="text-primary font-semibold"></span>
+        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
+      </div>
+      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
+    </div>
   </div>
 </header>
 
-<main class="container-custom px-4 py-8">
-  <div class="track-card">
-    <h1 class="text-2xl font-bold mb-2">Acompanhar Pedido</h1>
-    <p class="text-on-surface-variant mb-6">Acompanhe em tempo real o status do seu pedido.</p>
-
-    <div id="order-info" class="mb-6">
-      <p><strong>Pedido #:</strong> <span id="order-id"></span></p>
-      <p><strong>Data:</strong> <span id="order-date"></span></p>
-      <p><strong>Cliente:</strong> <span id="customer-name"></span></p>
+<!-- Conteúdo principal -->
+<main class="main-content pt-24 pb-32 px-4 max-w-3xl mx-auto">
+  <div class="order-card">
+    <div class="order-header">
+      <span class="material-symbols-outlined text-primary text-4xl">check_circle</span>
+      <h1 class="text-2xl font-bold mt-2">Pedido confirmado!</h1>
+      <p class="text-on-surface-variant">Agradecemos pela preferência.</p>
     </div>
 
-    <div class="status-steps relative">
-      <div class="progress-line"><div id="progress-fill" class="progress-line-fill"></div></div>
-      <div class="status-step" data-step="received">
-        <div class="icon"><span class="material-symbols-outlined">receipt</span></div>
-        <div class="label">Recebido</div>
-      </div>
-      <div class="status-step" data-step="preparing">
-        <div class="icon"><span class="material-symbols-outlined">cooking</span></div>
-        <div class="label">Preparando</div>
-      </div>
-      <div class="status-step" data-step="delivery">
-        <div class="icon"><span class="material-symbols-outlined">motorcycle</span></div>
-        <div class="label">Saiu para entrega</div>
-      </div>
-      <div class="status-step" data-step="delivered">
-        <div class="icon"><span class="material-symbols-outlined">check_circle</span></div>
-        <div class="label">Entregue</div>
-      </div>
+    <div id="order-details" class="space-y-4">
+      <p class="text-center text-gray-500">Carregando informações do pedido...</p>
     </div>
 
-    <div id="status-message" class="mt-6 p-4 bg-primary-container/10 rounded-lg text-center">
-      Carregando...
-    </div>
-
-    <div class="mt-8 flex flex-col sm:flex-row gap-4">
-      <a href="/" class="btn-primary text-center">Voltar ao início</a>
-      <a href="/cardapio" class="btn-outline text-center">Fazer novo pedido</a>
+    <div class="flex flex-col sm:flex-row gap-4 mt-8">
+      <a href="/src/pages/acompanhamento.html?id={{orderId}}" id="track-link" class="btn-primary text-center">🚚 Acompanhar pedido</a>
+      <a href="/cardapio" class="btn-outline text-center">➕ Fazer novo pedido</a>
+      <a href="/" class="btn-outline text-center">🏠 Voltar ao início</a>
     </div>
   </div>
 </main>
-
-<style>
-  .btn-primary { background-color: #ae2f34; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; transition: all 0.2s; text-align: center; }
-  .btn-primary:hover { background-color: #8f2529; transform: scale(1.02); }
-  .btn-outline { border: 1px solid #ae2f34; color: #ae2f34; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; background: white; transition: all 0.2s; text-align: center; }
-  .btn-outline:hover { background-color: #fff0ef; }
-  @media (max-width: 640px) { 
-    .btn-primary, .btn-outline { display: block; width: 100%; margin-bottom: 0.5rem; }
-  }
-</style>
 
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
@@ -95,112 +126,161 @@
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let orderId = null;
-  let currentStatus = null;
-
-  // Mapeamento de status para ordem
-  const statusOrder = ['received', 'preparing', 'delivery', 'delivered'];
-  const statusLabels = {
-    received: 'Recebido',
-    preparing: 'Preparando',
-    delivery: 'Saiu para entrega',
-    delivered: 'Entregue'
-  };
 
   async function loadOrder() {
     const urlParams = new URLSearchParams(window.location.search);
     orderId = urlParams.get('id');
     if (!orderId) {
-      document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não identificado.</p>';
+      document.getElementById('order-details').innerHTML = '<p class="text-error">Pedido não identificado.</p>';
       return;
     }
 
+    // Atualiza o link de acompanhamento com o ID real
+    const trackLink = document.getElementById('track-link');
+    if (trackLink) trackLink.href = `/src/pages/acompanhamento.html?id=${orderId}`;
+
     // Buscar dados do pedido
-    const { data: order, error } = await supabaseClient
+    const { data: order, error: orderError } = await supabaseClient
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single();
 
-    if (error || !order) {
-      console.error(error);
-      document.getElementById('order-info').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
+    if (orderError || !order) {
+      console.error(orderError);
+      document.getElementById('order-details').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
       return;
     }
 
-    currentStatus = order.status;
-    document.getElementById('order-id').innerText = orderId.substring(0,8);
-    document.getElementById('order-date').innerText = new Date(order.created_at).toLocaleString('pt-BR');
-    document.getElementById('customer-name').innerText = order.customer_name;
+    // Buscar itens do pedido
+    const { data: items, error: itemsError } = await supabaseClient
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
 
-    updateStatusUI(currentStatus);
-
-    // Inscrever para mudanças em tempo real
-    const channel = supabaseClient
-      .channel(`order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${orderId}`
-        },
-        (payload) => {
-          const newStatus = payload.new.status;
-          if (newStatus !== currentStatus) {
-            currentStatus = newStatus;
-            updateStatusUI(currentStatus);
-          }
-        }
-      )
-      .subscribe();
-
-    // Limpar inscrição ao sair da página
-    window.addEventListener('beforeunload', () => {
-      supabaseClient.removeChannel(channel);
-    });
-  }
-
-  function updateStatusUI(status) {
-    // Atualizar classes dos steps
-    const steps = document.querySelectorAll('.status-step');
-    steps.forEach(step => {
-      step.classList.remove('active', 'completed');
-      const stepName = step.dataset.step;
-      const stepIndex = statusOrder.indexOf(stepName);
-      const currentIndex = statusOrder.indexOf(status);
-      if (stepIndex < currentIndex) {
-        step.classList.add('completed');
-      } else if (stepIndex === currentIndex) {
-        step.classList.add('active');
-      }
-    });
-
-    // Atualizar barra de progresso
-    const progressPercent = ((statusOrder.indexOf(status) + 1) / statusOrder.length) * 100;
-    document.getElementById('progress-fill').style.width = `${progressPercent}%`;
-
-    // Mensagem amigável
-    let message = '';
-    switch (status) {
-      case 'received':
-        message = '✅ Pedido recebido! Em breve começaremos a preparar.';
-        break;
-      case 'preparing':
-        message = '🍳 Seu pedido está sendo preparado com todo carinho!';
-        break;
-      case 'delivery':
-        message = '🛵 Saiu para entrega! Fique atento(a) ao seu celular.';
-        break;
-      case 'delivered':
-        message = '🎉 Pedido entregue! Aproveite e avalie nossa loja.';
-        break;
-      default:
-        message = 'Aguardando atualização...';
+    if (itemsError) {
+      console.error(itemsError);
     }
-    document.getElementById('status-message').innerHTML = message;
+
+    const formatDate = (iso) => {
+      const d = new Date(iso);
+      return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    };
+
+    const formatMoney = (cents) => {
+      return (cents / 100).toFixed(2).replace('.', ',');
+    };
+
+    let itemsHtml = '';
+    if (items && items.length > 0) {
+      itemsHtml = items.map(item => `
+        <div class="item-row">
+          <span>${item.quantity}x ${escapeHtml(item.product_name)}</span>
+          <span>R$ ${formatMoney(item.line_total_cents)}</span>
+        </div>
+      `).join('');
+    } else {
+      itemsHtml = '<div class="text-center text-error p-4">⚠️ Itens não disponíveis para exibição, mas seu pedido foi registrado. Entre em contato conosco se necessário.</div>';
+    }
+
+    const deliveryAddress = order.delivery_address ? `<p><strong>Endereço:</strong> ${escapeHtml(order.delivery_address)}</p>` : '';
+    const paymentMethod = order.payment_method === 'pix' ? 'PIX' : (order.payment_method === 'cartao' ? 'Cartão' : 'Dinheiro');
+    const discount = order.discount_cents > 0 ? `<p><strong>Desconto:</strong> - R$ ${formatMoney(order.discount_cents)}</p>` : '';
+
+    const html = `
+      <p><strong>Pedido #:</strong> ${orderId.substring(0,8)}</p>
+      <p><strong>Data/Hora:</strong> ${formatDate(order.created_at)}</p>
+      <p><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</p>
+      <p><strong>Telefone:</strong> ${escapeHtml(order.customer_phone)}</p>
+      ${deliveryAddress}
+      <p><strong>Pagamento:</strong> ${paymentMethod}</p>
+      ${discount}
+      <div class="mt-4">
+        <h3 class="font-bold">Itens:</h3>
+        <div class="mt-2">${itemsHtml}</div>
+      </div>
+      <div class="total-row">
+        <div class="flex justify-between"><span>Total:</span><span class="text-primary text-xl">R$ ${formatMoney(order.total_cents)}</span></div>
+      </div>
+    `;
+
+    document.getElementById('order-details').innerHTML = html;
   }
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  }
+
+  // ================== HEADER AUTH ==================
+  async function updateHeaderAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const userMenu = document.getElementById('user-menu');
+    const loginLink = document.getElementById('login-link');
+    if (session) {
+      userMenu.classList.remove('hidden');
+      loginLink.classList.add('hidden');
+      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
+      const userName = profile?.name || session.user.email.split('@')[0];
+      document.getElementById('user-name').innerText = userName;
+    } else {
+      userMenu.classList.add('hidden');
+      loginLink.classList.remove('hidden');
+    }
+  }
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  // ================== SIDEBAR ==================
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const openBtn = document.getElementById('open-sidebar-btn');
+  const closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+  function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1280) closeSidebar(); }));
+
+  async function updateSidebarAuth() {
+    const loginLink = document.getElementById('sidebar-login-link');
+    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
+    const perfil = document.getElementById('sidebar-perfil');
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (loginLink && meusPedidos && perfil && logoutBtn) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        loginLink.classList.add('hidden');
+        meusPedidos.classList.remove('hidden');
+        perfil.classList.remove('hidden');
+        logoutBtn.classList.remove('hidden');
+      } else {
+        loginLink.classList.remove('hidden');
+        meusPedidos.classList.add('hidden');
+        perfil.classList.add('hidden');
+        logoutBtn.classList.add('hidden');
+      }
+    }
+  }
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    document.getElementById('cart-count').innerText = totalItems;
+  }
+  updateCartCount();
+
+  updateHeaderAuth();
+  updateSidebarAuth();
   loadOrder();
 </script>
 </body>
