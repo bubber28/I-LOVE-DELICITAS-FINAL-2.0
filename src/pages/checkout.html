@@ -60,7 +60,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) – omitido por brevidade, igual ao código anterior -->
+<!-- Sidebar (menu hambúrguer) – mesmo código -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -204,6 +204,46 @@
   let cepValido = false;
   let currentDistance = null;
 
+  // ================== PERSISTÊNCIA DOS DADOS DO FORMULÁRIO ==================
+  function saveFormData() {
+    const formFields = ['customer-name', 'customer-phone', 'cpf', 'cep', 'rua', 'numero', 'bairro', 'complemento', 'cidade', 'uf', 'referencia', 'delivery-type', 'payment-method'];
+    const data = {};
+    formFields.forEach(field => {
+      const el = document.getElementById(field);
+      if (el) data[field] = el.value;
+    });
+    localStorage.setItem('checkout_form_data', JSON.stringify(data));
+  }
+
+  function restoreFormData() {
+    const saved = localStorage.getItem('checkout_form_data');
+    if (!saved) return;
+    try {
+      const data = JSON.parse(saved);
+      for (const [field, value] of Object.entries(data)) {
+        const el = document.getElementById(field);
+        if (el && value) el.value = value;
+      }
+      // Após restaurar, se o CEP existir, recalcular frete
+      const cep = document.getElementById('cep').value;
+      if (cep && cep.replace(/\D/g, '').length === 8) {
+        setTimeout(() => atualizarFrete(), 300);
+      }
+    } catch(e) { console.warn(e); }
+  }
+
+  function attachAutoSave() {
+    const fields = ['customer-name', 'customer-phone', 'cpf', 'cep', 'rua', 'numero', 'bairro', 'complemento', 'cidade', 'uf', 'referencia', 'delivery-type', 'payment-method'];
+    fields.forEach(field => {
+      const el = document.getElementById(field);
+      if (el) {
+        el.addEventListener('input', saveFormData);
+        el.addEventListener('change', saveFormData);
+      }
+    });
+  }
+
+  // ================== FUNÇÕES EXISTENTES (sem alterações significativas) ==================
   function formatCPF(value) {
     value = value.replace(/\D/g, '');
     if (value.length > 11) value = value.slice(0, 11);
@@ -314,7 +354,6 @@
     }
 
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
-    // Frete grátis só se distância calculada E dentro do limite E subtotal >= mínimo
     const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima && subtotal >= config.frete_gratis_minimo);
     if (freeShippingAvailable) {
       console.log('Frete grátis aplicado (distância dentro do limite e valor mínimo atingido)');
@@ -376,7 +415,6 @@
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
 
-    // A mensagem aparece se subtotal < mínimo, independente da distância
     if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || subtotal >= min) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
@@ -415,20 +453,26 @@
         .eq('id', userId)
         .single();
       if (profile) {
-        if (profile.name) document.getElementById('customer-name').value = profile.name;
-        if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
-        if (profile.cpf) document.getElementById('cpf').value = formatCPF(profile.cpf);
+        if (profile.name && !localStorage.getItem('checkout_form_data')) document.getElementById('customer-name').value = profile.name;
+        if (profile.phone && !localStorage.getItem('checkout_form_data')) document.getElementById('customer-phone').value = profile.phone;
+        if (profile.cpf && !localStorage.getItem('checkout_form_data')) document.getElementById('cpf').value = formatCPF(profile.cpf);
       }
     } else {
       userId = null;
     }
 
+    // Restaurar dados salvos (sobrescreve perfil se houver)
+    restoreFormData();
+
     const cpfInput = document.getElementById('cpf');
     if (cpfInput) {
       cpfInput.addEventListener('input', function(e) {
         this.value = formatCPF(this.value);
+        saveFormData();
       });
     }
+
+    attachAutoSave();
 
     document.getElementById('frete').innerText = '--';
     currentFrete = 0;
@@ -548,8 +592,6 @@
       line_total_cents: (i.price_cents * (i.quantity || 1))
     }));
 
-    console.log('Itens a inserir:', itemsToInsert);
-
     const { error: itemsError } = await supabaseClient
       .from('order_items')
       .insert(itemsToInsert);
@@ -569,11 +611,14 @@
         .eq('id', appliedCoupon.id);
     }
 
+    // Limpar dados salvos do formulário após pedido finalizado
+    localStorage.removeItem('checkout_form_data');
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
     window.location.href = `/pedido-confirmado?id=${orderId}`;
   }
 
+  // Event listeners (mantidos)
   document.getElementById('submit-order').addEventListener('click', submitOrder);
   document.getElementById('buscar-cep').addEventListener('click', async () => {
     let cep = document.getElementById('cep').value;
@@ -589,6 +634,7 @@
       document.getElementById('cidade').value = endereco.localidade || '';
       document.getElementById('uf').value = endereco.uf || '';
       document.getElementById('numero').focus();
+      saveFormData();
       await atualizarFrete();
     }
   });
@@ -605,6 +651,7 @@
       cepValido = false;
       atualizarAvisoFreteGratis();
     }
+    saveFormData();
   });
 
   const addressFields = ['rua', 'numero', 'bairro', 'cidade', 'uf'];
@@ -614,6 +661,7 @@
       if (cep && cep.replace(/\D/g, '').length === 8) {
         atualizarFrete();
       }
+      saveFormData();
     });
   });
 
@@ -636,6 +684,7 @@
         atualizarAvisoFreteGratis();
       }
     }
+    saveFormData();
   });
 
   // Header auth e sidebar (mesmo código anterior)
