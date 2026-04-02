@@ -60,7 +60,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) – igual ao código anterior -->
+<!-- Sidebar (menu hambúrguer) – omitido por brevidade, igual ao código anterior -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -170,7 +170,7 @@
         <div class="flex justify-between text-lg font-bold text-primary"><span>Total</span><span id="total">R$ 0,00</span></div>
       </div>
 
-      <!-- Aviso e barra de frete grátis -->
+      <!-- Aviso e barra de frete grátis (sempre visível se subtotal < mínimo) -->
       <div id="frete-gratis-aviso" class="mt-4 p-3 bg-primary-container/20 rounded-lg text-center text-sm hidden">
         <span class="material-symbols-outlined text-primary text-sm align-middle">redeem</span>
         <span id="frete-gratis-mensagem"></span>
@@ -314,8 +314,9 @@
     }
 
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
-    const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima);
-    if (freeShippingAvailable && subtotal >= config.frete_gratis_minimo) {
+    // Frete grátis só se distância calculada E dentro do limite E subtotal >= mínimo
+    const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima && subtotal >= config.frete_gratis_minimo);
+    if (freeShippingAvailable) {
       console.log('Frete grátis aplicado (distância dentro do limite e valor mínimo atingido)');
       return 0;
     }
@@ -374,9 +375,9 @@
     const deliveryType = document.getElementById('delivery-type').value;
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
-    const freeShippingEligible = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima);
 
-    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || !cepValido || !freeShippingEligible || subtotal >= min) {
+    // A mensagem aparece se subtotal < mínimo, independente da distância
+    if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || subtotal >= min) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
       return;
@@ -384,7 +385,7 @@
 
     const falta = (min - subtotal).toFixed(2);
     const percentual = (subtotal / min) * 100;
-    document.getElementById('frete-gratis-mensagem').innerHTML = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>!`;
+    document.getElementById('frete-gratis-mensagem').innerHTML = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2">Que tal adicionar mais itens?</a>`;
     document.getElementById('frete-gratis-fill').style.width = `${percentual}%`;
     avisoDiv.classList.remove('hidden');
     barDiv.classList.remove('hidden');
@@ -536,10 +537,9 @@
       return;
     }
 
-    const orderId = order[0].id; // UUID completo
+    const orderId = order[0].id;
     console.log('Pedido criado com ID:', orderId);
 
-    // Inserir itens
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
       product_name: i.name,
@@ -571,7 +571,6 @@
 
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
-    // Redireciona com o UUID completo
     window.location.href = `/pedido-confirmado?id=${orderId}`;
   }
 
