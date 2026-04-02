@@ -1,101 +1,91 @@
 // ==================================================
-// BOTÃO FLUTUANTE DE ACOMPANHAMENTO DE PEDIDO
-// Versão: suporte a guest_id, texto personalizado
+// BOTÃO FLUTUANTE DE ACOMPANHAMENTO DE PEDIDO (VERSÃO FINAL)
 // ==================================================
-(async function() {
-  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+(async function () {
+    const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  let activeOrder = null;
-  let button = null;
+    let activeOrder = null;
+    let button = null;
+    let orderChannel = null;
+    const FINAL_STATUSES = ['delivered', 'canceled'];
 
-  async function fetchActiveOrder(userId, guestId) {
-    if (userId) {
-      const { data, error } = await supabaseClient
-        .from('orders')
-        .select('id, status')
-        .eq('user_id', userId)
-        .in('status', ['received', 'preparing', 'ready', 'delivery'])
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (error || !data || data.length === 0) return null;
-      return data[0];
-    } else if (guestId) {
-      const { data, error } = await supabaseClient
-        .from('orders')
-        .select('id, status')
-        .eq('guest_id', guestId)
-        .in('status', ['received', 'preparing', 'ready', 'delivery'])
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (error || !data || data.length === 0) return null;
-      return data[0];
-    }
-    return null;
-  }
+    // Busca o pedido ativo mais recente, excluindo os finais
+    async function fetchActiveOrder(userId, guestId) {
+        let query = supabaseClient
+            .from('orders')
+            .select('id, status')
+            .not('status', 'in', `(${FINAL_STATUSES.map(s => `'${s}'`).join(',')})`)
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-  function createButton(order) {
-    if (button) button.remove();
-    button = document.createElement('div');
-    button.id = 'floating-order-btn';
-    button.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px; background: #ae2f34; color: white; padding: 12px 20px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; font-family: 'Be Vietnam Pro', sans-serif; font-weight: bold; transition: transform 0.2s;">
-        <span class="material-symbols-outlined" style="font-size: 20px;">delivery_tracking</span>
-        <span>Acompanhe seu pedido Aqui</span>
-        <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
-      </div>
-    `;
-    button.style.position = 'fixed';
-    button.style.bottom = '20px';
-    button.style.right = '20px';
-    button.style.zIndex = '1000';
-    button.addEventListener('click', () => {
-      window.location.href = `/acompanhamento?id=${order.id}`;
-    });
-    document.body.appendChild(button);
-  }
-
-  async function init() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const userId = session?.user?.id || null;
-    const guestId = localStorage.getItem('guest_id');
-    activeOrder = await fetchActiveOrder(userId, guestId);
-    if (activeOrder) createButton(activeOrder);
-
-    // Real-time: se houver alteração no pedido (status ou novo pedido)
-    let filter = '';
-    if (userId) filter = `user_id=eq.${userId}`;
-    else if (guestId) filter = `guest_id=eq.${guestId}`;
-    else return;
-
-    const channel = supabaseClient
-      .channel('floating-order')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'orders',
-        filter: filter
-      }, async () => {
-        const newOrder = await fetchActiveOrder(userId, guestId);
-        if (newOrder) {
-          if (!activeOrder || activeOrder.id !== newOrder.id || activeOrder.status !== newOrder.status) {
-            activeOrder = newOrder;
-            createButton(activeOrder);
-          }
+        if (userId) {
+            query = query.eq('user_id', userId);
+        } else if (guestId) {
+            query = query.eq('guest_id', guestId);
         } else {
-          if (button) button.remove();
-          button = null;
-          activeOrder = null;
+            return null;
         }
-      })
-      .subscribe();
-    window.addEventListener('beforeunload', () => supabaseClient.removeChannel(channel));
-  }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+        const { data, error } = await query;
+        if (error || !data || data.length === 0) return null;
+        return data[0];
+    }
+
+    // Cria o botão com o visual que você pediu
+    function createButton(order) {
+        if (button) button.remove();
+        button = document.createElement('div');
+        button.id = 'floating-order-btn';
+        button.innerHTML = `
+            <div class="fixed bottom-5 right-5 z-50 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-all duration-300 flex items-center gap-2 px-4 py-3 cursor-pointer font-bold text-sm">
+                <span class="material-symbols-outlined text-xl">delivery_tracking</span>
+                <span>Acompanhar pedido</span>
+            </div>
+        `;
+        document.body.appendChild(button);
+        button.addEventListener('click', () => {
+            window.location.href = `/acompanhamento?id=${order.id}`;
+        });
+    }
+
+    async function init() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const userId = session?.user?.id || null;
+        const guestId = localStorage.getItem('guest_id');
+
+        activeOrder = await fetchActiveOrder(userId, guestId);
+        if (activeOrder) createButton(activeOrder);
+
+        // Listener em tempo real para mudanças no status do pedido ativo
+        if (activeOrder) {
+            if (orderChannel) supabaseClient.removeChannel(orderChannel);
+            orderChannel = supabaseClient
+                .channel(`order-status-${activeOrder.id}`)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'orders',
+                    filter: `id=eq.${activeOrder.id}`
+                }, (payload) => {
+                    const newStatus = payload.new.status;
+                    if (FINAL_STATUSES.includes(newStatus)) {
+                        if (button) button.remove();
+                        button = null;
+                        activeOrder = null;
+                        if (orderChannel) supabaseClient.removeChannel(orderChannel);
+                    } else {
+                        if (!button && activeOrder) createButton(activeOrder);
+                    }
+                })
+                .subscribe();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();
