@@ -271,14 +271,10 @@
         el.addEventListener('change', saveFormData);
       }
     });
-    // Salva antes de sair da página
     window.addEventListener('beforeunload', saveFormData);
-    // Captura cliques em links (inclusive os gerados dinamicamente)
     document.body.addEventListener('click', (e) => {
       const link = e.target.closest('a');
-      if (link && link.href) {
-        saveFormData();
-      }
+      if (link && link.href) saveFormData();
     });
   }
 
@@ -287,7 +283,6 @@
     localStorage.removeItem(key);
   }
 
-  // ================== FUNÇÕES DE APOIO ==================
   function formatCPF(value) {
     value = value.replace(/\D/g, '');
     if (value.length > 11) value = value.slice(0, 11);
@@ -301,7 +296,6 @@
     return value;
   }
 
-  // ================== CONFIGURAÇÕES E GEOLOCALIZAÇÃO ==================
   async function loadConfig() {
     const { data, error } = await supabaseClient
       .from('app_config')
@@ -367,7 +361,6 @@
     }
   }
 
-  // ================== CÁLCULO DO FRETE E MENSAGEM ==================
   async function calcularFrete(cep, addressString, subtotal) {
     if (!cep || cep.replace(/\D/g, '').length !== 8) return config.frete_padrao;
 
@@ -399,7 +392,6 @@
       currentDistance = null;
     }
 
-    // Frete grátis apenas se distância ≤ limite E subtotal ≥ mínimo
     const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima && subtotal >= config.frete_gratis_minimo);
     if (freeShippingAvailable) {
       console.log('Frete grátis aplicado (distância dentro do limite e valor mínimo atingido)');
@@ -456,7 +448,6 @@
   }
 
   // Mensagem de frete grátis: aparece sempre que subtotal < mínimo, independente da distância.
-  // O link "Que tal adicionar mais itens?" está incluso.
   function atualizarAvisoFreteGratis() {
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     const min = config.frete_gratis_minimo;
@@ -464,7 +455,6 @@
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
 
-    // Se for retirada, mínimo zero, carrinho vazio ou subtotal já ≥ mínimo, esconde
     if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || subtotal >= min) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
@@ -473,20 +463,16 @@
 
     const falta = (min - subtotal).toFixed(2);
     const percentual = (subtotal / min) * 100;
-    // Link visível e funcional
     document.getElementById('frete-gratis-mensagem').innerHTML = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">Que tal adicionar mais itens?</a>`;
     document.getElementById('frete-gratis-fill').style.width = `${percentual}%`;
     avisoDiv.classList.remove('hidden');
     barDiv.classList.remove('hidden');
     
-    // Garante que o link dinâmico também dispare o salvamento antes de navegar
     const link = document.getElementById('add-more-items-link');
-    if (link) {
-      link.addEventListener('click', () => saveFormData());
-    }
+    if (link) link.addEventListener('click', () => saveFormData());
   }
 
-  // ================== CONTROLE DE EXIBIÇÃO (ENTREGA X RETIRADA) ==================
+  // Controle de exibição entrega x retirada
   function toggleAddressBlocks() {
     const deliveryType = document.getElementById('delivery-type').value;
     const addressBlock = document.getElementById('address-block');
@@ -494,25 +480,21 @@
     if (deliveryType === 'pickup') {
       addressBlock.classList.add('hidden-block');
       pickupBlock.classList.remove('hidden-block');
-      // Remove required dos campos de endereço para não travar o formulário
       document.querySelectorAll('#address-block input, #address-block select').forEach(field => {
         if (field.hasAttribute('required')) field.removeAttribute('required');
       });
     } else {
       addressBlock.classList.remove('hidden-block');
       pickupBlock.classList.add('hidden-block');
-      // Restaura required para os campos essenciais
       const requiredFields = ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf'];
       requiredFields.forEach(id => {
         const field = document.getElementById(id);
         if (field) field.setAttribute('required', 'required');
       });
     }
-    // Recalcula frete (para delivery) ou zera (para pickup)
     atualizarFrete();
   }
 
-  // ================== CARREGAR DADOS INICIAIS ==================
   async function loadData() {
     await loadConfig();
 
@@ -565,7 +547,6 @@
       });
     }
 
-    // Controle de exibição entrega/retirada
     toggleAddressBlocks();
     document.getElementById('delivery-type').addEventListener('change', () => {
       toggleAddressBlocks();
@@ -764,7 +745,7 @@
     });
   });
 
-  // Header auth e sidebar (mesmo código anterior)
+  // Header auth e sidebar
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
