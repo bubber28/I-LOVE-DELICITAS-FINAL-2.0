@@ -220,6 +220,7 @@
   let cepValido = false;
   let currentDistance = null;
 
+  // ================== PERSISTÊNCIA POR USUÁRIO/GUEST ==================
   function getStorageKey() {
     if (userId) return `checkout_form_data_${userId}`;
     if (guestId) return `checkout_form_data_${guestId}`;
@@ -264,6 +265,10 @@
       }
     });
     window.addEventListener('beforeunload', saveFormData);
+    document.body.addEventListener('click', (e) => {
+      const link = e.target.closest('a');
+      if (link && link.href) saveFormData();
+    });
   }
 
   function clearFormData() {
@@ -302,7 +307,9 @@
   async function geocodeAddress(address) {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
     try {
-      const response = await fetch(url, { headers: { 'User-Agent': 'MeuDeliveryApp/1.0' } });
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'MeuDeliveryApp/1.0' }
+      });
       const data = await response.json();
       if (data && data.length > 0) {
         return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
@@ -335,18 +342,28 @@
 
   async function calcularFrete(cep, addressString, subtotal) {
     if (!cep || cep.replace(/\D/g, '').length !== 8) return config.frete_padrao;
+
     const cepLimpo = cep.replace(/\D/g, '');
-    const { data: regiao } = await supabaseClient.from('frete_regioes').select('valor').lte('cep_inicio', cepLimpo).gte('cep_fim', cepLimpo).maybeSingle();
+    const { data: regiao } = await supabaseClient
+      .from('frete_regioes')
+      .select('valor')
+      .lte('cep_inicio', cepLimpo)
+      .gte('cep_fim', cepLimpo)
+      .maybeSingle();
+
     let frete = regiao ? parseFloat(regiao.valor) : config.frete_padrao;
+
     let distancia = null;
     if (config.store_lat && config.store_lng && addressString) {
       const coords = await geocodeAddress(addressString);
       if (coords) {
         distancia = haversineDistance(config.store_lat, config.store_lng, coords.lat, coords.lng);
         currentDistance = distancia;
-      }
-    }
-    if (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima && subtotal >= config.frete_gratis_minimo) return 0;
+      } else { currentDistance = null; }
+    } else { currentDistance = null; }
+
+    const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima && subtotal >= config.frete_gratis_minimo);
+    if (freeShippingAvailable) return 0;
     return frete;
   }
 
@@ -360,6 +377,7 @@
       cepValido = true;
       return;
     }
+
     const cep = document.getElementById('cep').value;
     if (!cep || cep.replace(/\D/g, '').length !== 8) {
       document.getElementById('frete').innerText = '--';
@@ -369,12 +387,17 @@
       cepValido = false;
       return;
     }
+
     const rua = document.getElementById('rua').value;
     const numero = document.getElementById('numero').value;
     const bairro = document.getElementById('bairro').value;
     const cidade = document.getElementById('cidade').value;
     const uf = document.getElementById('uf').value;
-    let addressString = (rua && numero && bairro && cidade && uf) ? `${rua}, ${numero} - ${bairro}, ${cidade} - ${uf}` : '';
+    let addressString = '';
+    if (rua && numero && bairro && cidade && uf) {
+      addressString = `${rua}, ${numero} - ${bairro}, ${cidade} - ${uf}`;
+    }
+
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     currentFrete = await calcularFrete(cep, addressString, subtotal);
     document.getElementById('frete').innerText = `R$ ${currentFrete.toFixed(2).replace('.', ',')}`;
@@ -396,17 +419,25 @@
     const deliveryType = document.getElementById('delivery-type').value;
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
+
     if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || subtotal >= min) {
       avisoDiv.classList.add('hidden');
       barDiv.classList.add('hidden');
       return;
     }
+
     const falta = (min - subtotal).toFixed(2);
     const percentual = (subtotal / min) * 100;
-    document.getElementById('frete-gratis-mensagem').innerHTML = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2">Adicionar mais itens?</a>`;
+    
+    // LINHA ORIGINAL MANTIDA:
+    document.getElementById('frete-gratis-mensagem').innerHTML = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">Que tal adicionar mais itens?</a>`;
+    
     document.getElementById('frete-gratis-fill').style.width = `${percentual}%`;
     avisoDiv.classList.remove('hidden');
     barDiv.classList.remove('hidden');
+    
+    const link = document.getElementById('add-more-items-link');
+    if (link) link.addEventListener('click', () => saveFormData());
   }
 
   function toggleAddressBlocks() {
@@ -416,11 +447,16 @@
     if (deliveryType === 'pickup') {
       addressBlock.classList.add('hidden-block');
       pickupBlock.classList.remove('hidden-block');
-      document.querySelectorAll('#address-block input').forEach(field => field.removeAttribute('required'));
+      document.querySelectorAll('#address-block input').forEach(field => {
+        if (field.hasAttribute('required')) field.removeAttribute('required');
+      });
     } else {
       addressBlock.classList.remove('hidden-block');
       pickupBlock.classList.add('hidden-block');
-      ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf'].forEach(id => document.getElementById(id).setAttribute('required', 'required'));
+      ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf'].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.setAttribute('required', 'required');
+      });
     }
     atualizarFrete();
   }
@@ -430,23 +466,28 @@
     const storedCart = localStorage.getItem('cart');
     cart = storedCart ? JSON.parse(storedCart) : [];
     if (cart.length === 0) { window.location.href = '/carrinho'; return; }
+
     const storedCoupon = localStorage.getItem('appliedCoupon');
     appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
     updateCartCount();
     renderSummary();
+
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       userId = session.user.id;
       const { data: profile } = await supabaseClient.from('profiles').select('name, phone, cpf').eq('id', userId).single();
       if (profile) {
-        if (profile.name) document.getElementById('customer-name').value = profile.name;
-        if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
-        if (profile.cpf) document.getElementById('cpf').value = formatCPF(profile.cpf);
+        if (!localStorage.getItem(getStorageKey())) {
+          if (profile.name) document.getElementById('customer-name').value = profile.name;
+          if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
+          if (profile.cpf) document.getElementById('cpf').value = formatCPF(profile.cpf);
+        }
       }
     } else {
       guestId = localStorage.getItem('guest_id') || ('guest_' + Date.now());
       localStorage.setItem('guest_id', guestId);
     }
+
     restoreFormData();
     attachAutoSave();
     toggleAddressBlocks();
@@ -470,9 +511,6 @@
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
   }
 
-  // ==========================================
-  // FUNÇÃO SUBMIT ATUALIZADA COM SINAL DE SOM
-  // ==========================================
   async function submitOrder() {
     const name = document.getElementById('customer-name').value.trim();
     const phone = document.getElementById('customer-phone').value.trim();
@@ -493,9 +531,7 @@
       const cidade = document.getElementById('cidade').value.trim();
       const uf = document.getElementById('uf').value.trim();
       if (!rua || !numero || !bairro || !cidade || !uf) {
-        errorEl.textContent = 'Preencha o endereço completo.';
-        errorEl.classList.remove('hidden');
-        return;
+        errorEl.textContent = 'Preencha o endereço completo.'; errorEl.classList.remove('hidden'); return;
       }
       enderecoCompleto = `${rua}, ${numero} - ${bairro}, ${cidade} - ${uf}`;
     }
@@ -525,7 +561,7 @@
 
     const orderId = order[0].id;
 
-    // --- GATILHO PARA O SOM (REALTIME) ---
+    // --- SINAL PARA O PAINEL DE PEDIDOS (SOM) ---
     supabaseClient.channel('admin-notifications').send({
       type: 'broadcast',
       event: 'new-order',
@@ -561,11 +597,15 @@
       document.getElementById('cidade').value = endereco.localidade || '';
       document.getElementById('uf').value = endereco.uf || '';
       document.getElementById('numero').focus();
+      saveFormData();
       await atualizarFrete();
     }
   });
 
-  document.getElementById('delivery-type').addEventListener('change', toggleAddressBlocks);
+  document.getElementById('delivery-type').addEventListener('change', () => { toggleAddressBlocks(); saveFormData(); });
+  ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf'].forEach(field => {
+    document.getElementById(field).addEventListener('change', () => { atualizarFrete(); saveFormData(); });
+  });
 
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -582,6 +622,5 @@
   updateHeaderAuth();
   loadData();
 </script>
-<script src="/src/pages/floating-order-button.js"></script>
 </body>
 </html>
