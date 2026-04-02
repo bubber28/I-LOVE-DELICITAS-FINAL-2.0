@@ -12,6 +12,7 @@
     { "source": "/reset-password", "destination": "/src/pages/reset-password.html" },
     { "source": "/perfil", "destination": "/src/pages/perfil.html" },
     { "source": "/meus-pedidos", "destination": "/src/pages/meus-pedidos.html" },
+    { "source": "/src/pages/:path*.js", "destination": "/src/pages/:path*.js" },
     { "source": "/:path*", "destination": "/src/pages/:path*.html" }
   ]
 }
