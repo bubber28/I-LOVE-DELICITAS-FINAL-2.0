@@ -153,9 +153,9 @@
   function saveCart() {
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
-    renderCart();     // recria os elementos com as novas quantidades
-    updateTotals();   // recalcula subtotal e total
-    loadCrossSell();  // atualiza sugestões
+    renderCart();
+    updateTotals();
+    loadCrossSell();
   }
 
   function renderCart() {
@@ -186,7 +186,6 @@
       </div>
     `}).join('');
 
-    // Adiciona eventos aos botões recém-criados
     document.querySelectorAll('.qty-btn').forEach(btn => {
       btn.removeEventListener('click', handleQuantityClick);
       btn.addEventListener('click', handleQuantityClick);
@@ -209,7 +208,7 @@
     } else {
       cart[idx].quantity = newQty;
     }
-    saveCart();  // salva, recarrega tela e atualiza totais
+    saveCart();
   }
 
   function handleRemoveClick(e) {
@@ -280,44 +279,54 @@
     updateTotals();
   }
 
-  // ================== CROSS‑SELL ==================
+  // ================== CROSS‑SELL CORRIGIDO (ERRO 400) ==================
   async function loadCrossSell() {
-    if (cart.length === 0) return;
-    const productIds = cart.map(i => i.id).filter(id => id);
-    if (productIds.length === 0) return;
+    try {
+      if (cart.length === 0) return;
 
-    let query = supabaseClient
-      .from('products')
-      .select('*')
-      .eq('active', true)
-      .gt('stock', 0)
-      .limit(3);
+      const productIds = cart.map(i => i.id).filter(id => id);
+      if (productIds.length === 0) return;
 
-    if (productIds.length > 0) {
-      query = query.not('id', 'in', `(${productIds.map(id => `'${id}'`).join(',')})`);
+      let query = supabaseClient
+        .from('products')
+        .select('*')
+        .eq('active', true)
+        .gt('stock', 0)
+        .limit(3);
+
+      if (productIds.length > 0) {
+        const ids = productIds.map(id => `'${id}'`).join(',');
+        query = query.not('id', 'in', `(${ids})`);
+      }
+
+      const { data: suggestions, error } = await query;
+      if (error) {
+        console.error('Erro no cross‑sell:', error);
+        return;
+      }
+      if (!suggestions || suggestions.length === 0) return;
+
+      const container = document.getElementById('cross-sell-container');
+      const section = document.getElementById('cross-sell-section');
+      container.innerHTML = suggestions.map(prod => `
+        <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
+          <div class="mb-4 overflow-hidden rounded-xl">
+            <img class="product-image w-full h-40 object-cover" src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(prod.name)}">
+          </div>
+          <h3 class="font-headline font-bold text-xl mb-1">${escapeHtml(prod.name)}</h3>
+          <p class="text-sm text-on-surface-variant mb-3 line-clamp-2">${escapeHtml(prod.description || 'Delícia artesanal')}</p>
+          <div class="flex justify-between items-center">
+            <span class="text-2xl font-black text-on-surface">R$ ${(prod.price_cents / 100).toFixed(2).replace('.', ',')}</span>
+            <button onclick="addToCartCrossSell('${prod.id}', '${escapeHtml(prod.name)}', ${prod.price_cents}, '${prod.image_url || ''}')" class="bg-secondary text-white p-3 rounded-full hover:scale-110 transition">
+              <span class="material-symbols-outlined">add_shopping_cart</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+      section.classList.remove('hidden');
+    } catch (err) {
+      console.error('Falha no cross‑sell:', err);
     }
-
-    const { data: suggestions, error } = await query;
-    if (error || !suggestions || suggestions.length === 0) return;
-
-    const container = document.getElementById('cross-sell-container');
-    const section = document.getElementById('cross-sell-section');
-    container.innerHTML = suggestions.map(prod => `
-      <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
-        <div class="mb-4 overflow-hidden rounded-xl">
-          <img class="product-image w-full h-40 object-cover" src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(prod.name)}">
-        </div>
-        <h3 class="font-headline font-bold text-xl mb-1">${escapeHtml(prod.name)}</h3>
-        <p class="text-sm text-on-surface-variant mb-3 line-clamp-2">${escapeHtml(prod.description || 'Delícia artesanal')}</p>
-        <div class="flex justify-between items-center">
-          <span class="text-2xl font-black text-on-surface">R$ ${(prod.price_cents / 100).toFixed(2).replace('.', ',')}</span>
-          <button onclick="addToCartCrossSell('${prod.id}', '${escapeHtml(prod.name)}', ${prod.price_cents}, '${prod.image_url || ''}')" class="bg-secondary text-white p-3 rounded-full hover:scale-110 transition">
-            <span class="material-symbols-outlined">add_shopping_cart</span>
-          </button>
-        </div>
-      </div>
-    `).join('');
-    section.classList.remove('hidden');
   }
 
   window.addToCartCrossSell = function(id, name, priceCents, imageUrl) {
@@ -405,5 +414,9 @@
   updateSidebarAuth();
   loadCart();
 </script>
+
+<!-- Botão flutuante de acompanhamento (funciona para logados e deslogados) -->
+<script src="/src/pages/floating-order-button.js"></script>
+
 </body>
 </html>
