@@ -204,19 +204,28 @@
   let cepValido = false;
   let currentDistance = null;
 
-  // ================== PERSISTÊNCIA DOS DADOS DO FORMULÁRIO ==================
+  // ================== PERSISTÊNCIA POR USUÁRIO ==================
+  function getStorageKey() {
+    if (userId) return `checkout_form_data_${userId}`;
+    // Para não logados, usar uma chave fixa (mas ainda assim, se o navegador for compartilhado, pode misturar)
+    // Para evitar isso, podemos usar sessionStorage (vai limpar ao fechar a aba)
+    return 'checkout_form_data_guest';
+  }
+
   function saveFormData() {
+    const key = getStorageKey();
     const formFields = ['customer-name', 'customer-phone', 'cpf', 'cep', 'rua', 'numero', 'bairro', 'complemento', 'cidade', 'uf', 'referencia', 'delivery-type', 'payment-method'];
     const data = {};
     formFields.forEach(field => {
       const el = document.getElementById(field);
       if (el) data[field] = el.value;
     });
-    localStorage.setItem('checkout_form_data', JSON.stringify(data));
+    localStorage.setItem(key, JSON.stringify(data));
   }
 
   function restoreFormData() {
-    const saved = localStorage.getItem('checkout_form_data');
+    const key = getStorageKey();
+    const saved = localStorage.getItem(key);
     if (!saved) return;
     try {
       const data = JSON.parse(saved);
@@ -243,7 +252,12 @@
     });
   }
 
-  // ================== FUNÇÕES EXISTENTES (sem alterações significativas) ==================
+  function clearFormData() {
+    const key = getStorageKey();
+    localStorage.removeItem(key);
+  }
+
+  // ================== FUNÇÕES EXISTENTES ==================
   function formatCPF(value) {
     value = value.replace(/\D/g, '');
     if (value.length > 11) value = value.slice(0, 11);
@@ -453,9 +467,13 @@
         .eq('id', userId)
         .single();
       if (profile) {
-        if (profile.name && !localStorage.getItem('checkout_form_data')) document.getElementById('customer-name').value = profile.name;
-        if (profile.phone && !localStorage.getItem('checkout_form_data')) document.getElementById('customer-phone').value = profile.phone;
-        if (profile.cpf && !localStorage.getItem('checkout_form_data')) document.getElementById('cpf').value = formatCPF(profile.cpf);
+        // Só preenche se não houver dados salvos para este usuário
+        const key = getStorageKey();
+        if (!localStorage.getItem(key)) {
+          if (profile.name) document.getElementById('customer-name').value = profile.name;
+          if (profile.phone) document.getElementById('customer-phone').value = profile.phone;
+          if (profile.cpf) document.getElementById('cpf').value = formatCPF(profile.cpf);
+        }
       }
     } else {
       userId = null;
@@ -612,13 +630,13 @@
     }
 
     // Limpar dados salvos do formulário após pedido finalizado
-    localStorage.removeItem('checkout_form_data');
+    clearFormData();
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
     window.location.href = `/pedido-confirmado?id=${orderId}`;
   }
 
-  // Event listeners (mantidos)
+  // Event listeners
   document.getElementById('submit-order').addEventListener('click', submitOrder);
   document.getElementById('buscar-cep').addEventListener('click', async () => {
     let cep = document.getElementById('cep').value;
@@ -705,6 +723,8 @@
   }
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
+    // Limpar dados do formulário ao sair
+    clearFormData();
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
@@ -742,6 +762,7 @@
   }
   document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
+    clearFormData();
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
