@@ -1,6 +1,3 @@
-// ==================================================
-// BOTÃO FLUTUANTE DE ACOMPANHAMENTO DE PEDIDO
-// ==================================================
 (async function() {
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
@@ -9,17 +6,29 @@
   let activeOrder = null;
   let button = null;
 
-  async function fetchActiveOrder(userId) {
-    if (!userId) return null;
-    const { data, error } = await supabaseClient
-      .from('orders')
-      .select('id, status')
-      .eq('user_id', userId)
-      .in('status', ['received', 'preparing', 'ready', 'delivery'])
-      .order('created_at', { ascending: false })
-      .limit(1);
-    if (error || !data || data.length === 0) return null;
-    return data[0];
+  async function fetchActiveOrder(userId, guestId) {
+    if (userId) {
+      const { data, error } = await supabaseClient
+        .from('orders')
+        .select('id, status')
+        .eq('user_id', userId)
+        .in('status', ['received', 'preparing', 'ready', 'delivery'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error || !data || data.length === 0) return null;
+      return data[0];
+    } else if (guestId) {
+      const { data, error } = await supabaseClient
+        .from('orders')
+        .select('id, status')
+        .eq('guest_id', guestId)
+        .in('status', ['received', 'preparing', 'ready', 'delivery'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error || !data || data.length === 0) return null;
+      return data[0];
+    }
+    return null;
   }
 
   function createButton(order) {
@@ -51,20 +60,24 @@
 
   async function init() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) return;
-    const userId = session.user.id;
-    activeOrder = await fetchActiveOrder(userId);
-    if (activeOrder) createButton(activeOrder);
+    let userId = session ? session.user.id : null;
+    let guestId = null;
+    if (!userId) {
+      guestId = localStorage.getItem('guest_id');
+    }
+    const order = await fetchActiveOrder(userId, guestId);
+    if (order) {
+      activeOrder = order;
+      createButton(activeOrder);
+    }
 
+    // Real-time para mudanças
+    const filter = userId ? `user_id=eq.${userId}` : (guestId ? `guest_id=eq.${guestId}` : null);
+    if (!filter) return;
     const channel = supabaseClient
       .channel('floating-order')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'orders',
-        filter: `user_id=eq.${userId}`
-      }, async () => {
-        const newOrder = await fetchActiveOrder(userId);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: filter }, async () => {
+        const newOrder = await fetchActiveOrder(userId, guestId);
         if (newOrder) {
           if (!activeOrder || activeOrder.id !== newOrder.id || activeOrder.status !== newOrder.status) {
             activeOrder = newOrder;
@@ -80,9 +93,6 @@
     window.addEventListener('beforeunload', () => supabaseClient.removeChannel(channel));
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
