@@ -9,13 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
+  /* Seus estilos existentes (mantenha) */
   body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
   .container-custom { max-width: 800px; margin: 0 auto; }
   .track-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
   .status-steps { display: flex; justify-content: space-between; margin: 2rem 0; position: relative; }
   .status-step { text-align: center; flex: 1; position: relative; z-index: 2; background: white; }
   .status-step .icon { background: #e5e7eb; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; transition: all 0.3s; }
-  .status-step.active .icon { background: #ae2f34; color: white; animation: pulse 1.5s infinite; box-shadow: 0 0 0 0 rgba(174,47,52,0.4); }
+  .status-step.active .icon { background: #ae2f34; color: white; animation: pulse 1.5s infinite; }
   .status-step.completed .icon { background: #10b981; color: white; }
   .status-step .label { font-size: 0.75rem; font-weight: 600; color: #6b7280; }
   .status-step.active .label { color: #ae2f34; font-weight: bold; }
@@ -26,13 +27,6 @@
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0.4); }
     70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(174,47,52,0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0); }
-  }
-  @keyframes bounceIcon {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.2); }
-  }
-  .status-step.active .icon .material-symbols-outlined {
-    animation: bounceIcon 0.4s ease;
   }
   @media (max-width: 640px) {
     .status-steps { flex-wrap: wrap; gap: 1rem; }
@@ -106,6 +100,7 @@
   let orderId = null;
   let currentStatus = null;
   const statusOrder = ['received', 'preparing', 'delivery', 'delivered'];
+  let orderChannel = null;
 
   async function loadOrder() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -115,15 +110,24 @@
       return;
     }
 
+    console.log('🔍 Buscando pedido ID:', orderId);
+    
+    // 🔥 Busca diretamente no banco (sem cache)
     const { data: order, error } = await supabaseClient
       .from('orders')
       .select('*')
       .eq('id', orderId)
-      .single();
+      .maybeSingle(); // .single() pode dar erro se não encontrar, usar maybeSingle
 
-    if (error || !order) {
-      console.error(error);
+    if (error) {
+      console.error('❌ Erro ao carregar pedido:', error);
       document.getElementById('order-info').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
+      return;
+    }
+    
+    if (!order) {
+      console.warn('⚠️ Pedido não encontrado:', orderId);
+      document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não encontrado.</p>';
       return;
     }
 
@@ -134,8 +138,13 @@
 
     updateStatusUI(currentStatus);
 
-    // Real‑time
-    const channel = supabaseClient
+    // Remove canal anterior se existir
+    if (orderChannel) {
+      await supabaseClient.removeChannel(orderChannel);
+    }
+    
+    // Inscreve para mudanças em tempo real
+    orderChannel = supabaseClient
       .channel(`order-${orderId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -143,14 +152,17 @@
         table: 'orders',
         filter: `id=eq.${orderId}`
       }, (payload) => {
-        if (payload.new.status !== currentStatus) {
-          currentStatus = payload.new.status;
+        console.log('📡 Mudança detectada no pedido:', payload);
+        const newStatus = payload.new.status;
+        if (newStatus !== currentStatus) {
+          console.log(`🔄 Status alterado de ${currentStatus} para ${newStatus}`);
+          currentStatus = newStatus;
           updateStatusUI(currentStatus);
         }
       })
-      .subscribe();
-
-    window.addEventListener('beforeunload', () => supabaseClient.removeChannel(channel));
+      .subscribe((status) => {
+        console.log('🔌 Canal Realtime status:', status);
+      });
   }
 
   function updateStatusUI(status) {
@@ -175,6 +187,12 @@
     };
     document.getElementById('status-message').innerHTML = messages[status] || 'Aguardando atualização...';
   }
+
+  // Recarrega manualmente quando a página ganha foco (útil para mobile)
+  window.addEventListener('focus', () => {
+    console.log('🔄 Página em foco, recarregando pedido...');
+    loadOrder();
+  });
 
   loadOrder();
 </script>
