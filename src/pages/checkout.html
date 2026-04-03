@@ -665,6 +665,22 @@
     const orderId = order[0].id;
     console.log('Pedido criado com ID:', orderId);
 
+    // 🔔 ENVIA BROADCAST PARA O ADMIN (ALARME)
+    try {
+      await supabaseClient.channel('admin-notifications').send({
+        type: 'broadcast',
+        event: 'new-order',
+        payload: { 
+          orderId: orderId,
+          customer: name,
+          total: (totalCents / 100).toFixed(2)
+        }
+      });
+      console.log('📢 Broadcast de novo pedido enviado para admin-notifications');
+    } catch (broadcastError) {
+      console.warn('Erro no broadcast (não crítico):', broadcastError);
+    }
+
     const itemsToInsert = cart.map(i => ({
       order_id: orderId,
       product_name: i.name,
