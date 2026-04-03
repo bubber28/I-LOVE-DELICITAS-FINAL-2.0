@@ -226,20 +226,22 @@
   let cepValido = false;
   let currentDistance = null;
 
-  // Persistência
+  // ================== PERSISTÊNCIA FORTE ==================
   function getStorageKey() {
     if (userId) return `checkout_form_data_${userId}`;
     if (guestId) return `checkout_form_data_${guestId}`;
     return 'checkout_form_data_guest';
   }
+
   function saveFormData() {
     const key = getStorageKey();
     const formFields = ['customer-name', 'customer-phone', 'cpf', 'cep', 'rua', 'numero', 'bairro', 'complemento', 'cidade', 'uf', 'referencia', 'delivery-type', 'payment-method'];
     const data = {};
     formFields.forEach(field => { const el = document.getElementById(field); if (el) data[field] = el.value; });
     localStorage.setItem(key, JSON.stringify(data));
-    console.log('Dados salvos:', key);
+    console.log('💾 Dados salvos:', key);
   }
+
   function restoreFormData() {
     const key = getStorageKey();
     const saved = localStorage.getItem(key);
@@ -254,6 +256,7 @@
       if (cep && cep.replace(/\D/g, '').length === 8) setTimeout(() => atualizarFrete(), 300);
     } catch(e) { console.warn(e); }
   }
+
   function attachAutoSave() {
     const fields = ['customer-name', 'customer-phone', 'cpf', 'cep', 'rua', 'numero', 'bairro', 'complemento', 'cidade', 'uf', 'referencia', 'delivery-type', 'payment-method'];
     fields.forEach(field => {
@@ -263,12 +266,15 @@
         el.addEventListener('change', saveFormData);
       }
     });
+    // Salva antes de sair da página (F5, fechar aba, etc.)
     window.addEventListener('beforeunload', saveFormData);
+    // Salva ao clicar em qualquer link (incluindo o do frete grátis)
     document.body.addEventListener('click', (e) => {
       const link = e.target.closest('a');
       if (link && link.href) saveFormData();
     });
   }
+
   function clearFormData() { localStorage.removeItem(getStorageKey()); }
 
   function formatCPF(value) {
@@ -280,6 +286,7 @@
     return value;
   }
 
+  // ================== CONFIGURAÇÕES ==================
   async function loadConfig() {
     const { data, error } = await supabaseClient.from('app_config').select('frete_gratis_minimo, frete_padrao, frete_gratis_distancia_maxima, store_lat, store_lng').single();
     if (!error && data) {
@@ -402,6 +409,7 @@
     }
   }
 
+  // ================== CONTROLE DE EXIBIÇÃO (PICKUP) ==================
   function toggleAddressBlocks() {
     const deliveryType = document.getElementById('delivery-type').value;
     const addressBlock = document.getElementById('address-block');
@@ -418,6 +426,7 @@
     atualizarFrete();
   }
 
+  // ================== LOAD DATA ==================
   async function loadData() {
     await loadConfig();
     const storedCart = localStorage.getItem('cart');
@@ -479,6 +488,7 @@
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
   }
 
+  // ================== SUBMIT PEDIDO ==================
   async function submitOrder() {
     saveFormData(); // salva antes de enviar
     const name = document.getElementById('customer-name').value.trim();
@@ -525,12 +535,12 @@
     const orderId = order[0].id;
     console.log('Pedido criado com ID:', orderId);
 
-    // 🔔 ENVIA BROADCAST PARA O ADMIN (ALARME) – só aqui, no momento da confirmação
+    // 🔔 ENVIA BROADCAST PARA O ADMIN (ALARME) – apenas no momento da confirmação
     try {
       await supabaseClient.channel('admin-notifications').send({
         type: 'broadcast',
         event: 'new-order',
-        payload: { orderId: orderId, customer: name, total: (totalCents / 100).toFixed(2) }
+        payload: { orderId: orderId, customer: name, total: (totalCents / 100).toFixed(2), status: 'received' }
       });
       console.log('📢 Broadcast de novo pedido enviado para admin-notifications');
     } catch (broadcastError) { console.warn('Erro no broadcast (não crítico):', broadcastError); }
@@ -548,6 +558,7 @@
     window.location.href = `/pedido-confirmado?id=${orderId}`;
   }
 
+  // ================== EVENTOS ==================
   document.getElementById('submit-order').addEventListener('click', submitOrder);
   document.getElementById('buscar-cep').addEventListener('click', async () => {
     let cep = document.getElementById('cep').value.replace(/\D/g, '');
@@ -576,6 +587,7 @@
     });
   });
 
+  // ================== HEADER AUTH ==================
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
