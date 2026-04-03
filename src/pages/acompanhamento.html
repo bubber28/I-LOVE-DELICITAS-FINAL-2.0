@@ -15,7 +15,7 @@
   .status-steps { display: flex; justify-content: space-between; margin: 2rem 0; position: relative; }
   .status-step { text-align: center; flex: 1; position: relative; z-index: 2; background: white; }
   .status-step .icon { background: #e5e7eb; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; transition: all 0.3s; }
-  .status-step.active .icon { background: #ae2f34; color: white; animation: pulse 1.5s infinite; }
+  .status-step.active .icon { background: #ae2f34; color: white; animation: pulse 1.5s infinite; box-shadow: 0 0 0 0 rgba(174,47,52,0.4); }
   .status-step.completed .icon { background: #10b981; color: white; }
   .status-step .label { font-size: 0.75rem; font-weight: 600; color: #6b7280; }
   .status-step.active .label { color: #ae2f34; font-weight: bold; }
@@ -27,6 +27,11 @@
     70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(174,47,52,0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0); }
   }
+  @keyframes bounceIcon {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+  .status-step.active .icon .material-symbols-outlined { animation: bounceIcon 0.4s ease; }
   @media (max-width: 640px) {
     .status-steps { flex-wrap: wrap; gap: 1rem; }
     .status-step { flex: none; width: calc(50% - 0.5rem); }
@@ -38,6 +43,36 @@
   .btn-outline:hover { background-color: #fff0ef; }
   @media (max-width: 640px) { 
     .btn-primary, .btn-outline { display: block; width: 100%; margin-bottom: 0.5rem; }
+  }
+  .modal-confirm {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .modal-confirm-content {
+    background: white;
+    border-radius: 2rem;
+    padding: 1.5rem;
+    max-width: 90%;
+    width: 320px;
+    text-align: center;
+  }
+  .code-input {
+    font-size: 2rem;
+    letter-spacing: 0.5rem;
+    text-align: center;
+    width: 100%;
+    padding: 0.5rem;
+    border: 2px solid #ae2f34;
+    border-radius: 1rem;
+    margin: 1rem 0;
   }
 </style>
 </head>
@@ -84,6 +119,8 @@
       Carregando...
     </div>
 
+    <div id="action-area" class="mt-6"></div>
+
     <div class="mt-8 flex flex-col sm:flex-row gap-4">
       <a href="/" class="btn-primary text-center">Voltar ao início</a>
       <a href="/cardapio" class="btn-outline text-center">Fazer novo pedido</a>
@@ -98,6 +135,7 @@
 
   let orderId = null;
   let currentStatus = null;
+  let orderData = null;
   const statusOrder = ['received', 'preparing', 'delivery', 'delivered'];
   let orderChannel = null;
 
@@ -111,6 +149,7 @@
 
     console.log('🔍 Buscando pedido ID:', orderId);
     
+    // 🔥 Busca direta no banco com maybeSingle (evita erro se não existir)
     const { data: order, error } = await supabaseClient
       .from('orders')
       .select('*')
@@ -129,19 +168,21 @@
       return;
     }
 
+    orderData = order;
     currentStatus = order.status;
     document.getElementById('order-id').innerText = orderId.substring(0,8);
     document.getElementById('order-date').innerText = new Date(order.created_at).toLocaleString('pt-BR');
     document.getElementById('customer-name').innerText = order.customer_name;
 
     updateStatusUI(currentStatus);
+    addConfirmButton();
 
-    // Remove canal anterior se existir
+    // Remove canal anterior se existir para evitar duplicação
     if (orderChannel) {
       await supabaseClient.removeChannel(orderChannel);
     }
     
-    // Inscreve para mudanças em tempo real
+    // 🔥 Inscreve para mudanças em tempo real (Realtime)
     orderChannel = supabaseClient
       .channel(`order-${orderId}`)
       .on('postgres_changes', {
@@ -155,7 +196,9 @@
         if (newStatus !== currentStatus) {
           console.log(`🔄 Status alterado de ${currentStatus} para ${newStatus}`);
           currentStatus = newStatus;
+          orderData = payload.new;
           updateStatusUI(currentStatus);
+          addConfirmButton();
         }
       })
       .subscribe((status) => {
@@ -186,7 +229,87 @@
     document.getElementById('status-message').innerHTML = messages[status] || 'Aguardando atualização...';
   }
 
-  // Recarrega quando a página ganha foco (útil para mobile)
+  function addConfirmButton() {
+    const actionArea = document.getElementById('action-area');
+    if (!actionArea) return;
+    const existingBtn = document.getElementById('confirm-receipt-btn');
+    if (existingBtn) existingBtn.remove();
+
+    // Botão de confirmação de recebimento (apenas quando status for 'delivery')
+    if (currentStatus === 'delivery') {
+      const btn = document.createElement('button');
+      btn.id = 'confirm-receipt-btn';
+      btn.className = 'btn-primary w-full mt-4';
+      btn.innerHTML = '✅ Já recebi meu pedido';
+      btn.addEventListener('click', showCodeModal);
+      actionArea.appendChild(btn);
+    }
+  }
+
+  function showCodeModal() {
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modal-confirm';
+    modalDiv.innerHTML = `
+      <div class="modal-confirm-content">
+        <h3 class="text-xl font-bold mb-2">Confirmação de recebimento</h3>
+        <p>Digite o código de 4 dígitos informado pelo entregador:</p>
+        <input type="text" id="confirmation-code-input" class="code-input" maxlength="4" inputmode="numeric" pattern="\\d*">
+        <div class="flex gap-3 mt-4">
+          <button id="cancel-code-btn" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-full">Cancelar</button>
+          <button id="submit-code-btn" class="flex-1 bg-primary text-white py-2 rounded-full">Confirmar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modalDiv);
+    const input = modalDiv.querySelector('#confirmation-code-input');
+    input.focus();
+    modalDiv.querySelector('#submit-code-btn').addEventListener('click', () => verifyCode(input.value, modalDiv));
+    modalDiv.querySelector('#cancel-code-btn').addEventListener('click', () => modalDiv.remove());
+    input.addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0,4);
+    });
+  }
+
+  async function verifyCode(code, modalDiv) {
+    if (!code || code.length !== 4) {
+      alert('Digite um código de 4 dígitos.');
+      return;
+    }
+    const { data: order, error } = await supabaseClient
+      .from('orders')
+      .select('confirmation_code, code_expires_at')
+      .eq('id', orderId)
+      .single();
+    if (error || !order) {
+      alert('Erro ao verificar código. Tente novamente.');
+      modalDiv.remove();
+      return;
+    }
+    if (order.code_expires_at && new Date(order.code_expires_at) < new Date()) {
+      alert('Este código expirou. Entre em contato com a loja.');
+      modalDiv.remove();
+      return;
+    }
+    if (order.confirmation_code === code) {
+      const { error: updateError } = await supabaseClient
+        .from('orders')
+        .update({ status: 'delivered' })
+        .eq('id', orderId);
+      if (updateError) {
+        alert('Erro ao confirmar pedido. Tente novamente.');
+      } else {
+        alert('Pedido confirmado! Obrigado pela preferência.');
+        modalDiv.remove();
+        location.reload();
+      }
+    } else {
+      alert('Código incorreto. Verifique com o entregador.');
+      modalDiv.querySelector('#confirmation-code-input').value = '';
+      modalDiv.querySelector('#confirmation-code-input').focus();
+    }
+  }
+
+  // Recarrega manualmente quando a página ganha foco (útil para mobile)
   window.addEventListener('focus', () => {
     console.log('🔄 Página em foco, recarregando pedido...');
     loadOrder();
