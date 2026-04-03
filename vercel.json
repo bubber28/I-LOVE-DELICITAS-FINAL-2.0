@@ -13,6 +13,7 @@
     { "source": "/perfil", "destination": "/src/pages/perfil.html" },
     { "source": "/meus-pedidos", "destination": "/src/pages/meus-pedidos.html" },
     { "source": "/src/pages/:path*.js", "destination": "/src/pages/:path*.js" },
+    { "source": "/:file(.*\\.(mp3|wav|ogg|png|jpg|jpeg|gif|svg|ico|webp|css|map))", "destination": "/:file" },
     { "source": "/:path*", "destination": "/src/pages/:path*.html" }
   ]
 }
