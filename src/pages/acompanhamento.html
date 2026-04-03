@@ -2,199 +2,486 @@
 <html class="light" lang="pt-BR">
 <head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Acompanhar Pedido - I Love Delicitas</title>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Pedidos - I Love Delicitas</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
-  /* Seus estilos existentes (mantenha) */
-  body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
-  .container-custom { max-width: 800px; margin: 0 auto; }
-  .track-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  .status-steps { display: flex; justify-content: space-between; margin: 2rem 0; position: relative; }
-  .status-step { text-align: center; flex: 1; position: relative; z-index: 2; background: white; }
-  .status-step .icon { background: #e5e7eb; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; transition: all 0.3s; }
-  .status-step.active .icon { background: #ae2f34; color: white; animation: pulse 1.5s infinite; }
-  .status-step.completed .icon { background: #10b981; color: white; }
-  .status-step .label { font-size: 0.75rem; font-weight: 600; color: #6b7280; }
-  .status-step.active .label { color: #ae2f34; font-weight: bold; }
-  .status-step.completed .label { color: #10b981; }
-  .progress-line { position: absolute; top: 20px; left: 0; right: 0; height: 4px; background: #e5e7eb; z-index: 1; }
-  .progress-line-fill { height: 100%; background: #10b981; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-  @keyframes pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0.4); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(174,47,52,0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0); }
+  /* ===== ESTILOS GLOBAIS ===== */
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100%;
+    background: #fff0ef;
+    border-right: 1px solid #e0bfbd;
+    flex-direction: column;
+    z-index: 60;
+    transition: left 0.3s ease;
   }
+  @media (max-width: 1279px) {
+    .sidebar { left: -280px; }
+    .sidebar.open { left: 0; }
+    .overlay-mobile { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 55; display: none; }
+    .overlay-mobile.active { display: block; }
+    .main-content { margin-left: 0 !important; }
+  }
+  @media (min-width: 1280px) {
+    .sidebar { left: 0 !important; }
+    .overlay-mobile { display: none !important; }
+    .main-content { margin-left: 280px; }
+  }
+  .status-badge { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; }
+  .status-received { background-color: #dbeafe; color: #1e40af; }
+  .status-preparing { background-color: #fef3c7; color: #b45309; }
+  .status-ready { background-color: #d1fae5; color: #065f46; }
+  .status-delivery { background-color: #ede9fe; color: #6d28d9; }
+  .status-delivered { background-color: #e5e7eb; color: #374151; }
+  .status-canceled { background-color: #fee2e2; color: #b91c1c; }
+  .row-received { background-color: #eff6ff; }
+  .row-preparing { background-color: #fffbeb; }
+  .row-ready { background-color: #ecfdf5; }
+  .row-delivery { background-color: #f5f3ff; }
+  .row-delivered { background-color: #f9fafb; }
+  .row-canceled { background-color: #fef2f2; }
+  @keyframes blinkPreparing {
+    0% { background-color: #fffbeb; }
+    50% { background-color: #fed7aa; border-left: 4px solid #ea580c; }
+    100% { background-color: #fffbeb; }
+  }
+  .row-preparing { animation: blinkPreparing 1.2s ease-in-out infinite; }
+  .card-preparing { animation: blinkPreparing 1.2s ease-in-out infinite; }
+  .btn-primary { background-color: #ae2f34; color: white; padding: 0.5rem 1rem; border-radius: 9999px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
+  .btn-primary:hover { background-color: #8a2529; }
+  .btn-success { background-color: #059669; color: white; padding: 0.5rem 1rem; border-radius: 9999px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; }
+  .btn-success:hover { background-color: #047857; }
+  .btn-info { background-color: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 9999px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; }
+  .btn-info:hover { background-color: #1d4ed8; }
+  .btn-secondary { background-color: #4b5563; color: white; padding: 0.4rem 0.8rem; border-radius: 9999px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.3rem; }
+  .btn-secondary:hover { background-color: #374151; }
   @media (max-width: 640px) {
-    .status-steps { flex-wrap: wrap; gap: 1rem; }
-    .status-step { flex: none; width: calc(50% - 0.5rem); }
-    .progress-line { display: none; }
+    .btn-primary, .btn-success, .btn-info { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+    .btn-secondary { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
+    .status-badge { padding: 0.3rem 0.7rem; font-size: 0.7rem; }
   }
-  .btn-primary { background-color: #ae2f34; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; transition: all 0.2s; text-align: center; }
-  .btn-primary:hover { background-color: #8f2529; transform: scale(1.02); }
-  .btn-outline { border: 1px solid #ae2f34; color: #ae2f34; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; background: white; transition: all 0.2s; text-align: center; }
-  .btn-outline:hover { background-color: #fff0ef; }
-  @media (max-width: 640px) { 
-    .btn-primary, .btn-outline { display: block; width: 100%; margin-bottom: 0.5rem; }
-  }
+  #new-order-modal { transition: all 0.3s ease; }
+  #new-order-modal:not(.hidden) { display: flex; }
+  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+  .modal-content { animation: pulse 0.5s ease-in-out; }
 </style>
 </head>
-<body>
+<body class="bg-surface text-on-surface font-body">
 
-<header class="bg-surface-container-low py-4 px-6 shadow-sm">
-  <div class="container-custom">
-    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+<div id="mobile-overlay" class="overlay-mobile"></div>
+
+<aside id="sidebar" class="sidebar flex flex-col w-64 bg-surface-container-low border-r border-outline-variant/30">
+  <div class="px-6 py-8 flex justify-between items-center">
+    <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-primary-container overflow-hidden"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw5FGYSyP8asznSAbSfewPuVjJ0dcNClHXhXW_L9LnCIAJyDR-31LGPL2dewpMlxO6H2GJL9UlkGv_YxTE6Dci-GgAc0dwhH3WcNPdZnv6hIQjsfdvytZ5D7B4T5lccIJEZfZf18AVZ3TsU6F7PCyNF4VpYGWJwoqqTidQ2HyROC4rJrCFtgBe9aT8FqGjmF8LRR-w3dhOcqH7TFWp1KGRgqw9smQRtjc8ypmhM5nS8iGcmLaFYxFmVnqs25z5rCCg1ocy5tH7AJ3f"/></div>
+      <div class="flex flex-col"><span class="text-primary font-headline font-bold text-xl tracking-tight">SweetAdmin</span><span class="text-[10px] text-on-surface-variant font-semibold uppercase tracking-widest">Pedidos</span></div>
+    </div>
+    <button id="close-sidebar-btn" class="lg:hidden text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
   </div>
+  <nav class="flex-1 px-4 space-y-2">
+    <a href="/dashboard" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+    <a href="/produtos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">bakery_dining</span><span>Produtos</span></a>
+    <a href="/pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl bg-primary-container text-on-primary-container font-bold"><span class="material-symbols-outlined">shopping_bag</span><span>Pedidos</span></a>
+    <a href="/cupons" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">confirmation_number</span><span>Cupons</span></a>
+    <a href="/banners" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">gallery_thumbnail</span><span>Banners</span></a>
+    <a href="/clientes" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">group</span><span>Clientes</span></a>
+    <a href="/relatorios" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">analytics</span><span>Relatórios</span></a>
+    <a href="/categorias" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">category</span><span>Categorias</span></a>
+    <a href="/configuracoes" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">settings</span><span>Configurações</span></a>
+  </nav>
+  <div class="p-6"><button id="logout-btn" class="flex items-center gap-4 px-4 py-3 w-full rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button></div>
+</aside>
+
+<header class="sticky top-0 z-40 bg-[#fff8f7]/70 backdrop-blur-xl flex items-center justify-between px-4 py-3 border-b border-outline-variant/20 lg:hidden">
+  <button id="open-sidebar-btn" class="text-primary"><span class="material-symbols-outlined">menu</span></button>
+  <h1 class="font-headline font-bold text-lg text-primary">Pedidos</h1>
+  <div></div>
 </header>
 
-<main class="container-custom px-4 py-8">
-  <div class="track-card">
-    <h1 class="text-2xl font-bold mb-2">Acompanhar Pedido</h1>
-    <p class="text-on-surface-variant mb-6">Acompanhe em tempo real o status do seu pedido.</p>
-
-    <div id="order-info" class="mb-6">
-      <p><strong>Pedido #:</strong> <span id="order-id"></span></p>
-      <p><strong>Data:</strong> <span id="order-date"></span></p>
-      <p><strong>Cliente:</strong> <span id="customer-name"></span></p>
-    </div>
-
-    <div class="status-steps relative">
-      <div class="progress-line"><div id="progress-fill" class="progress-line-fill"></div></div>
-      <div class="status-step" data-step="received">
-        <div class="icon"><span class="material-symbols-outlined">receipt</span></div>
-        <div class="label">Recebido</div>
-      </div>
-      <div class="status-step" data-step="preparing">
-        <div class="icon"><span class="material-symbols-outlined">cooking</span></div>
-        <div class="label">Preparando</div>
-      </div>
-      <div class="status-step" data-step="delivery">
-        <div class="icon"><span class="material-symbols-outlined">motorcycle</span></div>
-        <div class="label">Saiu para entrega</div>
-      </div>
-      <div class="status-step" data-step="delivered">
-        <div class="icon"><span class="material-symbols-outlined">check_circle</span></div>
-        <div class="label">Entregue</div>
-      </div>
-    </div>
-
-    <div id="status-message" class="mt-6 p-4 bg-primary-container/10 rounded-lg text-center">
-      Carregando...
-    </div>
-
-    <div class="mt-8 flex flex-col sm:flex-row gap-4">
-      <a href="/" class="btn-primary text-center">Voltar ao início</a>
-      <a href="/cardapio" class="btn-outline text-center">Fazer novo pedido</a>
+<main class="main-content p-4 md:p-6 pt-20 lg:pt-6">
+  <div class="mb-6"><h1 class="text-2xl font-bold">Pedidos</h1><p class="text-on-surface-variant text-sm">Gerencie os pedidos e atualize os status</p></div>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-surface-container-low p-4 rounded-lg"><p class="text-on-surface-variant text-xs font-bold uppercase">Volume Hoje</p><p class="text-2xl font-bold" id="stats-hoje">0</p></div>
+    <div class="bg-surface-container-low p-4 rounded-lg"><p class="text-on-surface-variant text-xs font-bold uppercase">Em Preparo</p><p class="text-2xl font-bold" id="stats-preparo">0</p></div>
+    <div class="bg-surface-container-low p-4 rounded-lg"><p class="text-on-surface-variant text-xs font-bold uppercase">Receita Hoje</p><p class="text-2xl font-bold" id="stats-receita">R$ 0</p></div>
+    <div class="bg-surface-container-low p-4 rounded-lg"><p class="text-on-surface-variant text-xs font-bold uppercase">Conclusão</p><p class="text-2xl font-bold" id="stats-conclusao">0%</p></div>
+  </div>
+  <div class="flex flex-wrap gap-2 mb-6">
+    <button data-status="all" class="status-filter-btn bg-primary-container text-on-primary-container px-4 py-2 rounded-full text-sm font-semibold shadow-sm">Todos</button>
+    <button data-status="received" class="status-filter-btn bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold border">Recebidos</button>
+    <button data-status="preparing" class="status-filter-btn bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold border">Preparando</button>
+    <button data-status="ready" class="status-filter-btn bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold border">Prontos</button>
+    <button data-status="delivery" class="status-filter-btn bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold border">Saiu p/ entrega</button>
+    <button data-status="delivered" class="status-filter-btn bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold border">Entregues</button>
+    <button data-status="canceled" class="status-filter-btn bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold border">Cancelados</button>
+  </div>
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div class="relative w-full sm:w-80"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2">search</span><input id="search-input" type="text" class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-md" placeholder="Buscar pedido..."></div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3"><span class="text-sm font-medium">Alertas sonoros</span><label class="relative inline-flex items-center cursor-pointer"><input id="sound-toggle" type="checkbox" checked class="sr-only peer"><div class="w-8 h-4 bg-gray-300 rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div></label></div>
+      <button id="test-fake-order-btn" class="bg-secondary text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg hover:scale-105 transition flex items-center gap-1"><span class="material-symbols-outlined text-sm">bug_report</span> Simular Pedido</button>
     </div>
   </div>
+  <div id="orders-container">
+    <div class="hidden md:block overflow-x-auto bg-surface-container-lowest rounded-lg shadow">
+      <table class="w-full">
+        <thead class="bg-surface-container"><tr class="text-left text-sm font-semibold text-on-surface-variant"><th class="p-4">ID</th><th class="p-4">Cliente</th><th class="p-4">Contato</th><th class="p-4">Data/Hora</th><th class="p-4">Status</th><th class="p-4">Total</th><th class="p-4">Ações</th>  <tr></thead>
+        <tbody id="orders-table"><tr><td colspan="7" class="text-center p-8">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+    <div id="orders-cards" class="md:hidden space-y-3"></div>
+  </div>
 </main>
+
+<!-- MODAL DE NOVO PEDIDO -->
+<div id="new-order-modal" class="hidden fixed inset-0 bg-black/50 z-[100] items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden modal-content">
+    <div class="bg-primary p-4 text-white flex justify-between items-center">
+      <div class="flex items-center gap-2"><span class="material-symbols-outlined">notifications_active</span><h2 class="text-xl font-bold">🔔 NOVO PEDIDO!</h2></div>
+      <button id="close-modal-btn" class="text-white hover:text-gray-200"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div id="modal-order-info" class="space-y-2"></div>
+      <div class="flex gap-3 pt-2">
+        <button id="accept-order-btn" class="flex-1 bg-primary text-white py-2 rounded-full font-bold">Ver pedido</button>
+        <button id="later-btn" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-full font-bold">Depois</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+  let allOrders = [], filteredOrders = [], currentStatusFilter = 'all', soundEnabled = true, lastOrderIds = new Set(), tempoPreparoPadrao = 30, pendingNewOrder = null;
 
-  let orderId = null;
-  let currentStatus = null;
-  const statusOrder = ['received', 'preparing', 'delivery', 'delivered'];
-  let orderChannel = null;
+  // ================== SOM COM HOWLER E DESBLOQUEIO ==================
+  let alarmSound = null;
+  let isAlarmPlaying = false;
 
-  async function loadOrder() {
-    const urlParams = new URLSearchParams(window.location.search);
-    orderId = urlParams.get('id');
-    if (!orderId) {
-      document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não identificado.</p>';
-      return;
+  function initAlarmSound() {
+    if (alarmSound) return;
+    // Som online para teste (soundjay) – confiável e alto
+    alarmSound = new Howl({
+      src: ['https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'],
+      volume: 1.0,
+      loop: true,
+      html5: true,
+      onload: () => console.log('✅ Alarme carregado (online)'),
+      onloaderror: (id, err) => console.error('❌ Erro ao carregar alarme:', err)
+    });
+  }
+
+  function playAlarm() {
+    if (!soundEnabled) return;
+    if (!alarmSound) initAlarmSound();
+    if (!isAlarmPlaying && alarmSound) {
+      alarmSound.play();
+      isAlarmPlaying = true;
+      console.log('🔊 ALARME LIGADO');
     }
+  }
 
-    console.log('🔍 Buscando pedido ID:', orderId);
-    
-    // 🔥 Busca diretamente no banco (sem cache)
-    const { data: order, error } = await supabaseClient
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .maybeSingle(); // .single() pode dar erro se não encontrar, usar maybeSingle
-
-    if (error) {
-      console.error('❌ Erro ao carregar pedido:', error);
-      document.getElementById('order-info').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
-      return;
+  function stopAlarm() {
+    if (alarmSound && isAlarmPlaying) {
+      alarmSound.stop();
+      isAlarmPlaying = false;
+      console.log('🔇 Alarme parado');
     }
-    
-    if (!order) {
-      console.warn('⚠️ Pedido não encontrado:', orderId);
-      document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não encontrado.</p>';
-      return;
+  }
+
+  // Desbloqueia áudio no primeiro clique
+  document.body.addEventListener('click', function unlockAudio() {
+    if (alarmSound) {
+      alarmSound.play().then(() => alarmSound.stop()).catch(e => console.log('unlock error', e));
+      document.body.removeEventListener('click', unlockAudio);
     }
+  }, { once: true });
 
-    currentStatus = order.status;
-    document.getElementById('order-id').innerText = orderId.substring(0,8);
-    document.getElementById('order-date').innerText = new Date(order.created_at).toLocaleString('pt-BR');
-    document.getElementById('customer-name').innerText = order.customer_name;
-
-    updateStatusUI(currentStatus);
-
-    // Remove canal anterior se existir
-    if (orderChannel) {
-      await supabaseClient.removeChannel(orderChannel);
-    }
-    
-    // Inscreve para mudanças em tempo real
-    orderChannel = supabaseClient
-      .channel(`order-${orderId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'orders',
-        filter: `id=eq.${orderId}`
-      }, (payload) => {
-        console.log('📡 Mudança detectada no pedido:', payload);
-        const newStatus = payload.new.status;
-        if (newStatus !== currentStatus) {
-          console.log(`🔄 Status alterado de ${currentStatus} para ${newStatus}`);
-          currentStatus = newStatus;
-          updateStatusUI(currentStatus);
+  // ================== BROADCAST E REALTIME ==================
+  function setupAlarmListener() {
+    const channel = supabaseClient.channel('admin-notifications');
+    channel
+      .on('broadcast', { event: 'new-order' }, (payload) => {
+        console.log('📢 Novo pedido recebido via broadcast:', payload);
+        // Só toca alarme se o pedido tiver status 'received'
+        if (payload.payload && payload.payload.status === 'received') {
+          playAlarm();
+        }
+        if (typeof showNewOrderModal === 'function') {
+          showNewOrderModal(payload.payload);
+        } else {
+          loadOrders();
         }
       })
       .subscribe((status) => {
-        console.log('🔌 Canal Realtime status:', status);
+        console.log('Canal admin-notifications status:', status);
       });
   }
 
-  function updateStatusUI(status) {
-    const steps = document.querySelectorAll('.status-step');
-    steps.forEach(step => {
-      step.classList.remove('active', 'completed');
-      const stepName = step.dataset.step;
-      const stepIndex = statusOrder.indexOf(stepName);
-      const currentIndex = statusOrder.indexOf(status);
-      if (stepIndex < currentIndex) step.classList.add('completed');
-      else if (stepIndex === currentIndex) step.classList.add('active');
-    });
-
-    const progressPercent = ((statusOrder.indexOf(status) + 1) / statusOrder.length) * 100;
-    document.getElementById('progress-fill').style.width = `${progressPercent}%`;
-
-    const messages = {
-      received: '✅ Pedido recebido! Em breve começaremos a preparar.',
-      preparing: '🍳 Seu pedido está sendo preparado com todo carinho!',
-      delivery: '🛵 Saiu para entrega! Fique atento(a) ao seu celular.',
-      delivered: '🎉 Pedido entregue! Aproveite e avalie nossa loja.'
-    };
-    document.getElementById('status-message').innerHTML = messages[status] || 'Aguardando atualização...';
+  // ================== FUNÇÕES DE CARGA E RENDER ==================
+  async function loadTempoPreparo() {
+    const { data } = await supabaseClient.from('app_config').select('tempo_preparo_padrao').single();
+    if (data) tempoPreparoPadrao = data.tempo_preparo_padrao || 30;
   }
 
-  // Recarrega manualmente quando a página ganha foco (útil para mobile)
-  window.addEventListener('focus', () => {
-    console.log('🔄 Página em foco, recarregando pedido...');
-    loadOrder();
-  });
+  async function loadStats() {
+    const hoje = new Date().toISOString().split('T')[0];
+    const { data: ordersHoje } = await supabaseClient.from('orders').select('status, total_cents').gte('created_at', hoje);
+    document.getElementById('stats-hoje').innerText = ordersHoje?.length || 0;
+    document.getElementById('stats-preparo').innerText = ordersHoje?.filter(o => o.status === 'received' || o.status === 'preparing').length || 0;
+    const receitaHoje = ordersHoje?.reduce((s,o) => s + (o.total_cents||0), 0) || 0;
+    document.getElementById('stats-receita').innerText = `R$ ${(receitaHoje/100).toFixed(2).replace('.',',')}`;
+    const { data: all } = await supabaseClient.from('orders').select('status');
+    const entregues = all?.filter(o => o.status === 'delivered').length || 0;
+    const total = all?.length || 1;
+    document.getElementById('stats-conclusao').innerText = `${Math.round((entregues/total)*100)}%`;
+  }
 
-  loadOrder();
+  async function loadOrders() {
+    const { data, error } = await supabaseClient.from('orders').select('*').order('created_at', { ascending: false });
+    if (error) return;
+    const newIds = new Set(data.map(o => o.id));
+    const oldIds = lastOrderIds;
+    let newOrders = [];
+    for (let id of newIds) {
+      if (!oldIds.has(id)) {
+        const order = data.find(o => o.id === id);
+        if (order && order.status === 'received') {
+          newOrders.push(order);
+        }
+      }
+    }
+    if (newOrders.length > 0 && oldIds.size > 0) {
+      showNewOrderModal(newOrders[0]);
+    }
+    lastOrderIds = newIds;
+    allOrders = data;
+    applyFiltersAndRender();
+    highlightOrderFromURL();
+  }
+
+  function showNewOrderModal(order) {
+    if (!order) return;
+    pendingNewOrder = order;
+    const modal = document.getElementById('new-order-modal');
+    const date = new Date(order.created_at).toLocaleString('pt-BR');
+    document.getElementById('modal-order-info').innerHTML = `
+      <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+        <div class="flex justify-between"><span class="font-bold">#${order.id.slice(0,8)}</span><span class="text-xs">${date}</span></div>
+        <p><strong>Cliente:</strong> ${escapeHtml(order.customer_name||'N/I')}</p>
+        <p><strong>Telefone:</strong> ${order.customer_phone||'-'}</p>
+        <p><strong>Total:</strong> R$ ${(order.total_cents/100).toFixed(2).replace('.',',')}</p>
+        <p class="text-sm mt-2">Clique em "Ver pedido" para gerenciar.</p>
+      </div>
+    `;
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    document.title = '🔔 NOVO PEDIDO! 🔔';
+    setTimeout(() => { if (document.title === '🔔 NOVO PEDIDO! 🔔') document.title = 'Pedidos - I Love Delicitas'; }, 5000);
+  }
+
+  function closeModal() { document.getElementById('new-order-modal').classList.add('hidden'); document.getElementById('new-order-modal').classList.remove('flex'); pendingNewOrder = null; }
+
+  function acceptOrder() {
+    if (pendingNewOrder) {
+      closeModal();
+      const row = document.querySelector(`tr[data-order-id="${pendingNewOrder.id}"]`) || document.querySelector(`div[data-order-id="${pendingNewOrder.id}"]`);
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else closeModal();
+  }
+
+  function applyFiltersAndRender() {
+    const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
+    let filtered = allOrders.filter(o => o.id.toLowerCase().includes(searchTerm) || (o.customer_name?.toLowerCase().includes(searchTerm)) || (o.customer_phone?.toLowerCase().includes(searchTerm)));
+    if (currentStatusFilter !== 'all') filtered = filtered.filter(o => o.status === currentStatusFilter);
+    filteredOrders = filtered;
+    renderOrders();
+  }
+
+  function getRowClass(status) { return `row-${status}`; }
+
+  function renderOrders() {
+    const tbody = document.getElementById('orders-table'), cardsDiv = document.getElementById('orders-cards');
+    if (!filteredOrders.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8">Nenhum pedido encontrado</td></tr>`;
+      cardsDiv.innerHTML = '<div class="text-center py-8">Nenhum pedido encontrado</div>';
+      return;
+    }
+    tbody.innerHTML = filteredOrders.map(o => {
+      const date = new Date(o.created_at).toLocaleString('pt-BR');
+      const rowBg = getRowClass(o.status);
+      return `
+      <tr class="border-t hover:bg-surface-container-high ${rowBg}" data-order-id="${o.id}">
+        <td class="p-4 font-mono">#${o.id.slice(0,8)}</td>
+        <td class="p-4">${escapeHtml(o.customer_name||'Cliente')}</td>
+        <td class="p-4">${o.customer_phone||'-'}</td>
+        <td class="p-4 text-xs">${date}</td>
+        <td class="p-4"><span class="status-badge status-${o.status}">${getStatusText(o.status)}</span></td>
+        <td class="p-4 font-bold">R$ ${(o.total_cents/100).toFixed(2).replace('.',',')}</td>
+        <td class="p-4">
+          <div class="flex flex-col gap-2">
+            <div class="flex gap-2 flex-wrap">
+              ${o.status === 'received' ? `<button class="accept-order-btn btn-primary" data-id="${o.id}"><span class="material-symbols-outlined">check_circle</span> Aceitar</button>` : ''}
+              ${o.status === 'preparing' ? `<button class="ready-order-btn btn-success" data-id="${o.id}"><span class="material-symbols-outlined">task_alt</span> Pronto</button>` : ''}
+              ${o.status === 'ready' ? `<button class="deliver-order-btn btn-info" data-id="${o.id}"><span class="material-symbols-outlined">delivery</span> Enviar</button>` : ''}
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <button class="details-order-btn btn-secondary" data-id="${o.id}"><span class="material-symbols-outlined">info</span> Detalhes</button>
+              <button class="whatsapp-btn btn-secondary" data-phone="${o.customer_phone}" data-name="${escapeHtml(o.customer_name)}"><span class="material-symbols-outlined">chat</span> WhatsApp</button>
+              <button class="print-ticket-btn btn-secondary" data-order-id="${o.id}"><span class="material-symbols-outlined">print</span> Imprimir</button>
+              <button class="copy-receipt-btn btn-secondary" data-order-id="${o.id}"><span class="material-symbols-outlined">content_copy</span> Copiar</button>
+            </div>
+            <div class="text-xs text-on-surface-variant">⏱️ entrega: ${tempoPreparoPadrao}min</div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+    cardsDiv.innerHTML = filteredOrders.map(o => {
+      const date = new Date(o.created_at).toLocaleString('pt-BR');
+      const cardBg = getRowClass(o.status);
+      const cardAnim = o.status === 'preparing' ? 'card-preparing' : '';
+      return `
+      <div class="bg-white rounded-lg shadow p-4 space-y-3 border ${cardBg} ${cardAnim}" data-order-id="${o.id}">
+        <div class="flex justify-between"><div><p class="font-bold">#${o.id.slice(0,8)}</p><p class="text-sm">${escapeHtml(o.customer_name||'Cliente')}</p><p class="text-xs">${o.customer_phone||'-'}</p><p class="text-xs text-gray-500">${date}</p></div><span class="status-badge status-${o.status}">${getStatusText(o.status)}</span></div>
+        <div class="flex justify-between"><span class="font-bold">R$ ${(o.total_cents/100).toFixed(2).replace('.',',')}</span><div class="flex gap-2">
+          ${o.status === 'received' ? `<button class="accept-order-btn btn-primary" data-id="${o.id}">Aceitar</button>` : ''}
+          ${o.status === 'preparing' ? `<button class="ready-order-btn btn-success" data-id="${o.id}">Pronto</button>` : ''}
+          ${o.status === 'ready' ? `<button class="deliver-order-btn btn-info" data-id="${o.id}">Enviar</button>` : ''}
+        </div></div>
+        <div class="flex gap-2 flex-wrap">
+          <button class="details-order-btn btn-secondary" data-id="${o.id}">Detalhes</button>
+          <button class="whatsapp-btn btn-secondary" data-phone="${o.customer_phone}" data-name="${escapeHtml(o.customer_name)}">WhatsApp</button>
+          <button class="print-ticket-btn btn-secondary" data-order-id="${o.id}">Imprimir</button>
+          <button class="copy-receipt-btn btn-secondary" data-order-id="${o.id}">Copiar</button>
+        </div>
+        <div class="text-xs text-on-surface-variant">⏱️ entrega: ${tempoPreparoPadrao}min</div>
+      </div>`;
+    }).join('');
+    // Eventos
+    document.querySelectorAll('.accept-order-btn').forEach(btn => btn.addEventListener('click', () => updateOrderStatus(btn.dataset.id, 'preparing')));
+    document.querySelectorAll('.ready-order-btn').forEach(btn => btn.addEventListener('click', () => updateOrderStatus(btn.dataset.id, 'ready')));
+    document.querySelectorAll('.deliver-order-btn').forEach(btn => btn.addEventListener('click', () => updateOrderStatus(btn.dataset.id, 'delivery')));
+    document.querySelectorAll('.details-order-btn').forEach(btn => btn.addEventListener('click', () => window.open(`detalhes-pedido.html?id=${btn.dataset.id}`, '_blank')));
+    document.querySelectorAll('.whatsapp-btn').forEach(btn => btn.addEventListener('click', () => { const phone = btn.dataset.phone; if(phone) window.open(`https://wa.me/55${phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Olá ${btn.dataset.name}! Seu pedido está sendo preparado.`)}`,'_blank'); else alert('Sem número'); }));
+    document.querySelectorAll('.print-ticket-btn').forEach(btn => btn.addEventListener('click', () => printThermalReceipt(btn.dataset.orderId)));
+    document.querySelectorAll('.copy-receipt-btn').forEach(btn => btn.addEventListener('click', () => copyReceiptToClipboard(btn.dataset.orderId)));
+  }
+
+  // ================== UPDATE ORDER STATUS CORRIGIDO ==================
+  async function updateOrderStatus(id, newStatus) {
+    console.log(`🔄 Atualizando pedido ${id} para status: ${newStatus}`);
+    if (!id || id.length < 20) {
+      console.error('❌ ID inválido:', id);
+      alert('Erro: ID do pedido inválido.');
+      return;
+    }
+    let updateData = { status: newStatus };
+    if (newStatus === 'delivery') {
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      const expires = new Date();
+      expires.setHours(expires.getHours() + 1);
+      updateData.confirmation_code = code;
+      updateData.code_expires_at = expires.toISOString();
+      console.log(`📦 Código de confirmação gerado: ${code}`);
+      alert(`Código de entrega: ${code}\nEnvie ao cliente.`);
+    }
+    const { data, error } = await supabaseClient
+      .from('orders')
+      .update(updateData)
+      .eq('id', id)
+      .select();
+    if (error) {
+      console.error('❌ Erro ao atualizar pedido:', error);
+      alert('Erro: ' + error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      console.error('❌ Nenhum registro atualizado. ID pode estar incorreto:', id);
+      alert('Erro: Pedido não encontrado. Verifique o ID.');
+      return;
+    }
+    console.log('✅ Pedido atualizado com sucesso:', data[0]);
+    if (newStatus === 'preparing') {
+      stopAlarm();
+    }
+    await loadOrders();
+    await loadStats();
+    // Broadcast extra para cliente
+    try {
+      await supabaseClient.channel('order-updates').send({
+        type: 'broadcast',
+        event: 'status-changed',
+        payload: { orderId: id, status: newStatus }
+      });
+      console.log('📢 Broadcast de status enviado');
+    } catch (e) { console.warn(e); }
+  }
+
+  function getStatusText(s) { const map = { received:'Recebido', preparing:'Preparando', ready:'Pronto', delivery:'Saiu p/ entrega', delivered:'Entregue', canceled:'Cancelado' }; return map[s]||s; }
+  function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+  // Funções de impressão e fake (resumidas – mantenha as suas originais)
+  async function printThermalReceipt(orderId) { /* sua função original */ }
+  async function copyReceiptToClipboard(orderId) { /* sua função original */ }
+  async function createFakeOrder() { /* sua função original */ }
+
+  function highlightOrderFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('id');
+    if (!orderId) return;
+    setTimeout(() => {
+      const targetRow = document.querySelector(`tr[data-order-id="${orderId}"]`) || document.querySelector(`div[data-order-id="${orderId}"]`);
+      if (targetRow) {
+        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetRow.style.transition = 'background 0.5s';
+        targetRow.style.backgroundColor = '#fef9c3';
+        setTimeout(() => targetRow.style.backgroundColor = '', 3000);
+      }
+    }, 800);
+  }
+
+  function subscribeToOrders() { return supabaseClient.channel('orders-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { loadOrders(); loadStats(); }).subscribe(); }
+
+  document.getElementById('search-input').addEventListener('input', () => applyFiltersAndRender());
+  document.getElementById('sound-toggle').addEventListener('change', e => soundEnabled = e.target.checked);
+  document.getElementById('test-fake-order-btn').addEventListener('click', createFakeOrder);
+  document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+  document.getElementById('later-btn').addEventListener('click', closeModal);
+  document.getElementById('accept-order-btn').addEventListener('click', acceptOrder);
+  document.querySelectorAll('.status-filter-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.status-filter-btn').forEach(b => { b.classList.remove('bg-primary-container','text-on-primary-container','shadow-sm'); b.classList.add('bg-surface-container-low','text-on-surface-variant','border'); });
+    btn.classList.add('bg-primary-container','text-on-primary-container','shadow-sm'); btn.classList.remove('bg-surface-container-low','text-on-surface-variant','border');
+    currentStatusFilter = btn.dataset.status; applyFiltersAndRender();
+  }));
+
+  const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay'), openBtn = document.getElementById('open-sidebar-btn'), closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+  function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+  openBtn?.addEventListener('click', openSidebar); closeBtn?.addEventListener('click', closeSidebar); overlay?.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button#logout-btn').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1280) closeSidebar(); }));
+  document.getElementById('logout-btn').addEventListener('click', async () => { await supabaseClient.auth.signOut(); window.location.href = '/login'; });
+
+  async function init() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) window.location.href = '/login';
+    const { data: admin } = await supabaseClient.from('admins').select('user_id').eq('user_id', session.user.id).single();
+    if (!admin) { await supabaseClient.auth.signOut(); window.location.href = '/login'; }
+    await loadTempoPreparo(); await loadStats(); await loadOrders(); subscribeToOrders();
+    setupAlarmListener();
+    initAlarmSound();
+  }
+  init();
 </script>
 </body>
 </html>
