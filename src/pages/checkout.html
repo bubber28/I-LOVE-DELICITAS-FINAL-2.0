@@ -68,7 +68,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) – mesmo código -->
+<!-- Sidebar (menu hambúrguer) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -238,6 +238,7 @@
     const data = {};
     formFields.forEach(field => { const el = document.getElementById(field); if (el) data[field] = el.value; });
     localStorage.setItem(key, JSON.stringify(data));
+    console.log('Dados salvos:', key);
   }
   function restoreFormData() {
     const key = getStorageKey();
@@ -263,7 +264,10 @@
       }
     });
     window.addEventListener('beforeunload', saveFormData);
-    document.body.addEventListener('click', (e) => { const link = e.target.closest('a'); if (link && link.href) saveFormData(); });
+    document.body.addEventListener('click', (e) => {
+      const link = e.target.closest('a');
+      if (link && link.href) saveFormData();
+    });
   }
   function clearFormData() { localStorage.removeItem(getStorageKey()); }
 
@@ -376,17 +380,26 @@
     const deliveryType = document.getElementById('delivery-type').value;
     const avisoDiv = document.getElementById('frete-gratis-aviso');
     const barDiv = document.getElementById('frete-gratis-bar');
+
     if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || subtotal >= min) {
-      avisoDiv.classList.add('hidden'); barDiv.classList.add('hidden');
+      avisoDiv.classList.add('hidden');
+      barDiv.classList.add('hidden');
       return;
     }
+
     const falta = (min - subtotal).toFixed(2);
     const percentual = (subtotal / min) * 100;
-    document.getElementById('frete-gratis-mensagem').innerHTML = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">Que tal adicionar mais itens?</a>`;
+    const mensagem = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">Que tal adicionar mais itens?</a>`;
+    document.getElementById('frete-gratis-mensagem').innerHTML = mensagem;
     document.getElementById('frete-gratis-fill').style.width = `${percentual}%`;
-    avisoDiv.classList.remove('hidden'); barDiv.classList.remove('hidden');
+    avisoDiv.classList.remove('hidden');
+    barDiv.classList.remove('hidden');
+
     const link = document.getElementById('add-more-items-link');
-    if (link) link.addEventListener('click', () => saveFormData());
+    if (link) {
+      link.removeEventListener('click', saveFormData);
+      link.addEventListener('click', saveFormData);
+    }
   }
 
   function toggleAddressBlocks() {
@@ -467,6 +480,7 @@
   }
 
   async function submitOrder() {
+    saveFormData(); // salva antes de enviar
     const name = document.getElementById('customer-name').value.trim();
     const phone = document.getElementById('customer-phone').value.trim();
     const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
@@ -511,7 +525,7 @@
     const orderId = order[0].id;
     console.log('Pedido criado com ID:', orderId);
 
-    // 🔔 ENVIA BROADCAST PARA O ADMIN (ALARME)
+    // 🔔 ENVIA BROADCAST PARA O ADMIN (ALARME) – só aqui, no momento da confirmação
     try {
       await supabaseClient.channel('admin-notifications').send({
         type: 'broadcast',
