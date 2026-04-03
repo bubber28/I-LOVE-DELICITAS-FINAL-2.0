@@ -14,7 +14,7 @@
     { "source": "/meus-pedidos", "destination": "/src/pages/meus-pedidos.html" },
     { "source": "/src/pages/:path*.js", "destination": "/src/pages/:path*.js" },
     { "source": "/src/pages/:path*.mp3", "destination": "/src/pages/:path*.mp3" },
-    { "source": "/:file(.*\\.(mp3|wav|ogg|png|jpg|jpeg|gif|svg|ico|webp|css|map))", "destination": "/:file" },
+    { "source": "/alert.mp3.mp3", "destination": "/src/pages/alert.mp3.mp3" },
     { "source": "/:path*", "destination": "/src/pages/:path*.html" }
   ]
 }
