@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Admin Pedidos - I Love Delicitas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          primary: '#ae2f34',
+          secondary: '#006a65',
+          surface: '#fff8f7',
+          onsurface: '#251818'
+        },
+        fontFamily: {
+          headline: ['Plus Jakarta Sans'],
+          body: ['Be Vietnam Pro']
+        }
+      }
+    }
+  };
+</script>
+<style>
+  body {
+    background: radial-gradient(circle at top left, #fff3ee 0%, #fff8f7 50%, #fffbf9 100%);
+    min-height: 100vh;
+  }
+
+  .status-pill {
+    border: 1px solid #ead8d5;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #7c5f5e;
+    background: #fff;
+  }
+
+  .status-pill.done {
+    color: #0f5132;
+    border-color: #a7f3d0;
+    background: #ecfdf5;
+  }
+
+  .status-pill.current-received {
+    color: #065f46;
+    border-color: #6ee7b7;
+    background: #d1fae5;
+  }
+
+  .status-pill.current-preparing {
+    color: #1d4ed8;
+    border-color: #93c5fd;
+    background: #dbeafe;
+  }
+
+  .status-pill.current-ready {
+    color: #92400e;
+    border-color: #fcd34d;
+    background: #fef3c7;
+  }
+
+  .status-pill.current-delivery {
+    color: #065f46;
+    border-color: #6ee7b7;
+    background: #d1fae5;
+  }
+
+  .status-pill.current-delivered {
+    color: #14532d;
+    border-color: #86efac;
+    background: #dcfce7;
+  }
+
+  .status-pill.current-canceled {
+    color: #991b1b;
+    border-color: #fca5a5;
+    background: #fee2e2;
+  }
+
+  .tab-btn.active {
+    background: #ae2f34;
+    color: #fff;
+    border-color: #ae2f34;
+  }
+
+  .delivery-fab {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 18px;
+    font-weight: 700;
+    box-shadow: 0 18px 30px rgba(16, 185, 129, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    button {
+      width: 100% !important;
+      font-size: 16px;
+    }
+  }
+</style>
+</head>
+<body class="text-onsurface font-body">
+  <header class="sticky top-0 z-20 backdrop-blur-md bg-white/80 border-b border-[#f0d9d2]">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center gap-3">
+      <h1 class="text-xl md:text-2xl font-headline font-extrabold text-primary">Painel Admin Pedidos</h1>
+      <a href="/" class="text-sm font-semibold text-primary hover:underline">Voltar para loja</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 pb-28">
+    <section class="bg-white border border-[#f0d9d2] rounded-2xl p-4 md:p-5 mb-6">
+      <div class="flex flex-wrap gap-2" id="tabs"></div>
+    </section>
+
+    <section id="orders-container" class="space-y-4">
+      <div class="bg-white border border-[#f0d9d2] rounded-2xl p-6 text-center">Carregando pedidos...</div>
+    </section>
+  </main>
+
+  <button id="delivery-fab" class="delivery-fab hidden">✓ Entregue</button>
+
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const BACKEND_BASE_URL = 'https://[render-url]';
+  const ORDER_STATUS_FLOW = ['received', 'preparing', 'ready', 'delivery', 'delivered'];
+  const STATUS_LABELS = {
+    received: 'Recebido',
+    preparing: 'Preparando',
+    ready: 'Pronto',
+    delivery: 'Entrega',
+    delivered: 'Concluido',
+    canceled: 'Cancelado'
+  };
+
+  const TAB_LIST = [
+    { value: 'all', label: 'Todos' },
+    { value: 'received', label: 'Recebidos' },
+    { value: 'preparing', label: 'Preparando' },
+    { value: 'ready', label: 'Prontos' },
+    { value: 'delivery', label: 'Entrega' },
+    { value: 'delivered', label: 'Entregues' }
+  ];
+
+  let currentTab = 'all';
+  let allOrders = [];
+  let deliveryFabOrderId = null;
+  let socket = null;
+
+  const newOrderSound = new Howl({
+    src: ['/alert.mp3.mp3'],
+    volume: 1
+  });
+
+  function setupSocketIO() {
+    if (socket) return socket;
+
+    socket = io(BACKEND_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true
+    });
+
+    socket.on('connect', () => {
+      console.log('Socket conectado:', socket.id);
+    });
+
+    socket.on('novoPedido', async () => {
+      await loadOrders();
+      newOrderSound.play();
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket desconectado');
+    });
+
+    return socket;
+  }
+
+  function renderTabs() {
+    const tabsEl = document.getElementById('tabs');
+    tabsEl.innerHTML = TAB_LIST.map((tab) => `
+      <button
+        type="button"
+        class="tab-btn px-4 py-2 rounded-full border border-[#e9d3cd] text-sm font-semibold transition ${tab.value === currentTab ? 'active' : ''}"
+        data-tab="${tab.value}"
+      >${tab.label}</button>
+    `).join('');
+
+    tabsEl.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentTab = btn.dataset.tab;
+        renderTabs();
+        renderOrders();
+      });
+    });
+  }
+
+  async function loadOrders() {
+    const { data, error } = await supabaseClient
+      .from('orders')
+      .select('id, customer_name, customer_phone, total_cents, status, created_at, delivery_type')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error(error);
+      document.getElementById('orders-container').innerHTML = '<div class="bg-white border border-red-200 rounded-2xl p-6 text-center text-red-600">Erro ao carregar pedidos.</div>';
+      return;
+    }
+
+    allOrders = data || [];
+    renderOrders();
+  }
+
+  function getStatusAction(order) {
+    if (order.status === 'received') {
+      return { label: 'Aceitar', emoji: '🟢', nextStatus: 'preparing', btnClass: 'bg-emerald-600 text-white' };
+    }
+
+    if (order.status === 'preparing') {
+      return { label: 'Pronto', emoji: '🔵', nextStatus: 'ready', btnClass: 'bg-blue-600 text-white' };
+    }
+
+    if (order.status === 'ready') {
+      if (order.delivery_type === 'delivery') {
+        return { label: 'Enviar', emoji: '🟡', nextStatus: 'delivery', btnClass: 'bg-amber-500 text-black' };
+      }
+      return { label: 'Finalizar', emoji: '🟡', nextStatus: 'delivered', btnClass: 'bg-amber-500 text-black' };
+    }
+
+    return null;
+  }
+
+  function formatTypeBadge(deliveryType) {
+    if (deliveryType === 'pickup') {
+      return '<span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">🏠 pickup</span>';
+    }
+
+    return '<span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">🛵 delivery</span>';
+  }
+
+  function renderFlow(status) {
+    const orderIndex = ORDER_STATUS_FLOW.indexOf(status);
+
+    return `
+      <div class="flex flex-wrap gap-2 mt-3">
+        ${['received', 'preparing', 'ready', 'delivery', 'delivered'].map((step) => {
+          const stepIndex = ORDER_STATUS_FLOW.indexOf(step);
+          const isDone = orderIndex > stepIndex;
+          const isCurrent = status === step;
+          const cls = isDone ? 'done' : (isCurrent ? `current-${step}` : '');
+          return `<span class="status-pill ${cls}">${STATUS_LABELS[step]}</span>`;
+        }).join('')}
+        ${status === 'canceled' ? '<span class="status-pill current-canceled">Cancelado</span>' : ''}
+      </div>
+    `;
+  }
+
+  function getStatusBadge(status) {
+    const map = {
+      received: 'bg-emerald-100 text-emerald-700',
+      preparing: 'bg-blue-100 text-blue-700',
+      ready: 'bg-amber-100 text-amber-700',
+      delivery: 'bg-emerald-100 text-emerald-700',
+      delivered: 'bg-green-100 text-green-700',
+      canceled: 'bg-red-100 text-red-700'
+    };
+
+    return `<span class="px-3 py-1 rounded-full text-xs font-bold ${map[status] || 'bg-slate-100 text-slate-700'}">${STATUS_LABELS[status] || status}</span>`;
+  }
+
+  function getFilteredOrders() {
+    if (currentTab === 'all') return allOrders;
+    return allOrders.filter((order) => order.status === currentTab);
+  }
+
+  function syncDeliveryFab(filteredOrders) {
+    const fab = document.getElementById('delivery-fab');
+    const deliveryOrders = filteredOrders.filter((order) => order.status === 'delivery');
+
+    if (deliveryFabOrderId && !deliveryOrders.find((order) => order.id === deliveryFabOrderId)) {
+      deliveryFabOrderId = null;
+    }
+
+    if (!deliveryFabOrderId && deliveryOrders.length > 0) {
+      deliveryFabOrderId = deliveryOrders[0].id;
+    }
+
+    if (!deliveryFabOrderId) {
+      fab.classList.add('hidden');
+      return;
+    }
+
+    const currentOrder = deliveryOrders.find((order) => order.id === deliveryFabOrderId);
+    if (!currentOrder) {
+      fab.classList.add('hidden');
+      return;
+    }
+
+    fab.textContent = `✓ Entregue #${currentOrder.id.slice(0, 8)}`;
+    fab.classList.remove('hidden');
+  }
+
+  function renderOrders() {
+    const container = document.getElementById('orders-container');
+    const filteredOrders = getFilteredOrders();
+
+    syncDeliveryFab(filteredOrders);
+
+    if (filteredOrders.length === 0) {
+      container.innerHTML = '<div class="bg-white border border-[#f0d9d2] rounded-2xl p-6 text-center">Nenhum pedido nesta aba.</div>';
+      return;
+    }
+
+    container.innerHTML = filteredOrders.map((order) => {
+      const date = new Date(order.created_at).toLocaleString('pt-BR');
+      const total = ((order.total_cents || 0) / 100).toFixed(2).replace('.', ',');
+      const action = getStatusAction(order);
+
+      return `
+        <article class="bg-white border border-[#f0d9d2] rounded-2xl p-4 md:p-5 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p class="font-mono font-bold">Pedido #${order.id.slice(0, 8)}</p>
+              <p class="text-xs text-slate-500">${date}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              ${formatTypeBadge(order.delivery_type)}
+              ${getStatusBadge(order.status)}
+            </div>
+          </div>
+
+          ${renderFlow(order.status)}
+
+          <div class="mt-4 grid md:grid-cols-3 gap-2 text-sm">
+            <p><strong>Cliente:</strong> ${order.customer_name || 'Nao informado'}</p>
+            <p><strong>Telefone:</strong> ${order.customer_phone || 'Nao informado'}</p>
+            <p><strong>Total:</strong> R$ ${total}</p>
+          </div>
+
+          <div class="mt-4 grid md:grid-cols-3 gap-2">
+            ${action ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold ${action.btnClass}" data-next-status="${action.nextStatus}" data-order-id="${order.id}">${action.emoji} ${action.label}</button>` : ''}
+            ${order.status === 'delivery' ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold bg-emerald-700 text-white" data-bind-fab="${order.id}">✓ Usar FAB neste pedido</button>` : ''}
+            ${(order.status !== 'delivered' && order.status !== 'canceled') ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold bg-red-600 text-white" data-cancel-order="${order.id}">❌ Cancelar</button>` : ''}
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    container.querySelectorAll('[data-next-status]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await updateOrderStatus(btn.dataset.orderId, btn.dataset.nextStatus);
+      });
+    });
+
+    container.querySelectorAll('[data-cancel-order]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await updateOrderStatus(btn.dataset.cancelOrder, 'canceled');
+      });
+    });
+
+    container.querySelectorAll('[data-bind-fab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        deliveryFabOrderId = btn.dataset.bindFab;
+        syncDeliveryFab(filteredOrders);
+      });
+    });
+  }
+
+  async function updateOrderStatus(orderId, nextStatus) {
+    const { error } = await supabaseClient
+      .from('orders')
+      .update({ status: nextStatus })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error(error);
+      alert('Erro ao atualizar status.');
+      return;
+    }
+
+    await loadOrders();
+  }
+
+  document.getElementById('delivery-fab').addEventListener('click', async () => {
+    if (!deliveryFabOrderId) return;
+    await updateOrderStatus(deliveryFabOrderId, 'delivered');
+  });
+
+  async function init() {
+    renderTabs();
+    setupSocketIO();
+    await loadOrders();
+  }
+
+  init();
+</script>
+</body>
+</html>

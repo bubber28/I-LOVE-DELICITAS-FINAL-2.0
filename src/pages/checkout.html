@@ -211,6 +211,7 @@
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const BACKEND_NOTIFY_URL = 'https://[render-url]/api/pedidos/notify-novo-pedido';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // Coordenadas da loja (fornecidas pelo usuário)
@@ -697,6 +698,23 @@
       console.log('📢 Broadcast enviado para admin-notifications');
     } catch (broadcastError) {
       console.warn('Erro no broadcast (não crítico):', broadcastError);
+    }
+
+    try {
+      await fetch(BACKEND_NOTIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          customer: name,
+          total: (totalCents / 100).toFixed(2),
+          status: 'received',
+          created_at: new Date().toISOString()
+        })
+      });
+      console.log('📡 Notificação backend enviada:', BACKEND_NOTIFY_URL);
+    } catch (notifyError) {
+      console.warn('Erro ao notificar backend (não crítico):', notifyError);
     }
 
     // Inserir itens
