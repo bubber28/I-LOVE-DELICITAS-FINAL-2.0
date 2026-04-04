@@ -646,16 +646,22 @@
     cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
     const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
     const total = subtotal + currentFrete - desconto;
-    const totalCents = Math.round(total * 100);
+    const totalCents = Number(Math.round(Number(total) * 100));
+    const discountCents = Number(Math.round(Number(desconto) * 100));
 
-    const orderData = {
+    const itemsDebug = cart.map(item => ({
+      ...item,
+      preco_unitario: item.preco ?? item.price_cents ?? 0
+    }));
+
+    const pedido = {
       customer_name: name,
       customer_phone: phone,
       status: 'received',
       total_cents: totalCents,
       delivery_address: deliveryType === 'pickup' ? null : enderecoCompleto,
       payment_method: payment,
-      discount_cents: Math.round(desconto * 100),
+      discount_cents: discountCents,
       delivery_type: deliveryType,
       user_id: userId,
       guest_id: guestId,
@@ -665,15 +671,24 @@
       address_json: enderecoJson
     };
 
-    console.log('Enviando pedido:', orderData);
+    console.log('🔍 PEDIDO COMPLETO:', JSON.stringify(pedido, null, 2));
+    console.log('🔍 ITEMS NORMALIZADOS:', JSON.stringify(itemsDebug, null, 2));
 
-    const { data: order, error: orderError } = await supabaseClient
-      .from('orders')
-      .insert([orderData])
-      .select();
+    let order = null;
+    try {
+      const { data, error } = await supabaseClient
+        .from('orders')
+        .insert([pedido])
+        .select();
 
-    if (orderError) {
-      console.error(orderError);
+      if (error) {
+        console.error('❌ SUPABASE ERROR:', error);
+        throw error;
+      }
+
+      order = data;
+    } catch (e) {
+      console.error('💥 FULL ERROR:', e);
       errorEl.textContent = 'Erro ao criar pedido.';
       errorEl.classList.remove('hidden');
       return;
