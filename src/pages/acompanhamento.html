@@ -140,6 +140,18 @@
       Carregando...
     </div>
 
+    <div id="tracking-area" class="mt-4 hidden">
+      <a id="tracking-link" href="#" target="_blank"
+        style="display:flex;align-items:center;gap:10px;
+        background:linear-gradient(135deg,#ae2f34,#d63f45);
+        color:white;padding:14px 24px;border-radius:50px;
+        font-weight:700;text-decoration:none;
+        box-shadow:0 8px 30px rgba(174,47,52,0.4);
+        justify-content:center;">
+        📍 Rastrear minha entrega
+      </a>
+    </div>
+
     <div id="action-area" class="mt-6"></div>
 
     <div class="mt-8 flex flex-col sm:flex-row gap-4">
@@ -248,6 +260,23 @@
       delivered: '🎉 Pedido entregue! Aproveite e avalie nossa loja.'
     };
     document.getElementById('status-message').innerHTML = messages[status] || 'Aguardando atualização...';
+
+    if(status === 'delivery' && orderData?.tracking_url) {
+      const area = document.getElementById('tracking-area');
+      const link = document.getElementById('tracking-link');
+      if(area && link) {
+        area.classList.remove('hidden');
+        link.href = orderData.tracking_url;
+        const plataforma = orderData.motoboy_plataforma;
+        link.innerHTML = plataforma === 'uber'
+          ? '🚗 Rastrear pelo Uber'
+          : plataforma === '99'
+          ? '🟡 Rastrear pelo 99'
+          : '📍 Rastrear minha entrega';
+      }
+    } else {
+      document.getElementById('tracking-area')?.classList.add('hidden');
+    }
   }
 
   function addConfirmButton() {
