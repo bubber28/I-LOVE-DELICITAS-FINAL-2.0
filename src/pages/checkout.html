@@ -769,7 +769,7 @@
       const fab = document.createElement('button');
       fab.id = 'fab-acompanhar';
       fab.innerHTML = `📱 #${pedidoId.slice(-6)}`;
-      fab.style.cssText = "position:fixed;bottom:25px;right:25px;z-index:99999;width:65px;height:65px;border-radius:50%;background:linear-gradient(45deg,#10b981,#059669);color:white;border:none;font-size:14px;box-shadow:0 6px 25px rgba(16,185,129,0.5);animation:pulse 2s infinite;cursor:pointer;";
+      fab.style.cssText = "position:fixed;bottom:25px;right:25px;z-index:99999;min-width:140px;padding:12px 20px;border-radius:25px;background:linear-gradient(45deg,#10b981,#059669);color:white;border:none;font-size:14px;font-weight:600;text-align:center;box-shadow:0 6px 25px rgba(16,185,129,0.5);animation:pulse 2s infinite;cursor:pointer;";
       fab.onclick = () => window.location.href = `/acompanhamento?id=${pedidoId}`;
       document.body.appendChild(fab);
     }
