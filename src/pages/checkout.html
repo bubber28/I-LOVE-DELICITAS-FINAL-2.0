@@ -763,16 +763,14 @@
 
     const createdOrder = order?.[0];
     if (createdOrder) {
-      const oldFab = document.getElementById('checkout-success-fab');
-      if (oldFab) oldFab.remove();
+      const pedidoId = createdOrder.id;
+      localStorage.setItem('pedidoAtivo', JSON.stringify({id: pedidoId}));
 
       const fab = document.createElement('button');
-      fab.id = 'checkout-success-fab';
-      fab.innerHTML = '📱 Acompanhar';
-      fab.style.cssText = "position:fixed;bottom:25px;right:25px;z-index:9999;width:65px;height:65px;border-radius:50%;background:linear-gradient(45deg,#10b981,#059669);color:white;border:none;font-size:16px;box-shadow:0 4px 20px rgba(16,185,129,0.4);animation:pulse 2s infinite;cursor:pointer;";
-      fab.onclick = () => {
-        window.location.href = `/acompanhamento?id=${createdOrder.id}`;
-      };
+      fab.id = 'fab-acompanhar';
+      fab.innerHTML = `📱 #${pedidoId.slice(-6)}`;
+      fab.style.cssText = "position:fixed;bottom:25px;right:25px;z-index:99999;width:65px;height:65px;border-radius:50%;background:linear-gradient(45deg,#10b981,#059669);color:white;border:none;font-size:14px;box-shadow:0 6px 25px rgba(16,185,129,0.5);animation:pulse 2s infinite;cursor:pointer;";
+      fab.onclick = () => window.location.href = `/acompanhamento?id=${pedidoId}`;
       document.body.appendChild(fab);
     }
   }

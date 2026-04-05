@@ -88,6 +88,7 @@
     justify-content: center;
     line-height: 1;
   }
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 </style>
 </head>
 <body class="bg-background text-on-surface font-body">
@@ -444,6 +445,19 @@
   loadCategories();
   loadProducts();
   loadRecommendations();
+</script>
+<script>
+window.addEventListener('load', () => {
+  const ativo = localStorage.getItem('pedidoAtivo');
+  if(ativo) {
+    const data = JSON.parse(ativo);
+    const fab = document.createElement('button');
+    fab.innerHTML = `📱 #${data.id.slice(-6)}`;
+    fab.style.cssText = "position:fixed;bottom:25px;right:25px;z-index:99999;width:65px;height:65px;border-radius:50%;background:linear-gradient(45deg,#10b981,#059669);color:white;border:none;font-size:14px;box-shadow:0 6px 25px rgba(16,185,129,0.5);animation:pulse 2s infinite;cursor:pointer;";
+    fab.onclick = () => window.location.href = `/acompanhamento?id=${data.id}`;
+    document.body.appendChild(fab);
+  }
+});
 </script>
 </body>
 </html>
