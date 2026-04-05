@@ -74,6 +74,27 @@
     border-radius: 1rem;
     margin: 1rem 0;
   }
+  .status-step.done {
+    color: #10b981 !important;
+    opacity: 1 !important;
+  }
+  .status-step.active {
+    color: #10b981 !important;
+    animation: brilho 1.5s infinite !important;
+  }
+  .status-step.inactive {
+    opacity: 0.3;
+  }
+  @keyframes brilho {
+    0%,100% {
+      filter: drop-shadow(0 0 5px currentColor);
+      transform: scale(1);
+    }
+    50% {
+      filter: drop-shadow(0 0 15px currentColor);
+      transform: scale(1.1);
+    }
+  }
 </style>
 </head>
 <body>
@@ -316,6 +337,47 @@
   });
 
   loadOrder();
+
+  // ── Realtime visual chamativo ──────────────────────────────────────────
+  const pedidoId = new URLSearchParams(window.location.search).get('id');
+
+  const statusMap = {
+    'received': 0,
+    'preparing': 1,
+    'delivery': 2,
+    'delivered': 3
+  };
+
+  function updateSteps(status) {
+    const atual = statusMap[status] ?? 0;
+    document.querySelectorAll('.status-step').forEach((step, i) => {
+      step.classList.remove('active', 'done', 'inactive');
+      if (i < atual) step.classList.add('done');
+      else if (i === atual) step.classList.add('active');
+      else step.classList.add('inactive');
+    });
+  }
+
+  async function loadStatus() {
+    const { data } = await supabaseClient
+      .from('orders')
+      .select('status')
+      .eq('id', pedidoId)
+      .single();
+    if (data) updateSteps(data.status);
+  }
+
+  supabaseClient.channel('track-' + pedidoId)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'orders',
+      filter: `id=eq.${pedidoId}`
+    }, payload => updateSteps(payload.new.status))
+    .subscribe();
+
+  loadStatus();
+  setInterval(loadStatus, 10000);
 </script>
 </body>
 </html>
