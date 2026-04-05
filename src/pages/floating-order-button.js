@@ -160,6 +160,7 @@
                 
                 if (FINAL_STATUSES.includes(newStatus)) {
                     removeButton();
+                    localStorage.removeItem('pedidoAtivo');
                 }
             })
             .subscribe((status) => {
@@ -177,6 +178,7 @@
                 if (!freshOrder && activeOrder) {
                     // Pedido acabou
                     removeButton();
+                    localStorage.removeItem('pedidoAtivo');
                 } else if (freshOrder && !activeOrder) {
                     // Novo pedido!
                     activeOrder = freshOrder;
@@ -193,6 +195,22 @@
     async function init() {
         try {
             console.log('🔍 [FloatingBtn] Inicializando...');
+
+            const ativoSalvo = localStorage.getItem('pedidoAtivo');
+            if(ativoSalvo) {
+                const dadosSalvos = JSON.parse(ativoSalvo);
+                const { data: orderCheck } = await supabaseClient
+                    .from('orders')
+                    .select('status')
+                    .eq('id', dadosSalvos.id)
+                    .single();
+                if(!orderCheck ||
+                    FINAL_STATUSES.includes(orderCheck.status)) {
+                    localStorage.removeItem('pedidoAtivo');
+                    console.log('✅ pedidoAtivo limpo - status final');
+                    return;
+                }
+            }
             
             const { data: { session } } = await supabaseClient.auth.getSession();
             const userId = session?.user?.id;
