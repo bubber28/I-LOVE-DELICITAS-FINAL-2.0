@@ -64,6 +64,10 @@
     margin-bottom: 1rem;
   }
   .hidden-block { display: none; }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
 </style>
 </head>
 <body>
@@ -756,7 +760,21 @@
     clearFormData();
     localStorage.removeItem('cart');
     localStorage.removeItem('appliedCoupon');
-    window.location.href = `/pedido-confirmado?id=${orderId}`;
+
+    const createdOrder = order?.[0];
+    if (createdOrder) {
+      const oldFab = document.getElementById('checkout-success-fab');
+      if (oldFab) oldFab.remove();
+
+      const fab = document.createElement('button');
+      fab.id = 'checkout-success-fab';
+      fab.innerHTML = '📱 Acompanhar';
+      fab.style.cssText = "position:fixed;bottom:25px;right:25px;z-index:9999;width:65px;height:65px;border-radius:50%;background:linear-gradient(45deg,#10b981,#059669);color:white;border:none;font-size:16px;box-shadow:0 4px 20px rgba(16,185,129,0.4);animation:pulse 2s infinite;cursor:pointer;";
+      fab.onclick = () => {
+        window.location.href = `/acompanhamento?id=${createdOrder.id}`;
+      };
+      document.body.appendChild(fab);
+    }
   }
 
   // ================== EVENT LISTENERS ==================
