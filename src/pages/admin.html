@@ -140,8 +140,8 @@
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const BACKEND_BASE_URL = 'https://[render-url]';
-  const ORDER_STATUS_FLOW = ['received', 'preparing', 'ready', 'delivery', 'delivered'];
+  const BACKEND_BASE_URL = null; // 🔒 CORREÇÃO #6: URL não configurada - deixar null
+  const ORDER_STATUS_FLOW = ['received', 'preparing', 'delivery', 'delivered']; // 🔒 CORREÇÃO #7: Padronizado com acompanhamento (sem 'ready')
   const STATUS_LABELS = {
     received: 'Recebido',
     preparing: 'Preparando',
@@ -171,6 +171,10 @@
   });
 
   function setupSocketIO() {
+    if (!BACKEND_BASE_URL) {
+      console.warn('⚠️ BACKEND_BASE_URL não configurada - Socket.io desativado');
+      return null;
+    }
     if (socket) return socket;
 
     socket = io(BACKEND_BASE_URL, {
@@ -179,7 +183,7 @@
     });
 
     socket.on('connect', () => {
-      console.log('Socket conectado:', socket.id);
+      console.log('✅ Socket conectado:', socket.id);
     });
 
     socket.on('novoPedido', async () => {
@@ -188,7 +192,7 @@
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket desconectado');
+      console.log('⚠️ Socket desconectado');
     });
 
     return socket;
@@ -261,7 +265,7 @@
 
     return `
       <div class="flex flex-wrap gap-2 mt-3">
-        ${['received', 'preparing', 'ready', 'delivery', 'delivered'].map((step) => {
+        ${['received', 'preparing', 'delivery', 'delivered'].map((step) => {
           const stepIndex = ORDER_STATUS_FLOW.indexOf(step);
           const isDone = orderIndex > stepIndex;
           const isCurrent = status === step;

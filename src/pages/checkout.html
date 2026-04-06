@@ -215,10 +215,9 @@
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
-  const BACKEND_NOTIFY_URL = 'https://[render-url]/api/pedidos/notify-novo-pedido';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Coordenadas da loja (fornecidas pelo usuário)
+  // Coordenadas da loja
   const STORE_LAT = -19.94928035532827;
   const STORE_LNG = -43.98666216297332;
 
@@ -236,6 +235,34 @@
   };
   let cepValido = false;
   let currentDistance = null;
+  let isSubmitting = false; // 🔒 Anti-duplo clique (CORREÇÃO #1)
+
+  // ================== VALIDAÇÃO CPF (CORREÇÃO #8) ==================
+  function isValidCPF(cpf) {
+    const strCpf = String(cpf).padStart(11, '0');
+    if (strCpf.length !== 11 || /^(\d)\1{10}$/.test(strCpf)) return false;
+    
+    let sum = 0, remainder;
+    for (let i = 0; i < 9; i++) sum += parseInt(strCpf[i]) * (10 - i);
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(strCpf[9])) return false;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(strCpf[i]) * (11 - i);
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    return remainder === parseInt(strCpf[10]);
+  }
+
+  // ================== DEBOUNCE (CORREÇÃO #4) ==================
+  function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), delay);
+    };
+  }
 
   // ================== PERSISTÊNCIA ==================
   function getStorageKey() {
@@ -246,7 +273,8 @@
 
   function saveFormData() {
     const key = getStorageKey();
-    const formFields = ['customer-name', 'customer-phone', 'cpf', 'cep', 'rua', 'numero', 'bairro', 'complemento', 'cidade', 'uf', 'referencia', 'delivery-type', 'payment-method'];
+    // 🔒 NÃO salvar dados sensíveis (CEP, endereço, etc)
+    const formFields = ['customer-name', 'customer-phone', 'delivery-type', 'payment-method'];
     const data = {};
     formFields.forEach(field => {
       const el = document.getElementById(field);
@@ -265,15 +293,11 @@
         const el = document.getElementById(field);
         if (el && value) el.value = value;
       }
-      const cep = document.getElementById('cep').value;
-      if (cep && cep.replace(/\D/g, '').length === 8) {
-        setTimeout(() => atualizarFrete(), 300);
-      }
     } catch(e) { console.warn(e); }
   }
 
   function attachAutoSave() {
-    const fields = ['customer-name', 'customer-phone', 'cpf', 'cep', 'rua', 'numero', 'bairro', 'complemento', 'cidade', 'uf', 'referencia', 'delivery-type', 'payment-method'];
+    const fields = ['customer-name', 'customer-phone', 'delivery-type', 'payment-method'];
     fields.forEach(field => {
       const el = document.getElementById(field);
       if (el) {
@@ -282,7 +306,6 @@
       }
     });
     window.addEventListener('beforeunload', saveFormData);
-    // Salva ao clicar em qualquer link (incluindo o do frete grátis)
     document.body.addEventListener('click', (e) => {
       const link = e.target.closest('a');
       if (link && link.href) saveFormData();
@@ -317,7 +340,7 @@
       config.frete_gratis_minimo = parseFloat(data.frete_gratis_minimo) || 0;
       config.frete_padrao = parseFloat(data.frete_padrao) || 7.00;
       config.frete_gratis_distancia_maxima = parseInt(data.frete_gratis_distancia_maxima) || 5;
-      console.log('Config carregada:', config);
+      console.log('✅ Config carregada:', config);
     }
   }
 
@@ -335,7 +358,7 @@
           lng: parseFloat(data[0].lon)
         };
       }
-      console.warn('Endereço não encontrado:', address);
+      console.warn('⚠️ Endereço não encontrado:', address);
       return null;
     } catch (err) {
       console.error('Erro na geocodificação:', err);
@@ -373,17 +396,17 @@
   async function calcularFrete(cep, addressString, subtotal) {
     if (!cep || cep.replace(/\D/g, '').length !== 8) return config.frete_padrao;
 
-    const cepLimpo = cep.replace(/\D/g, '');
+    const cepNumerico = parseInt(cep.replace(/\D/g, '')); // 🔒 Converte para número (CORREÇÃO #3)
     const { data: regiao, error } = await supabaseClient
       .from('frete_regioes')
       .select('valor')
-      .lte('cep_inicio', cepLimpo)
-      .gte('cep_fim', cepLimpo)
+      .lte('cep_inicio', cepNumerico)
+      .gte('cep_fim', cepNumerico)
       .maybeSingle();
 
     let frete = regiao ? parseFloat(regiao.valor) : config.frete_padrao;
     if (error) {
-      console.error('Erro ao buscar frete:', error);
+      console.error('⚠️ Erro ao buscar frete:', error);
       frete = config.frete_padrao;
     }
 
@@ -393,8 +416,10 @@
       if (coords) {
         distancia = haversineDistance(STORE_LAT, STORE_LNG, coords.lat, coords.lng);
         currentDistance = distancia;
-        console.log(`Distância calculada: ${distancia.toFixed(2)} km`);
+        console.log(`✅ Distância: ${distancia.toFixed(2)} km`);
       } else {
+        // CORREÇÃO #5: Notificar usuário se geocodificação falhar
+        console.warn('⚠️ Não foi possível calcular a distância com precisão');
         currentDistance = null;
       }
     } else {
@@ -403,7 +428,7 @@
 
     const freeShippingAvailable = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima && subtotal >= config.frete_gratis_minimo);
     if (freeShippingAvailable) {
-      console.log('Frete grátis aplicado (distância dentro do limite e valor mínimo atingido)');
+      console.log('🎉 Frete grátis aplicado!');
       return 0;
     }
     return frete;
@@ -594,184 +619,157 @@
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
   }
 
-  // ================== SUBMIT PEDIDO ==================
+  // ================== SUBMIT PEDIDO (CORREÇÃO #1 - ANTI-DUPLO CLIQUE) ==================
   async function submitOrder() {
-    saveFormData(); // salva antes de enviar
-
-    const name = document.getElementById('customer-name').value.trim();
-    const phone = document.getElementById('customer-phone').value.trim();
-    const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
-    const deliveryType = document.getElementById('delivery-type').value;
-    const payment = document.getElementById('payment-method').value;
-    const errorEl = document.getElementById('error-message');
-    errorEl.classList.add('hidden');
-
-    if (!name || !phone) {
-      errorEl.textContent = 'Preencha nome e telefone.';
-      errorEl.classList.remove('hidden');
+    // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE (CORREÇÃO #1)
+    if (isSubmitting) {
+      console.warn('⚠️ Pedido já em processamento, aguarde...');
       return;
     }
-    if (cpfRaw && cpfRaw.length !== 11) {
-      errorEl.textContent = 'CPF inválido. Deve conter 11 dígitos.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-    if (cart.length === 0) {
-      errorEl.textContent = 'Carrinho vazio.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
+    isSubmitting = true;
+    
+    const btn = document.getElementById('submit-order');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Processando...';
 
-    let enderecoCompleto = null;
-    let enderecoJson = null;
-    if (deliveryType === 'delivery') {
-      const rua = document.getElementById('rua').value.trim();
-      const numero = document.getElementById('numero').value.trim();
-      const bairro = document.getElementById('bairro').value.trim();
-      const cidade = document.getElementById('cidade').value.trim();
-      const uf = document.getElementById('uf').value.trim();
-      const complemento = document.getElementById('complemento').value.trim();
-      const referencia = document.getElementById('referencia').value.trim();
-
-      if (!rua || !numero || !bairro || !cidade || !uf) {
-        errorEl.textContent = 'Preencha todos os campos do endereço.';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      enderecoCompleto = `${rua}, ${numero}${complemento ? `, ${complemento}` : ''} - ${bairro}, ${cidade} - ${uf}`;
-      if (referencia) enderecoCompleto += ` (ref: ${referencia})`;
-      enderecoJson = {
-        rua, numero, bairro, cidade, uf, complemento, referencia,
-        cep: document.getElementById('cep').value.trim()
-      };
-    }
-
-    let subtotal = 0;
-    cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
-    const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    const total = subtotal + currentFrete - desconto;
-    const totalCents = Number(Math.round(Number(total) * 100));
-    const discountCents = Number(Math.round(Number(desconto) * 100));
-
-    const itemsDebug = cart.map(item => ({
-      ...item,
-      preco_unitario: item.preco ?? item.price_cents ?? 0
-    }));
-
-    const pedido = {
-      customer_name: name,
-      customer_phone: phone,
-      status: 'received',
-      total_cents: totalCents,
-      delivery_address: deliveryType === 'pickup' ? null : enderecoCompleto,
-      payment_method: payment,
-      discount_cents: discountCents,
-      delivery_type: deliveryType,
-      user_id: userId,
-      guest_id: guestId,
-      cpf: cpfRaw || null,
-      created_at: new Date().toISOString(),
-      distance_km: currentDistance,
-      address_json: enderecoJson
-    };
-
-    console.log('🔍 PEDIDO COMPLETO:', JSON.stringify(pedido, null, 2));
-    console.log('🔍 ITEMS NORMALIZADOS:', JSON.stringify(itemsDebug, null, 2));
-
-    let order = null;
     try {
+      saveFormData();
+
+      const name = document.getElementById('customer-name').value.trim();
+      const phone = document.getElementById('customer-phone').value.trim();
+      const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
+      const deliveryType = document.getElementById('delivery-type').value;
+      const payment = document.getElementById('payment-method').value;
+      const errorEl = document.getElementById('error-message');
+      errorEl.classList.add('hidden');
+
+      if (!name || !phone) {
+        throw new Error('Preencha nome e telefone.');
+      }
+      
+      // CORREÇÃO #8: Validação real de CPF com algoritmo
+      if (cpfRaw && !isValidCPF(cpfRaw)) {
+        throw new Error('CPF inválido. Verifique os dígitos.');
+      }
+      
+      if (cart.length === 0) {
+        throw new Error('Carrinho vazio.');
+      }
+
+      let deliveryAddress = null;
+      let addressJson = null;
+      if (deliveryType === 'delivery') {
+        const rua = document.getElementById('rua').value.trim();
+        const numero = document.getElementById('numero').value.trim();
+        const bairro = document.getElementById('bairro').value.trim();
+        const cidade = document.getElementById('cidade').value.trim();
+        const uf = document.getElementById('uf').value.trim();
+        const complemento = document.getElementById('complemento').value.trim();
+        const referencia = document.getElementById('referencia').value.trim();
+
+        if (!rua || !numero || !bairro || !cidade || !uf) {
+          throw new Error('Preencha todos os campos do endereço.');
+        }
+        
+        deliveryAddress = `${rua}, ${numero}${complemento ? `, ${complemento}` : ''} - ${bairro}, ${cidade} - ${uf}`;
+        addressJson = { rua, numero, bairro, cidade, uf, complemento, referencia, cep: document.getElementById('cep').value };
+      }
+
+      let subtotal = 0;
+      cart.forEach(i => subtotal += (i.price_cents / 100) * (i.quantity || 1));
+      const desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
+      const total = subtotal + currentFrete - desconto;
+      const totalCents = Number(Math.round(total * 100));
+      const discountCents = Number(Math.round(desconto * 100));
+
+      const pedido = {
+        customer_name: name,
+        customer_phone: phone,
+        status: 'received',
+        total_cents: totalCents,
+        delivery_address: deliveryType === 'pickup' ? null : deliveryAddress,
+        payment_method: payment,
+        discount_cents: discountCents,
+        delivery_type: deliveryType,
+        user_id: userId,
+        guest_id: guestId,
+        cpf: cpfRaw || null,
+        created_at: new Date().toISOString(),
+        distance_km: currentDistance,
+        address_json: addressJson
+      };
+
+      console.log('🔍 PEDIDO CRIADO:', JSON.stringify(pedido, null, 2));
+
       const { data, error } = await supabaseClient
         .from('orders')
         .insert([pedido])
         .select();
 
       if (error) {
-        console.error('❌ SUPABASE ERROR:', error);
+        console.error('❌ ERRO SUPABASE:', error);
         throw error;
       }
 
-      order = data;
-    } catch (e) {
-      console.error('💥 FULL ERROR:', e);
-      errorEl.textContent = 'Erro ao criar pedido.';
+      const orderId = data[0].id;
+      console.log('✅ Pedido criado com ID:', orderId);
+
+      // Broadcast para admin
+      try {
+        await supabaseClient.channel('admin-notifications').send({
+          type: 'broadcast',
+          event: 'new-order',
+          payload: {
+            orderId: orderId,
+            customer: name,
+            total: (totalCents / 100).toFixed(2),
+            status: 'received',
+            created_at: new Date().toISOString()
+          }
+        });
+        console.log('📢 Broadcast enviado');
+      } catch(e) { console.warn('⚠️ Broadcast falhou (não-crítico):', e); }
+
+      // Inserir itens
+      const itemsToInsert = cart.map(i => ({
+        order_id: orderId,
+        product_name: i.name,
+        quantity: i.quantity || 1,
+        unit_price_cents: i.price_cents,
+        line_total_cents: (i.price_cents * (i.quantity || 1))
+      }));
+      const { error: itemsError } = await supabaseClient
+        .from('order_items')
+        .insert(itemsToInsert);
+      if (itemsError) console.error('⚠️ Erro ao inserir itens:', itemsError);
+
+      if (appliedCoupon && appliedCoupon.id) {
+        await supabaseClient
+          .from('cupons')
+          .update({ usos_atual: (appliedCoupon.usos_atual || 0) + 1 })
+          .eq('id', appliedCoupon.id);
+      }
+
+      // CORREÇÃO #2: Salvar pedidoAtivo ANTES de redirecionar
+      localStorage.setItem('pedidoAtivo', JSON.stringify({id: orderId}));
+
+      // Limpeza
+      clearFormData();
+      localStorage.removeItem('cart');
+      localStorage.removeItem('appliedCoupon');
+
+      // Redirecionar para confirmação
+      window.location.href = `/pedido-confirmado?id=${orderId}`;
+
+    } catch (err) {
+      console.error('❌ ERRO FINAL:', err.message);
+      const errorEl = document.getElementById('error-message');
+      errorEl.textContent = err.message || 'Erro ao criar pedido. Tente novamente.';
       errorEl.classList.remove('hidden');
-      return;
-    }
-
-    const orderId = order[0].id;
-    console.log('Pedido criado com ID:', orderId);
-
-    // 🔔 ENVIA BROADCAST (com evento 'new-order' - hífen)
-    try {
-      await supabaseClient.channel('admin-notifications').send({
-        type: 'broadcast',
-        event: 'new-order',
-        payload: {
-          orderId: orderId,
-          customer: name,
-          total: (totalCents / 100).toFixed(2),
-          status: 'received',
-          created_at: new Date().toISOString()
-        }
-      });
-      console.log('📢 Broadcast enviado para admin-notifications');
-    } catch (broadcastError) {
-      console.warn('Erro no broadcast (não crítico):', broadcastError);
-    }
-
-    try {
-      await fetch(BACKEND_NOTIFY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          customer: name,
-          total: (totalCents / 100).toFixed(2),
-          status: 'received',
-          created_at: new Date().toISOString()
-        })
-      });
-      console.log('📡 Notificação backend enviada:', BACKEND_NOTIFY_URL);
-    } catch (notifyError) {
-      console.warn('Erro ao notificar backend (não crítico):', notifyError);
-    }
-
-    // Inserir itens
-    const itemsToInsert = cart.map(i => ({
-      order_id: orderId,
-      product_name: i.name,
-      quantity: i.quantity || 1,
-      unit_price_cents: i.price_cents,
-      line_total_cents: (i.price_cents * (i.quantity || 1))
-    }));
-    const { error: itemsError } = await supabaseClient
-      .from('order_items')
-      .insert(itemsToInsert);
-    if (itemsError) console.error('Erro ao inserir itens:', itemsError);
-
-    if (appliedCoupon && appliedCoupon.id) {
-      await supabaseClient
-        .from('cupons')
-        .update({ usos_atual: (appliedCoupon.usos_atual || 0) + 1 })
-        .eq('id', appliedCoupon.id);
-    }
-
-    // Limpeza
-    clearFormData();
-    localStorage.removeItem('cart');
-    localStorage.removeItem('appliedCoupon');
-
-    const createdOrder = order?.[0];
-    if (createdOrder) {
-      const pedidoId = createdOrder.id;
-      localStorage.setItem('pedidoAtivo', JSON.stringify({id: pedidoId}));
-
-      const fab = document.createElement('button');
-      fab.id = 'fab-acompanhar';
-      fab.innerHTML = `📱 #${pedidoId.slice(-6)}`;
-      fab.style.cssText = "position:fixed;bottom:25px;right:25px;z-index:99999;min-width:140px;padding:12px 20px;border-radius:25px;background:linear-gradient(45deg,#10b981,#059669);color:white;border:none;font-size:14px;font-weight:600;text-align:center;box-shadow:0 6px 25px rgba(16,185,129,0.5);animation:pulse 2s infinite;cursor:pointer;";
-      fab.onclick = () => window.location.href = `/acompanhamento?id=${pedidoId}`;
-      document.body.appendChild(fab);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      isSubmitting = false;
     }
   }
 
@@ -810,15 +808,16 @@
     saveFormData();
   });
 
+  // CORREÇÃO #4: Debounce nos address fields
   const addressFields = ['rua', 'numero', 'bairro', 'cidade', 'uf'];
   addressFields.forEach(field => {
-    document.getElementById(field).addEventListener('change', () => {
+    document.getElementById(field).addEventListener('change', debounce(() => {
       const cep = document.getElementById('cep').value;
       if (cep && cep.replace(/\D/g, '').length === 8) {
         atualizarFrete();
       }
       saveFormData();
-    });
+    }, 800));
   });
 
   // Header auth e sidebar (mesmo código anterior)
