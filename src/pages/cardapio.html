@@ -172,7 +172,9 @@
 </main>
 
 <footer class="bg-[#fff0ef] py-12 text-center">
-  <p>© 2025 I Love Delicitas. Doce momento.</p>
+  <p class="font-semibold">I Love Delicitas</p>
+  <p class="text-sm text-on-surface-variant mt-1">CNPJ: 61.316.392/0001-97</p>
+  <p class="text-sm mt-1">© 2025 I Love Delicitas. Doce momento.</p>
 </footer>
 
 <script>
@@ -314,15 +316,14 @@
                 '${escapeHtml(prod.name)}',
                 ${prod.price_cents},
                 '${prod.image_url||''}')"
-              class="flex items-center justify-center gap-1
+              class="flex items-center justify-center gap-0.5 sm:gap-1 shrink-0
                 bg-primary text-white
-                px-3 sm:px-4 py-2 rounded-full
-                text-[11px] sm:text-xs font-bold leading-none
-                min-w-[92px] sm:min-w-[100px]
+                px-2.5 sm:px-4 py-2 rounded-full
+                text-[10px] sm:text-xs font-bold leading-tight
                 hover:scale-105 hover:shadow-lg
                 hover:shadow-primary/30
                 transition-all whitespace-nowrap">
-              <span class="material-symbols-outlined text-sm">add</span>
+              <span class="material-symbols-outlined text-xs sm:text-sm">add</span>
               Adicionar
             </button>
           </div>
