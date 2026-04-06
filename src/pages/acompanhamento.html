@@ -180,24 +180,23 @@
       return;
     }
 
-    console.log('🔍 Buscando pedido ID:', orderId);
-    
-    // 🔥 Busca direta no banco com maybeSingle (evita erro se não existir)
+    console.log('[Acompanhamento] Buscando pedido ID:', orderId);
+
+    // Busca o pedido esperado por id com erro explícito quando não existir.
     const { data: order, error } = await supabaseClient
       .from('orders')
       .select('*')
       .eq('id', orderId)
-      .maybeSingle();
+      .single();
 
     if (error) {
-      console.error('❌ Erro ao carregar pedido:', error);
+      if (error.code === 'PGRST116') {
+        console.warn('[Acompanhamento] Pedido não encontrado:', orderId);
+        document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não encontrado.</p>';
+        return;
+      }
+      console.error('[Acompanhamento] Erro ao carregar pedido:', error);
       document.getElementById('order-info').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
-      return;
-    }
-    
-    if (!order) {
-      console.warn('⚠️ Pedido não encontrado:', orderId);
-      document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não encontrado.</p>';
       return;
     }
 
@@ -212,7 +211,9 @@
 
     // Remove canal anterior se existir para evitar duplicação
     if (orderChannel) {
+      console.log('[Acompanhamento] Removendo canal anterior antes de reinscrever.');
       await supabaseClient.removeChannel(orderChannel);
+      orderChannel = null;
     }
     
     // 🔥 Inscreve para mudanças em tempo real (Realtime)
@@ -224,10 +225,14 @@
         table: 'orders',
         filter: `id=eq.${orderId}`
       }, (payload) => {
-        console.log('📡 Mudança detectada no pedido:', payload);
+        console.log('[Acompanhamento] Evento Realtime recebido:', payload);
         const newStatus = payload.new.status;
+        if (!statusOrder.includes(newStatus)) {
+          console.warn('[Acompanhamento] Status inválido recebido via Realtime:', newStatus);
+          return;
+        }
         if (newStatus !== currentStatus) {
-          console.log(`🔄 Status alterado de ${currentStatus} para ${newStatus}`);
+          console.log(`[Acompanhamento] Status alterado de ${currentStatus} para ${newStatus}`);
           currentStatus = newStatus;
           orderData = payload.new;
           updateStatusUI(currentStatus);
@@ -235,22 +240,27 @@
         }
       })
       .subscribe((status) => {
-        console.log('🔌 Canal Realtime status:', status);
+        console.log('[Acompanhamento] Status da conexão Realtime:', status);
       });
   }
 
   function updateStatusUI(status) {
+    if (!statusOrder.includes(status)) {
+      console.warn('[Acompanhamento] Tentativa de renderizar status inválido:', status);
+      return;
+    }
+
+    const currentIndex = statusOrder.indexOf(status);
     const steps = document.querySelectorAll('.status-step');
     steps.forEach(step => {
       step.classList.remove('active', 'completed');
       const stepName = step.dataset.step;
       const stepIndex = statusOrder.indexOf(stepName);
-      const currentIndex = statusOrder.indexOf(status);
       if (stepIndex < currentIndex) step.classList.add('completed');
       else if (stepIndex === currentIndex) step.classList.add('active');
     });
 
-    const progressPercent = ((statusOrder.indexOf(status) + 1) / statusOrder.length) * 100;
+    const progressPercent = ((currentIndex + 1) / statusOrder.length) * 100;
     document.getElementById('progress-fill').style.width = `${progressPercent}%`;
 
     const messages = {
@@ -361,52 +371,19 @@
 
   // Recarrega manualmente quando a página ganha foco (útil para mobile)
   window.addEventListener('focus', () => {
-    console.log('🔄 Página em foco, recarregando pedido...');
+    console.log('[Acompanhamento] Página em foco, recarregando pedido.');
     loadOrder();
   });
 
+  window.addEventListener('beforeunload', async () => {
+    if (orderChannel) {
+      console.log('[Acompanhamento] Limpando canal Realtime no unload.');
+      await supabaseClient.removeChannel(orderChannel);
+      orderChannel = null;
+    }
+  });
+
   loadOrder();
-
-  // ── Realtime visual chamativo ──────────────────────────────────────────
-  const pedidoId = new URLSearchParams(window.location.search).get('id');
-
-  const statusMap = {
-    'received': 0,
-    'preparing': 1,
-    'delivery': 2,
-    'delivered': 3
-  };
-
-  function updateSteps(status) {
-    const atual = statusMap[status] ?? 0;
-    document.querySelectorAll('.status-step').forEach((step, i) => {
-      step.classList.remove('active', 'done', 'inactive');
-      if (i < atual) step.classList.add('done');
-      else if (i === atual) step.classList.add('active');
-      else step.classList.add('inactive');
-    });
-  }
-
-  async function loadStatus() {
-    const { data } = await supabaseClient
-      .from('orders')
-      .select('status')
-      .eq('id', pedidoId)
-      .single();
-    if (data) updateSteps(data.status);
-  }
-
-  supabaseClient.channel('track-' + pedidoId)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'orders',
-      filter: `id=eq.${pedidoId}`
-    }, payload => updateSteps(payload.new.status))
-    .subscribe();
-
-  loadStatus();
-  setInterval(loadStatus, 10000);
 </script>
 </body>
 </html>

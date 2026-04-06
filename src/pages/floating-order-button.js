@@ -9,7 +9,6 @@
     let activeOrder = null;
     let button = null;
     let orderChannel = null;
-    let checkInterval = null;
     
     const FINAL_STATUSES = ['delivered', 'canceled'];
     const MAX_AGE_MS = 10 * 60 * 1000;  // 10 minutos
@@ -136,14 +135,13 @@
         }, 400); // ✅ Sync com fadeOutDown
     }
 
-    // 📡 REALTIME + POLLING BULLETPROOF
+    // 📡 Realtime único para evitar eventos duplicados
     async function setupRealtime(orderId) {
         // Cleanup anterior
         if (orderChannel) {
-            supabaseClient.removeChannel(orderChannel);
-        }
-        if (checkInterval) {
-            clearInterval(checkInterval);
+            console.log('[FloatingBtn] Removendo canal anterior');
+            await supabaseClient.removeChannel(orderChannel);
+            orderChannel = null;
         }
 
         // Realtime principal
@@ -156,39 +154,17 @@
                 filter: `id=eq.${orderId}`
             }, (payload) => {
                 const newStatus = payload.new.status;
-                console.log('📡 Status atualizado:', newStatus);
+                console.log('[FloatingBtn] Evento Realtime recebido. Novo status:', newStatus);
                 
                 if (FINAL_STATUSES.includes(newStatus)) {
+                    console.log('[FloatingBtn] Pedido atingiu status final. Removendo botão.');
                     removeButton();
                     localStorage.removeItem('pedidoAtivo');
                 }
             })
             .subscribe((status) => {
-                console.log('📡 Realtime status:', status);
+                console.log('[FloatingBtn] Status da conexão Realtime:', status);
             });
-
-        // 🔄 Polling fallback (cada 25s)
-        checkInterval = setInterval(async () => {
-            try {
-                const freshOrder = await fetchActiveOrder(
-                    activeOrder?.user_id, 
-                    getGuestId()
-                );
-                
-                if (!freshOrder && activeOrder) {
-                    // Pedido acabou
-                    removeButton();
-                    localStorage.removeItem('pedidoAtivo');
-                } else if (freshOrder && !activeOrder) {
-                    // Novo pedido!
-                    activeOrder = freshOrder;
-                    createButton(freshOrder);
-                    setupRealtime(freshOrder.id);
-                }
-            } catch (e) {
-                console.warn('Polling error:', e);
-            }
-        }, 25000);
     }
 
     // 🚀 INICIALIZAÇÃO ROBUSTA
@@ -248,8 +224,10 @@
 
     // 🧹 CLEANUP PROFISSIONAL
     window.addEventListener('beforeunload', () => {
-        if (checkInterval) clearInterval(checkInterval);
-        if (orderChannel) supabaseClient.removeChannel(orderChannel);
+        if (orderChannel) {
+            supabaseClient.removeChannel(orderChannel);
+            orderChannel = null;
+        }
     });
 
     // 🧪 DEBUG MODE (F12 → console.testFloating())
