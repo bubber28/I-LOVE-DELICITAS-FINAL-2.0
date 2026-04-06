@@ -410,14 +410,14 @@
                 '${escapeHtml(prod.name)}',
                 ${prod.price_cents},
                 '${prod.image_url||''}')"
-              class="flex items-center gap-1
+              class="flex items-center justify-center gap-0.5 sm:gap-1 shrink-0
                 bg-primary text-white
-                px-4 py-2 rounded-full
-                text-xs font-bold
+                px-2.5 sm:px-4 py-2 rounded-full
+                text-[10px] sm:text-xs font-bold leading-tight
                 hover:scale-105 hover:shadow-lg
                 hover:shadow-primary/30
                 transition-all whitespace-nowrap">
-              <span class="material-symbols-outlined text-sm">add</span>
+              <span class="material-symbols-outlined text-xs sm:text-sm">add</span>
               Adicionar
             </button>
           </div>
