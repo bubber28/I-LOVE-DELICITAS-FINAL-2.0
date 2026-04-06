@@ -19,6 +19,22 @@
   .btn-primary:hover { background-color: #8f2529; transform: scale(1.02); }
   .btn-outline { border: 1px solid #ae2f34; color: #ae2f34; padding: 0.75rem 1.5rem; border-radius: 9999px; display: inline-block; text-decoration: none; font-weight: bold; background: white; transition: all 0.2s; text-align: center; }
   .btn-outline:hover { background-color: #fff0ef; }
+  
+  /* CSS para impressora térmica 58mm */
+  @media print {
+    body { background: white; margin: 0; padding: 0; }
+    #main-header { background: white; padding: 3mm; border-bottom: 2px dashed #333; }
+    #main-header img { max-width: 20mm; max-height: 20mm; width: auto; height: auto; }
+    .container-custom { max-width: 58mm; margin: 0; }
+    .order-card { border-radius: 0; padding: 3mm; box-shadow: none; max-width: 58mm; }
+    .order-header { border-bottom: 1px dashed #333; }
+    .item-row { font-size: 9pt; padding: 2mm 0; }
+    .btn-primary, .btn-outline { display: none; }
+    .logo-print { display: none; }
+    .address-info { font-size: 9pt; margin: 2mm 0; }
+    .timestamp-info { font-size: 9pt; margin: 2mm 0; font-weight: bold; }
+  }
+  
   @media (max-width: 640px) { 
     .order-card { padding: 1rem; } 
     .btn-primary, .btn-outline { display: block; width: 100%; margin-bottom: 0.5rem; }
@@ -27,7 +43,7 @@
 </head>
 <body>
 
-<header class="bg-surface-container-low py-4 px-6 shadow-sm">
+<header class="bg-surface-container-low py-4 px-6 shadow-sm" id="main-header">
   <div class="container-custom">
     <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
   </div>
@@ -111,13 +127,17 @@
       itemsHtml = '<div class="text-center text-error p-4">⚠️ Itens não disponíveis para exibição, mas seu pedido foi registrado. Entre em contato conosco se necessário.</div>';
     }
 
-    const deliveryAddress = order.delivery_address ? `<p><strong>Endereço:</strong> ${escapeHtml(order.delivery_address)}</p>` : '';
+    const deliveryAddress = order.delivery_address ? `<p class="address-info"><strong>Endereço de entrega:</strong><br>${escapeHtml(order.delivery_address)}</p>` : '';
     const paymentMethod = order.payment_method === 'pix' ? 'PIX' : (order.payment_method === 'cartao' ? 'Cartão' : 'Dinheiro');
     const discount = order.discount_cents > 0 ? `<p><strong>Desconto:</strong> - R$ ${formatMoney(order.discount_cents)}</p>` : '';
+    
+    // Extrai apenas horário de entrada
+    const entryTime = new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' });
 
     const html = `
       <p><strong>Pedido #:</strong> ${orderId.substring(0,8)}</p>
-      <p><strong>Data/Hora:</strong> ${formatDate(order.created_at)}</p>
+      <p class="timestamp-info"><strong>Entrada:</strong> ${entryTime}</p>
+      <p><strong>Data/Hora Completa:</strong> ${formatDate(order.created_at)}</p>
       <p><strong>Cliente:</strong> ${escapeHtml(order.customer_name)}</p>
       <p><strong>Telefone:</strong> ${escapeHtml(order.customer_phone)}</p>
       ${deliveryAddress}
