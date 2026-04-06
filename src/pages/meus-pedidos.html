@@ -116,6 +116,17 @@
     if (!session) { window.location.href = '/login'; return; }
     const userId = session.user.id;
 
+    // Atualiza UI de autenticação imediatamente, mesmo se não houver pedidos.
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('name')
+      .eq('id', userId)
+      .single();
+    const userName = profile?.name || session.user.email.split('@')[0];
+    document.getElementById('user-name').innerText = userName;
+    document.getElementById('user-menu').classList.remove('hidden');
+    document.getElementById('login-link').classList.add('hidden');
+
     const { data: orders, error } = await supabaseClient
       .from('orders')
       .select('*')
@@ -166,12 +177,6 @@
     }).join('');
 
     document.getElementById('orders-container').innerHTML = ordersHtml;
-
-    const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', userId).single();
-    const userName = profile?.name || session.user.email.split('@')[0];
-    document.getElementById('user-name').innerText = userName;
-    document.getElementById('user-menu').classList.remove('hidden');
-    document.getElementById('login-link').classList.add('hidden');
   }
 
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
