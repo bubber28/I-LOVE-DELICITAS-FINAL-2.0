@@ -24,31 +24,33 @@
         return guestId;
     }
 
-    // 🧠 BUSCA PEDIDO ATIVO INTELIGENTE
-    async function fetchActiveOrder(userId, guestId) {
-        const dezMinAtras = new Date(Date.now() - MAX_AGE_MS).toISOString();
-        
-        let query = supabaseClient
+    // 🧠 BUSCA PEDIDO ATIVO APENAS PELO ID SALVO APÓS CONFIRMAÇÃO
+    async function fetchActiveOrderById(orderId, userId, guestId) {
+        const { data, error } = await supabaseClient
             .from('orders')
             .select('id, status, created_at, distance_km, customer_name, user_id, guest_id')
-            .not('status', 'in', `(${FINAL_STATUSES.map(s => `'${s}'`).join(',')})`)
-            .gte('created_at', dezMinAtras)              // ✅ Só recentes
-            .lte('distance_km', MAX_DISTANCE_KM)        // ✅ Dentro 3km
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .eq('id', orderId)
+            .single();
 
-        if (userId) {
-            query = query.eq('user_id', userId);
-        } else {
-            query = query.eq('guest_id', guestId);
-        }
-
-        const { data, error } = await query;
-        if (error) {
-            console.warn('❌ Fetch order error:', error);
+        if (error || !data) {
+            console.warn('❌ Fetch order by id error:', error);
             return null;
         }
-        return data?.[0] || null;
+
+        if (FINAL_STATUSES.includes(data.status)) {
+            return null;
+        }
+
+        const isOwner = userId
+            ? data.user_id === userId
+            : (data.user_id === null && data.guest_id === guestId);
+
+        if (!isOwner) {
+            console.warn('⚠️ Pedido não pertence ao usuário/guest atual');
+            return null;
+        }
+
+        return data;
     }
 
     // 🎨 CRIA BOTÃO COM CSS ANIMADO INJETADO ✅
@@ -173,33 +175,43 @@
             console.log('🔍 [FloatingBtn] Inicializando...');
 
             const ativoSalvo = localStorage.getItem('pedidoAtivo');
-            if(ativoSalvo) {
-                const dadosSalvos = JSON.parse(ativoSalvo);
-                const { data: orderCheck } = await supabaseClient
-                    .from('orders')
-                    .select('status')
-                    .eq('id', dadosSalvos.id)
-                    .single();
-                if(!orderCheck ||
-                    FINAL_STATUSES.includes(orderCheck.status)) {
-                    localStorage.removeItem('pedidoAtivo');
-                    console.log('✅ pedidoAtivo limpo - status final');
-                    return;
-                }
+            if (!ativoSalvo) {
+                removeButton();
+                console.log('ℹ️ [FloatingBtn] Sem pedidoAtivo, botão oculto.');
+                return;
+            }
+
+            let dadosSalvos;
+            try {
+                dadosSalvos = JSON.parse(ativoSalvo);
+            } catch (_) {
+                localStorage.removeItem('pedidoAtivo');
+                removeButton();
+                console.log('⚠️ [FloatingBtn] pedidoAtivo inválido removido.');
+                return;
+            }
+
+            if (!dadosSalvos?.id) {
+                localStorage.removeItem('pedidoAtivo');
+                removeButton();
+                console.log('⚠️ [FloatingBtn] pedidoAtivo sem id removido.');
+                return;
             }
             
             const { data: { session } } = await supabaseClient.auth.getSession();
             const userId = session?.user?.id;
             const guestId = getGuestId();
 
-            activeOrder = await fetchActiveOrder(userId, guestId);
+            activeOrder = await fetchActiveOrderById(dadosSalvos.id, userId, guestId);
             
             if (activeOrder) {
                 console.log('✅ [FloatingBtn] Pedido ativo:', activeOrder.id);
                 createButton(activeOrder);
                 setupRealtime(activeOrder.id);
             } else {
-                console.log('ℹ️ [FloatingBtn] Nenhum pedido ativo (10min/3km)');
+                localStorage.removeItem('pedidoAtivo');
+                removeButton();
+                console.log('ℹ️ [FloatingBtn] Nenhum pedido ativo para pedidoAtivo salvo.');
             }
 
         } catch (error) {
