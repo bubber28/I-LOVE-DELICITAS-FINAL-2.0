@@ -163,8 +163,37 @@
 <main class="pt-24 pb-32 px-4 max-w-7xl mx-auto">
   <!-- Banner -->
   <div class="relative w-full mb-10 overflow-hidden rounded-2xl shadow-xl">
-    <img src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/BANNER%20CABECALHO%20DELIVERY/SALGADOS%20FOTO.png" alt="I Love Delicitas - Salgados deliciosos" class="w-full h-full object-cover" style="max-height:200px;object-fit:cover;">
-    <div class="absolute inset-0 bg-black/10 rounded-2xl"></div>
+    <img
+      src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/BANNER%20CABECALHO%20DELIVERY/SALGADOS%20FOTO.png"
+      alt="I Love Delicitas"
+      class="w-full object-cover"
+      style="height:280px;object-position:center;">
+    <div class="absolute inset-0 bg-gradient-to-r
+      from-black/60 via-black/20 to-transparent
+      rounded-2xl flex items-center px-8 md:px-16">
+      <div>
+        <p class="text-white/80 text-sm font-semibold mb-2
+          tracking-widest uppercase">
+          Artesanal e fresquinho 🔥
+        </p>
+        <h2 class="text-white font-headline font-extrabold
+          text-2xl md:text-4xl mb-4 leading-tight">
+          Salgados que fazem<br>
+          <span class="text-[#ffd6d6]">você sorrir!</span>
+        </h2>
+        <a href="/cardapio"
+          class="inline-flex items-center gap-2
+            bg-white text-primary font-bold
+            px-6 py-3 rounded-full
+            hover:scale-105 transition-all
+            shadow-lg text-sm">
+          <span class="material-symbols-outlined text-sm">
+            shopping_bag
+          </span>
+          Pedir agora
+        </a>
+      </div>
+    </div>
   </div>
 
   <section class="mb-12 text-center md:text-left">
@@ -320,7 +349,7 @@
       .eq('active', true)
       .gt('stock', 0)
       .order('created_at', { ascending: false })
-      .limit(6);
+      .limit(100);
     const container = document.getElementById('products-container');
     if (!data || data.length === 0) {
       container.innerHTML = '<div class="text-center py-8">Nenhum produto disponível</div>';
@@ -333,7 +362,7 @@
           <img
             class="w-full aspect-square object-cover
             transition-transform duration-500 group-hover:scale-110"
-            src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}"
+            src="${prod.image_url || 'https://placehold.co/300x300/fff0ef/ae2f34?text=🍰+Delícia'}"
             alt="${escapeHtml(prod.name)}"
             loading="lazy">
           <div class="absolute inset-0 bg-gradient-to-t
@@ -450,7 +479,7 @@
     container.innerHTML = products.map(prod => `
       <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
         <div class="mb-4 overflow-hidden rounded-xl">
-          <img class="product-image" src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(prod.name)}">
+          <img class="product-image" src="${prod.image_url || 'https://placehold.co/300x300/fff0ef/ae2f34?text=🍰+Delícia'}" alt="${escapeHtml(prod.name)}">
         </div>
         <h3 class="font-headline font-bold text-xl mb-1">${escapeHtml(prod.name)}</h3>
         <p class="text-sm text-on-surface-variant mb-3 line-clamp-2">${escapeHtml(prod.description || 'Delícia artesanal')}</p>
