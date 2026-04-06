@@ -106,23 +106,99 @@
   }
   updateCartCount();
 
+  let isSubmitting = false;
+
+  function mapAuthError(error) {
+    const message = (error?.message || '').toLowerCase();
+    if (message.includes('invalid login credentials')) {
+      return 'E-mail ou senha incorretos.';
+    }
+    if (message.includes('email not confirmed')) {
+      return 'Confirme seu e-mail antes de entrar.';
+    }
+    if (error?.status === 429 || message.includes('too many requests')) {
+      return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+    }
+    return 'Não foi possível entrar agora. Tente novamente.';
+  }
+
+  async function ensureGuestAuthState() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      window.location.href = '/';
+      return;
+    }
+
+    const loginSidebar = document.getElementById('sidebar-login-link');
+    const pedidosSidebar = document.getElementById('sidebar-meus-pedidos');
+    const perfilSidebar = document.getElementById('sidebar-perfil');
+    const logoutSidebar = document.getElementById('sidebar-logout-btn');
+    loginSidebar?.classList.remove('hidden');
+    pedidosSidebar?.classList.add('hidden');
+    perfilSidebar?.classList.add('hidden');
+    logoutSidebar?.classList.add('hidden');
+  }
+
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobile-overlay');
+  const openBtn = document.getElementById('open-sidebar-btn');
+  const closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth < 1024) closeSidebar();
+    });
+  });
+
   const form = document.getElementById('login-form');
   const errorEl = document.getElementById('error-message');
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    isSubmitting = true;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerText;
+    submitBtn.innerText = 'Entrando...';
+    submitBtn.disabled = true;
+
     errorEl.classList.add('hidden');
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
 
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) {
-      errorEl.textContent = error.message;
+    if (!email || !password) {
+      errorEl.textContent = 'Preencha e-mail e senha para continuar.';
       errorEl.classList.remove('hidden');
-    } else {
-      window.location.href = '/';
+      submitBtn.innerText = originalText;
+      submitBtn.disabled = false;
+      isSubmitting = false;
+      return;
+    }
+
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        errorEl.textContent = mapAuthError(error);
+        errorEl.classList.remove('hidden');
+      } else {
+        window.location.href = '/';
+      }
+    } catch (err) {
+      errorEl.textContent = 'Falha de conexão. Verifique sua internet e tente novamente.';
+      errorEl.classList.remove('hidden');
+    } finally {
+      submitBtn.innerText = originalText;
+      submitBtn.disabled = false;
+      isSubmitting = false;
     }
   });
+
+  ensureGuestAuthState();
 </script>
 </body>
 </html>

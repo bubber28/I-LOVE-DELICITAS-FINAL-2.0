@@ -205,12 +205,17 @@
       const { data: authData, error: authError } = await supabaseClient.auth.signUp({
         email,
         password,
-        options: { data: { name, phone } }
+        options: {
+          data: { name, phone },
+          emailRedirectTo: `${window.location.origin}/login`
+        }
       });
 
       if (authError) {
         if (authError.status === 429) {
           errorEl.textContent = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+        } else if ((authError.message || '').toLowerCase().includes('user already registered')) {
+          errorEl.textContent = 'Este e-mail já está cadastrado. Tente entrar ou redefinir a senha.';
         } else {
           errorEl.textContent = authError.message;
         }
@@ -218,7 +223,18 @@
         return;
       }
 
-      if (authData.user) {
+      // Fluxo 1: confirmação de e-mail habilitada (sem sessão imediata).
+      if (authData.user && !authData.session) {
+        successEl.textContent = 'Cadastro realizado! Confirme seu e-mail (inclusive spam/lixeira) para ativar a conta e então faça login.';
+        successEl.classList.remove('hidden');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2500);
+        return;
+      }
+
+      // Fluxo 2: conta já autenticada imediatamente (sem confirmação obrigatória).
+      if (authData.user && authData.session) {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const { error: profileError } = await supabaseClient
@@ -246,7 +262,11 @@
         setTimeout(() => {
           window.location.href = '/';
         }, 1500);
+        return;
       }
+
+      errorEl.textContent = 'Não foi possível concluir o cadastro agora. Tente novamente.';
+      errorEl.classList.remove('hidden');
     } catch (err) {
       console.error(err);
       errorEl.textContent = 'Erro inesperado. Tente novamente.';
