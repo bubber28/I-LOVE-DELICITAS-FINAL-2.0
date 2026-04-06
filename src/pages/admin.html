@@ -145,7 +145,6 @@
   const STATUS_LABELS = {
     received: 'Recebido',
     preparing: 'Preparando',
-    ready: 'Pronto',
     delivery: 'Entrega',
     delivered: 'Concluido',
     canceled: 'Cancelado'
@@ -155,7 +154,6 @@
     { value: 'all', label: 'Todos' },
     { value: 'received', label: 'Recebidos' },
     { value: 'preparing', label: 'Preparando' },
-    { value: 'ready', label: 'Prontos' },
     { value: 'delivery', label: 'Entrega' },
     { value: 'delivered', label: 'Entregues' }
   ];
@@ -235,21 +233,53 @@
 
   function getStatusAction(order) {
     if (order.status === 'received') {
-      return { label: 'Aceitar', emoji: '🟢', nextStatus: 'preparing', btnClass: 'bg-emerald-600 text-white' };
+      return { label: 'Aceitar', emoji: '🟢', actionType: 'next-status', nextStatus: 'preparing', btnClass: 'bg-emerald-600 text-white' };
     }
 
     if (order.status === 'preparing') {
-      return { label: 'Pronto', emoji: '🔵', nextStatus: 'ready', btnClass: 'bg-blue-600 text-white' };
-    }
-
-    if (order.status === 'ready') {
       if (order.delivery_type === 'delivery') {
-        return { label: 'Enviar', emoji: '🟡', nextStatus: 'delivery', btnClass: 'bg-amber-500 text-black' };
+        return { label: 'Enviar link motoboy', emoji: '🔗', actionType: 'send-tracking', btnClass: 'bg-amber-500 text-black' };
       }
-      return { label: 'Finalizar', emoji: '🟡', nextStatus: 'delivered', btnClass: 'bg-amber-500 text-black' };
+      return { label: 'Finalizar retirada', emoji: '🟡', actionType: 'next-status', nextStatus: 'delivered', btnClass: 'bg-amber-500 text-black' };
     }
 
     return null;
+  }
+
+  async function sendTrackingAndStartDelivery(orderId) {
+    const plataformaInput = (prompt('Plataforma do motoboy (uber ou 99):') || '').trim().toLowerCase();
+    if (!plataformaInput) return;
+
+    const plataforma = plataformaInput === 'uber' ? 'uber' : (plataformaInput === '99' ? '99' : null);
+    if (!plataforma) {
+      alert('Plataforma inválida. Digite "uber" ou "99".');
+      return;
+    }
+
+    const trackingUrl = (prompt('Cole o link de rastreio da corrida:') || '').trim();
+    if (!trackingUrl) return;
+
+    if (!/^https?:\/\//i.test(trackingUrl)) {
+      alert('Link inválido. O rastreio deve começar com http:// ou https://.');
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from('orders')
+      .update({
+        status: 'delivery',
+        tracking_url: trackingUrl,
+        motoboy_plataforma: plataforma
+      })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error(error);
+      alert('Erro ao enviar link de rastreio.');
+      return;
+    }
+
+    await loadOrders();
   }
 
   function formatTypeBadge(deliveryType) {
@@ -360,7 +390,7 @@
           </div>
 
           <div class="mt-4 grid md:grid-cols-3 gap-2">
-            ${action ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold ${action.btnClass}" data-next-status="${action.nextStatus}" data-order-id="${order.id}">${action.emoji} ${action.label}</button>` : ''}
+            ${action ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold ${action.btnClass}" data-action-type="${action.actionType}" data-next-status="${action.nextStatus || ''}" data-order-id="${order.id}">${action.emoji} ${action.label}</button>` : ''}
             ${order.status === 'delivery' ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold bg-emerald-700 text-white" data-bind-fab="${order.id}">✓ Usar FAB neste pedido</button>` : ''}
             ${(order.status !== 'delivered' && order.status !== 'canceled') ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold bg-red-600 text-white" data-cancel-order="${order.id}">❌ Cancelar</button>` : ''}
           </div>
@@ -368,8 +398,12 @@
       `;
     }).join('');
 
-    container.querySelectorAll('[data-next-status]').forEach((btn) => {
+    container.querySelectorAll('[data-action-type]').forEach((btn) => {
       btn.addEventListener('click', async () => {
+        if (btn.dataset.actionType === 'send-tracking') {
+          await sendTrackingAndStartDelivery(btn.dataset.orderId);
+          return;
+        }
         await updateOrderStatus(btn.dataset.orderId, btn.dataset.nextStatus);
       });
     });
