@@ -643,9 +643,33 @@
     window.location.href = '/';
   });
 
+  async function isUserLoggedIn() {
+    const token = localStorage.getItem('token') ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('supabase.auth.token') ||
+      sessionStorage.getItem('token') ||
+      sessionStorage.getItem('access_token');
+
+    if (token) return true;
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return !!session?.access_token;
+  }
+
+  async function handleBannerVisibility() {
+    const banner = document.querySelector('.banner-link');
+    if (!banner) return;
+    if (await isUserLoggedIn()) {
+      banner.style.display = 'none';
+    } else {
+      banner.style.display = 'block';
+    }
+  }
+
   // ================== INICIALIZAÇÃO ==================
   updateHeaderAuth();
   updateSidebarAuth();
+  handleBannerVisibility();
   loadCategories();
   loadProducts();
   loadRecommendations();
