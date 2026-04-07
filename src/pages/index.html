@@ -105,6 +105,17 @@
     line-height: 1;
   }
   @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+  /* Banner promocional */
+  .banner-link:hover {
+    transform: scale(1.02);
+    box-shadow: 0 16px 32px rgba(0,0,0,0.25);
+  }
+  @media (max-width: 640px) {
+    .banner-link {
+      margin: 12px 12px !important;
+      border-radius: 20px !important;
+    }
+  }
 </style>
 </head>
 <body class="bg-background text-on-surface font-body">
@@ -197,6 +208,16 @@
       </a>
     </div>
   </section>
+
+  <!-- BANNER PROMOCIONAL - 50% DESCONTO PRIMEIRA COMPRA -->
+  <a href="/cadastro" class="banner-link" style="display:block; max-width:1200px; margin:0 auto 40px; border-radius:28px; overflow:hidden; box-shadow:0 12px 28px rgba(0,0,0,0.2); transition:transform 0.2s ease, box-shadow 0.2s ease;">
+    <img
+      src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/IMAGENS%20PROMOCIONAIS/BANNER%20PROMOCIONAL%20desconto%20primeira%20compraoficial.png"
+      alt="Ganhe 50% de desconto na primeira compra - Presente dourado com salgados"
+      style="width:100%; height:auto; display:block;"
+      loading="lazy"
+    >
+  </a>
 
   <section class="mb-16">
     <div class="flex justify-between mb-8">

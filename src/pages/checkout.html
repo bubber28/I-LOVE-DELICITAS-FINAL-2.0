@@ -177,6 +177,45 @@
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00, frete_gratis_distancia_maxima: 5, store_lat: STORE_LAT, store_lng: STORE_LNG };
   let cepValido = false, currentDistance = null, isSubmitting = false;
 
+  // ================== VALIDAÇÃO CPF (CORREÇÃO #8) ==================
+  function isValidCPF(cpf) {
+    const strCpf = String(cpf).padStart(11, '0');
+    if (strCpf.length !== 11 || /^(\d)\1{10}$/.test(strCpf)) return false;
+    
+    let sum = 0, remainder;
+    for (let i = 0; i < 9; i++) sum += parseInt(strCpf[i]) * (10 - i);
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(strCpf[9])) return false;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(strCpf[i]) * (11 - i);
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    return remainder === parseInt(strCpf[10]);
+  }
+
+  // ================== DEBOUNCE (CORREÇÃO #4) ==================
+  function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), delay);
+    };
+  }
+
+  // Evita quebra total da página quando o localStorage estiver corrompido.
+  function safeJsonParse(value, fallback) {
+    if (!value) return fallback;
+    try {
+      return JSON.parse(value);
+    } catch (err) {
+      console.warn('Falha ao fazer parse do localStorage:', err);
+      return fallback;
+    }
+  }
+
+  // ================== PERSISTÊNCIA ==================
   function getStorageKey() {
     if (userId) return `checkout_form_data_${userId}`;
     if (guestId) return `checkout_form_data_guest`;
@@ -341,11 +380,16 @@
   async function loadData() {
     await loadConfig();
     const storedCart = localStorage.getItem('cart');
-    cart = storedCart ? JSON.parse(storedCart) : [];
-    if (cart.length === 0) { window.location.href = '/carrinho'; return; }
+    cart = safeJsonParse(storedCart, []);
+    if (!Array.isArray(cart) || cart.length === 0) {
+      window.location.href = '/carrinho';
+      return;
+    }
+
     const storedCoupon = localStorage.getItem('appliedCoupon');
-    appliedCoupon = storedCoupon ? JSON.parse(storedCoupon) : null;
-    updateCartCount(); renderSummary();
+    appliedCoupon = safeJsonParse(storedCoupon, null);
+    updateCartCount();
+    renderSummary();
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       userId = session.user.id; guestId = null;

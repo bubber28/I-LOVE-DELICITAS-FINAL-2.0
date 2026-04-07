@@ -88,6 +88,8 @@
 </header>
 
 <main class="pt-24 pb-32 px-4 max-w-md mx-auto">
+  <div id="coupon-container" class="mb-6"></div>
+
   <div id="profile-container">
     <div class="bg-white rounded-2xl p-8 shadow-sm">
       <h1 class="text-2xl font-bold text-primary text-center mb-6">Meu Perfil</h1>
@@ -115,6 +117,8 @@
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let _activeCouponData = null;
 
   function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -160,6 +164,8 @@
     document.getElementById('user-name').innerText = userName;
     document.getElementById('user-menu').classList.remove('hidden');
     document.getElementById('login-link').classList.add('hidden');
+
+    loadUserCoupon();
   }
 
   // Aplicar máscara enquanto digita
@@ -251,6 +257,112 @@
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
+
+  async function loadUserCoupon() {
+    const container = document.getElementById('coupon-container');
+    if (!container) return;
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return; // loadProfile já trata o redirect
+
+    container.innerHTML = `
+      <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
+        <p class="text-amber-200 text-sm animate-pulse">Carregando seu presente...</p>
+      </div>`;
+
+    let data, ok;
+    try {
+      const res = await fetch('/api/user/coupon', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+
+      if (res.status === 401) {
+        await supabaseClient.auth.signOut();
+        window.location.href = '/login';
+        return;
+      }
+
+      ok = res.ok;
+      data = ok ? await res.json() : null;
+    } catch (err) {
+      console.error('Erro ao carregar cupom:', err);
+      container.innerHTML = '';
+      return;
+    }
+
+    const emptyState = `
+      <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
+        <p class="text-amber-200 text-sm">🎁 Seu cupom já foi usado ou expirou. Volte sempre!</p>
+      </div>`;
+
+    if (!ok || !data || !data.code) { container.innerHTML = emptyState; return; }
+
+    const expiry = new Date(data.expires_at);
+    if (isNaN(expiry) || expiry < new Date()) { container.innerHTML = emptyState; return; }
+
+    _activeCouponData = {
+      ...data,
+      desconto: Number(data.desconto ?? data.discount_percent ?? data.percent ?? 50),
+      usos_atual: Number(data.usos_atual ?? 0)
+    };
+
+    const formattedDate = expiry.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const safeCode = data.code.replace(/['"<>&]/g, c => ({'\'':'&#39;','"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+    container.innerHTML = `
+      <div class="rounded-2xl overflow-hidden shadow-xl" style="background:linear-gradient(135deg,#3b1a0a 0%,#6b3520 55%,#3b1a0a 100%);">
+        <div class="px-6 pt-6 pb-3 text-center">
+          <p class="text-amber-300 font-headline font-extrabold text-xl leading-tight">🎉 Você ganhou 50% de DESCONTO!</p>
+          <p class="text-amber-100/70 text-xs mt-1">Use o código abaixo no próximo pedido</p>
+        </div>
+        <div class="mx-4 mb-2 rounded-xl border-2 border-dashed px-6 py-4 text-center" style="border-color:rgba(212,175,55,0.55);background:rgba(0,0,0,0.25);">
+          <span class="font-headline font-extrabold text-3xl tracking-widest select-all" style="color:#f0c040;">${safeCode}</span>
+        </div>
+        <p class="text-center text-xs mb-4" style="color:rgba(240,192,64,0.65);">Válido até ${formattedDate}</p>
+        <div class="flex gap-3 px-4 pb-6">
+          <button id="copy-coupon-btn"
+            class="flex-1 flex items-center justify-center gap-2 py-3 rounded-full font-bold text-sm transition-all"
+            style="background:rgba(212,175,55,0.2);color:#f0c040;border:1px solid rgba(212,175,55,0.45);"
+            onclick="copyCoupon('${safeCode}')">
+            <span class="material-symbols-outlined" style="font-size:18px;">content_copy</span>
+            Copiar código
+          </button>
+          <button onclick="useCouponNow()"
+            class="flex-1 flex items-center justify-center gap-2 py-3 rounded-full font-bold text-sm text-white transition-all hover:scale-105"
+            style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 15px rgba(16,185,129,0.45);">
+            <span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span>
+            Usar agora
+          </button>
+        </div>
+      </div>`;
+  }
+
+  function useCouponNow() {
+    if (_activeCouponData) {
+      localStorage.setItem('appliedCoupon', JSON.stringify(_activeCouponData));
+    }
+    window.location.href = '/checkout';
+  }
+
+  function copyCoupon(code) {
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.getElementById('copy-coupon-btn');
+      if (!btn) return;
+      const original = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">check_circle</span> Copiado!';
+      btn.style.color = '#86efac';
+      setTimeout(() => { btn.innerHTML = original; btn.style.color = '#f0c040'; }, 2000);
+    }).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = code;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    });
+  }
 
   loadProfile();
   updateSidebarAuth();
