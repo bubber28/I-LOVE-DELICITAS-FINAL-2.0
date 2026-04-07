@@ -258,12 +258,36 @@
     window.location.href = '/';
   });
 
+  async function getAuthToken() {
+    const candidates = [
+      localStorage.getItem('token'),
+      localStorage.getItem('access_token'),
+      sessionStorage.getItem('token'),
+      sessionStorage.getItem('access_token'),
+      localStorage.getItem('supabase.auth.token')
+    ].filter(Boolean);
+
+    if (candidates.length > 0) {
+      return candidates[0];
+    }
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session?.access_token || null;
+  }
+
   async function loadUserCoupon() {
     const container = document.getElementById('coupon-container');
     if (!container) return;
 
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) return; // loadProfile já trata o redirect
+    const token = await getAuthToken();
+    if (!token) {
+      container.innerHTML = `
+        <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
+          <p class="text-amber-200 text-sm">Nenhum cupom disponível.</p>
+        </div>`;
+      console.warn('Token não encontrado para carregar cupom.');
+      return;
+    }
 
     container.innerHTML = `
       <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
@@ -273,7 +297,7 @@
     let data, ok;
     try {
       const res = await fetch('/api/user/coupon', {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (res.status === 401) {
@@ -286,7 +310,10 @@
       data = ok ? await res.json() : null;
     } catch (err) {
       console.error('Erro ao carregar cupom:', err);
-      container.innerHTML = '';
+      container.innerHTML = `
+        <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
+          <p class="text-amber-200 text-sm">Nenhum cupom disponível.</p>
+        </div>`;
       return;
     }
 
