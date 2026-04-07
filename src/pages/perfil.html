@@ -88,9 +88,16 @@
 </header>
 
 <main class="pt-24 pb-32 px-4 max-w-md mx-auto">
-  <div id="coupon-container" class="mb-6"></div>
+  <div class="bg-white rounded-2xl p-3 shadow-sm mb-5">
+    <div class="grid grid-cols-3 gap-2">
+      <button type="button" data-tab="profile-data" class="profile-tab-btn px-3 py-2 rounded-xl text-sm font-semibold bg-primary text-white">Meus dados</button>
+      <button type="button" data-tab="orders" class="profile-tab-btn px-3 py-2 rounded-xl text-sm font-semibold text-on-surface-variant bg-surface-container-low">Meus pedidos</button>
+      <button type="button" data-tab="coupons" class="profile-tab-btn px-3 py-2 rounded-xl text-sm font-semibold text-on-surface-variant bg-surface-container-low">Meus cupons</button>
+    </div>
+  </div>
 
-  <div id="profile-container">
+  <section id="tab-panel-profile-data" class="profile-tab-panel">
+    <div id="coupon-container" class="mb-6"></div>
     <div class="bg-white rounded-2xl p-8 shadow-sm">
       <h1 class="text-2xl font-bold text-primary text-center mb-6">Meu Perfil</h1>
       <form id="profile-form" class="space-y-4">
@@ -110,7 +117,26 @@
       <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
       <p id="success-message" class="text-secondary text-sm text-center mt-3 hidden"></p>
     </div>
-  </div>
+  </section>
+
+  <section id="tab-panel-orders" class="profile-tab-panel hidden">
+    <div class="bg-white rounded-2xl p-8 shadow-sm text-center">
+      <h2 class="text-xl font-bold text-primary mb-3">Meus pedidos</h2>
+      <p class="text-on-surface-variant mb-6">Acompanhe seus pedidos anteriores e veja detalhes de cada compra.</p>
+      <a href="/meus-pedidos" class="inline-flex items-center justify-center gap-2 bg-primary text-white px-6 py-3 rounded-full font-bold">
+        <span class="material-symbols-outlined" style="font-size:18px;">receipt_long</span>
+        Ir para meus pedidos
+      </a>
+    </div>
+  </section>
+
+  <section id="tab-panel-coupons" class="profile-tab-panel hidden">
+    <div class="bg-white rounded-2xl p-8 shadow-sm">
+      <h2 class="text-xl font-bold text-primary mb-2">Meus cupons</h2>
+      <p class="text-sm text-on-surface-variant mb-5">Confira seu histórico de cupons e aplique os que ainda estão ativos.</p>
+      <div id="coupons-history-container" class="space-y-3"></div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -119,12 +145,154 @@
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let _activeCouponData = null;
+  let _couponsHistoryData = [];
+  let _couponsHistoryLoaded = false;
 
   function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
     document.getElementById('cart-count').innerText = totalItems;
   }
+
+  function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
+  }
+
+  function getCouponHistoryStatus(coupon) {
+    const now = new Date();
+    const validUntilValue = coupon.valid_until || coupon.expires_at || coupon.validUntil;
+    const validUntil = validUntilValue ? new Date(validUntilValue) : null;
+    const isExpired = !validUntil || Number.isNaN(validUntil.getTime()) || validUntil <= now;
+    const isUsed = Boolean(coupon.used);
+    const isActive = !isUsed && !isExpired;
+    return { isActive, isUsed, isExpired, validUntil };
+  }
+
+  function formatCouponDate(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return 'Data não informada';
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  function renderCouponsHistory(coupons) {
+    const container = document.getElementById('coupons-history-container');
+    if (!container) return;
+
+    if (!Array.isArray(coupons) || coupons.length === 0) {
+      container.innerHTML = '<div class="rounded-xl border border-outline-variant/40 p-4 text-sm text-on-surface-variant">Você ainda não possui cupons no histórico.</div>';
+      return;
+    }
+
+    container.innerHTML = coupons.map((coupon, index) => {
+      const status = getCouponHistoryStatus(coupon);
+      const code = escapeHTML(coupon.code || coupon.codigo || 'SEM-CODIGO');
+      const discountText = coupon.discount_percent ?? coupon.desconto ?? coupon.percent;
+      const discountLabel = discountText != null ? `${Number(discountText)}% OFF` : 'Desconto disponível';
+      const statusText = status.isActive ? 'Ativo' : (status.isUsed ? 'Usado' : 'Expirado');
+
+      if (status.isActive) {
+        return `
+          <div class="rounded-xl border p-4" style="border-color:#16a34a;background:#f0fdf4;">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="text-lg font-extrabold text-green-700 tracking-wide">${code}</p>
+                <p class="text-sm text-green-700/90">${escapeHTML(discountLabel)}</p>
+                <p class="text-xs text-green-800/80 mt-1">Válido até ${formatCouponDate(status.validUntil)}</p>
+              </div>
+              <span class="text-xs font-bold px-2 py-1 rounded-full" style="background:#16a34a;color:#fff;">${statusText}</span>
+            </div>
+            <button onclick="applyCouponFromHistory(${index})" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-full font-bold transition-colors">Usar agora</button>
+          </div>`;
+      }
+
+      return `
+        <div class="rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 opacity-90">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-lg font-extrabold text-on-surface tracking-wide">${code}</p>
+              <p class="text-sm text-on-surface-variant">${escapeHTML(discountLabel)}</p>
+              <p class="text-xs text-on-surface-variant mt-1">Validade: ${formatCouponDate(status.validUntil)}</p>
+            </div>
+            <span class="text-xs font-bold px-2 py-1 rounded-full bg-gray-200 text-gray-700">${statusText}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function loadCouponsHistory() {
+    const container = document.getElementById('coupons-history-container');
+    if (!container) return;
+
+    const token = await getAuthToken();
+    if (!token) {
+      container.innerHTML = '<div class="rounded-xl border border-outline-variant/40 p-4 text-sm text-on-surface-variant">Faça login para visualizar seus cupons.</div>';
+      return;
+    }
+
+    container.innerHTML = '<div class="rounded-xl border border-outline-variant/40 p-4 text-sm text-on-surface-variant">Carregando cupons...</div>';
+
+    try {
+      const response = await fetch('/api/user/cupons/historico', {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.status === 401) {
+        await supabaseClient.auth.signOut();
+        window.location.href = '/login';
+        return;
+      }
+
+      const payload = response.ok ? await response.json() : null;
+      const coupons = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.cupons)
+          ? payload.cupons
+          : (Array.isArray(payload?.historico) ? payload.historico : []));
+
+      _couponsHistoryData = coupons;
+      _couponsHistoryLoaded = true;
+      renderCouponsHistory(_couponsHistoryData);
+    } catch (error) {
+      console.error('Erro ao carregar histórico de cupons:', error);
+      container.innerHTML = '<div class="rounded-xl border border-outline-variant/40 p-4 text-sm text-error">Não foi possível carregar seus cupons no momento.</div>';
+    }
+  }
+
+  function setProfileTab(tabName) {
+    const tabs = document.querySelectorAll('.profile-tab-btn');
+    const panels = document.querySelectorAll('.profile-tab-panel');
+
+    tabs.forEach((tab) => {
+      const isActive = tab.dataset.tab === tabName;
+      tab.classList.toggle('bg-primary', isActive);
+      tab.classList.toggle('text-white', isActive);
+      tab.classList.toggle('bg-surface-container-low', !isActive);
+      tab.classList.toggle('text-on-surface-variant', !isActive);
+    });
+
+    panels.forEach((panel) => {
+      panel.classList.toggle('hidden', panel.id !== `tab-panel-${tabName}`);
+    });
+
+    if (tabName === 'coupons' && !_couponsHistoryLoaded) {
+      loadCouponsHistory();
+    }
+  }
+
+  function initProfileTabs() {
+    document.querySelectorAll('.profile-tab-btn').forEach((button) => {
+      button.addEventListener('click', () => setProfileTab(button.dataset.tab));
+    });
+    setProfileTab('profile-data');
+  }
+
   updateCartCount();
 
   // Máscara de CPF
@@ -371,6 +539,17 @@
     window.location.href = '/checkout';
   }
 
+  function applyCouponFromHistory(index) {
+    const coupon = _couponsHistoryData[index];
+    if (!coupon) return;
+
+    const { isActive } = getCouponHistoryStatus(coupon);
+    if (!isActive) return;
+
+    localStorage.setItem('appliedCoupon', JSON.stringify(coupon));
+    window.location.href = '/checkout';
+  }
+
   function copyCoupon(code) {
     navigator.clipboard.writeText(code).then(() => {
       const btn = document.getElementById('copy-coupon-btn');
@@ -391,6 +570,7 @@
     });
   }
 
+  initProfileTabs();
   loadProfile();
   updateSidebarAuth();
 </script>
