@@ -105,15 +105,63 @@
     line-height: 1;
   }
   @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-  /* Banner promocional */
+  /* BANNER COM ANIMAÇÕES */
+  .banner-link {
+    display: block;
+    max-width: 1200px;
+    margin: 20px auto;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: pulseSoft 2.5s infinite ease-in-out;
+    position: relative;
+  }
+
+  /* Efeito de brilho dourado deslizante */
+  .banner-link::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(115deg, rgba(255,215,0,0) 10%, rgba(255,215,0,0.25) 50%, rgba(255,215,0,0) 90%);
+    transform: rotate(25deg);
+    animation: shine 4s infinite;
+    pointer-events: none;
+  }
+
+  /* Hover */
   .banner-link:hover {
     transform: scale(1.02);
-    box-shadow: 0 16px 32px rgba(0,0,0,0.25);
+    box-shadow: 0 20px 40px rgba(212,175,55,0.4);
   }
+
+  /* Animações */
+  @keyframes pulseSoft {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.01); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes shine {
+    0% { transform: translateX(-100%) rotate(25deg); }
+    20% { transform: translateX(100%) rotate(25deg); }
+    100% { transform: translateX(100%) rotate(25deg); }
+  }
+
+  /* Ajuste mobile */
   @media (max-width: 640px) {
     .banner-link {
-      margin: 12px 12px !important;
-      border-radius: 20px !important;
+      margin: 12px;
+      border-radius: 20px;
+    }
+    .banner-link:hover {
+      transform: scale(1.01);
+    }
+    .banner-link::after {
+      animation-duration: 3s;
     }
   }
 </style>
