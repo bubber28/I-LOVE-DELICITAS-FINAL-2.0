@@ -437,6 +437,11 @@
   });
 
   async function getAuthToken() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session?.access_token) {
+      return session.access_token;
+    }
+
     const candidates = [
       localStorage.getItem('token'),
       localStorage.getItem('access_token'),
@@ -449,50 +454,128 @@
       return candidates[0];
     }
 
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    return session?.access_token || null;
+    return null;
+  }
+
+  function normalizeCouponData(coupon) {
+    if (!coupon || !coupon.code) return null;
+    const validUntilRaw = coupon.valid_until || coupon.expires_at || coupon.validUntil || null;
+    const validUntilDate = validUntilRaw ? new Date(validUntilRaw) : null;
+    const validUntil = (validUntilDate && !Number.isNaN(validUntilDate.getTime())) ? validUntilDate.toISOString() : null;
+    return {
+      ...coupon,
+      expires_at: validUntil,
+      desconto: Number(coupon.desconto ?? coupon.discount_percent ?? coupon.percent ?? 50),
+      usos_atual: Number(coupon.usos_atual ?? coupon.used_count ?? 0)
+    };
+  }
+
+  async function fetchActiveCouponFromHistory(token) {
+    if (!token) return null;
+    try {
+      const response = await fetch('/api/user/cupons/historico', {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) return null;
+
+      const payload = await response.json();
+      const coupons = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.cupons)
+          ? payload.cupons
+          : (Array.isArray(payload?.historico) ? payload.historico : []));
+
+      const active = coupons.find((coupon) => {
+        const status = getCouponHistoryStatus(coupon);
+        return status.isActive;
+      });
+
+      return normalizeCouponData(active);
+    } catch (error) {
+      console.warn('Falha ao buscar cupom ativo no histórico:', error);
+      return null;
+    }
+  }
+
+  async function fetchActiveCouponFromSupabase(user) {
+    if (!user) return null;
+
+    const queryAttempts = [
+      () => supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false).gt('valid_until', new Date().toISOString()).order('valid_until', { ascending: true }).limit(1),
+      () => supabaseClient.from('coupons').select('*').eq('email', user.email).eq('used', false).gt('valid_until', new Date().toISOString()).order('valid_until', { ascending: true }).limit(1),
+      () => supabaseClient.from('coupons').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
+      () => supabaseClient.from('coupons').select('*').eq('email', user.email).order('created_at', { ascending: false }).limit(20)
+    ];
+
+    for (const runQuery of queryAttempts) {
+      try {
+        const { data, error } = await runQuery();
+        if (error || !Array.isArray(data) || data.length === 0) continue;
+
+        const active = data.find((coupon) => {
+          const status = getCouponHistoryStatus(coupon);
+          return status.isActive;
+        });
+
+        if (active) return normalizeCouponData(active);
+      } catch (error) {
+        console.warn('Falha em fallback de cupom via Supabase:', error);
+      }
+    }
+
+    return null;
   }
 
   async function loadUserCoupon() {
     const container = document.getElementById('coupon-container');
     if (!container) return;
 
-    const token = await getAuthToken();
-    if (!token) {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) {
       container.innerHTML = `
         <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
-          <p class="text-amber-200 text-sm">Nenhum cupom disponível.</p>
+          <p class="text-amber-200 text-sm">Faça login para visualizar seus cupons.</p>
         </div>`;
-      console.warn('Token não encontrado para carregar cupom.');
       return;
     }
+
+    const token = await getAuthToken();
 
     container.innerHTML = `
       <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
         <p class="text-amber-200 text-sm animate-pulse">Carregando seu presente...</p>
       </div>`;
 
-    let data, ok;
+    let activeCoupon = null;
     try {
-      const res = await fetch('/api/user/coupon', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      if (token) {
+        const res = await fetch('/api/user/coupon', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
 
-      if (res.status === 401) {
-        await supabaseClient.auth.signOut();
-        window.location.href = '/login';
-        return;
+        if (res.status === 401) {
+          await supabaseClient.auth.signOut();
+          window.location.href = '/login';
+          return;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          activeCoupon = normalizeCouponData(data);
+        }
       }
-
-      ok = res.ok;
-      data = ok ? await res.json() : null;
     } catch (err) {
-      console.error('Erro ao carregar cupom:', err);
-      container.innerHTML = `
-        <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
-          <p class="text-amber-200 text-sm">Nenhum cupom disponível.</p>
-        </div>`;
-      return;
+      console.error('Erro ao carregar cupom em /api/user/coupon:', err);
+    }
+
+    if (!activeCoupon) {
+      activeCoupon = await fetchActiveCouponFromHistory(token);
+    }
+
+    if (!activeCoupon) {
+      activeCoupon = await fetchActiveCouponFromSupabase(user);
     }
 
     const emptyState = `
@@ -500,19 +583,19 @@
         <p class="text-amber-200 text-sm">🎁 Seu cupom já foi usado ou expirou. Volte sempre!</p>
       </div>`;
 
-    if (!ok || !data || !data.code) { container.innerHTML = emptyState; return; }
+    if (!activeCoupon || !activeCoupon.code) { container.innerHTML = emptyState; return; }
 
-    const expiry = new Date(data.expires_at);
+    const expiry = new Date(activeCoupon.expires_at);
     if (isNaN(expiry) || expiry < new Date()) { container.innerHTML = emptyState; return; }
 
     _activeCouponData = {
-      ...data,
-      desconto: Number(data.desconto ?? data.discount_percent ?? data.percent ?? 50),
-      usos_atual: Number(data.usos_atual ?? 0)
+      ...activeCoupon,
+      desconto: Number(activeCoupon.desconto ?? activeCoupon.discount_percent ?? activeCoupon.percent ?? 50),
+      usos_atual: Number(activeCoupon.usos_atual ?? 0)
     };
 
     const formattedDate = expiry.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-    const safeCode = data.code.replace(/['"<>&]/g, c => ({'\'':'&#39;','"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    const safeCode = activeCoupon.code.replace(/['"<>&]/g, c => ({'\'':'&#39;','"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 
     container.innerHTML = `
       <div class="rounded-2xl overflow-hidden shadow-xl" style="background:linear-gradient(135deg,#3b1a0a 0%,#6b3520 55%,#3b1a0a 100%);">
@@ -583,6 +666,11 @@
   initProfileTabs();
   loadProfile();
   updateSidebarAuth();
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      loadUserCoupon();
+    }
+  });
 </script>
 </body>
 </html>
