@@ -110,6 +110,10 @@
           <p class="text-xs text-on-surface-variant mt-1">Apenas números – será formatado automaticamente.</p>
         </div>
         <div><label class="block font-semibold mb-1">Endereço</label><input type="text" id="address" class="input-field"></div>
+        <div>
+          <label class="block font-semibold mb-1">Cidade</label>
+          <input type="text" id="cidade" name="cidade" class="input-field" placeholder="Sua cidade" autocomplete="address-level2">
+        </div>
         <div><label class="block font-semibold mb-1">E-mail</label><input type="email" id="email" class="input-field" readonly disabled></div>
         <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold">Salvar alterações</button>
       </form>
@@ -317,7 +321,7 @@
 
     const { data: profile, error } = await supabaseClient
       .from('profiles')
-      .select('name, phone, address, cpf')
+      .select('name, phone, address, cpf, cidade')
       .eq('id', userId)
       .single();
     if (error && error.code !== 'PGRST116') console.error(error);
@@ -325,6 +329,7 @@
     document.getElementById('name').value = profile?.name || '';
     document.getElementById('phone').value = profile?.phone || '';
     document.getElementById('address').value = profile?.address || '';
+    document.getElementById('cidade').value = profile?.cidade || '';
     document.getElementById('cpf').value = profile?.cpf ? formatCPF(profile.cpf) : '';
     document.getElementById('email').value = userEmail;
 
@@ -359,6 +364,7 @@
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const address = document.getElementById('address').value.trim();
+    const cidade = document.getElementById('cidade').value.trim();
     let cpf = document.getElementById('cpf').value.replace(/\D/g, '');
     if (cpf && cpf.length !== 11) {
       errorEl.textContent = 'CPF inválido. Deve ter 11 dígitos.';
@@ -369,7 +375,7 @@
 
     const { error } = await supabaseClient
       .from('profiles')
-      .upsert({ id: userId, name, phone, address, cpf, email: session.user.email, updated_at: new Date().toISOString() });
+      .upsert({ id: userId, name, phone, address, cidade, cpf, email: session.user.email, updated_at: new Date().toISOString() });
     if (error) {
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');

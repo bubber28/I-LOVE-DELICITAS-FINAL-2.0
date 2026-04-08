@@ -127,7 +127,7 @@
         <div><label class="block font-semibold mb-1">Telefone (WhatsApp) *</label><input type="tel" id="customer-phone" class="input-field" required></div>
         <div><label class="block font-semibold mb-1">CPF (opcional)</label><input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14"><p class="text-xs text-on-surface-variant mt-1">Necessário apenas para emissão de nota fiscal.</p></div>
         <div id="address-block">
-          <div><label class="block font-semibold mb-1">CEP *</label><div class="flex gap-2"><input type="text" id="cep" class="input-field flex-1" placeholder="00000-000" maxlength="9" required><button type="button" id="buscar-cep" class="bg-secondary text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-secondary/80 transition">Buscar</button></div></div>
+          <div><label class="block font-semibold mb-1">CEP *</label><div class="flex gap-2"><input type="text" id="cep" class="input-field flex-1" placeholder="00000-000" maxlength="9" required><button type="button" id="buscar-cep" class="bg-secondary text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-secondary/80 transition">Buscar</button></div><p id="cep-validation-message" class="text-error text-sm mt-1 hidden">CEP não atendido</p></div>
           <div class="address-row"><div><label class="block font-semibold mb-1">Rua *</label><input type="text" id="rua" class="input-field" required></div><div><label class="block font-semibold mb-1">Número *</label><input type="text" id="numero" class="input-field" required></div></div>
           <div class="address-row"><div><label class="block font-semibold mb-1">Bairro *</label><input type="text" id="bairro" class="input-field" required></div><div><label class="block font-semibold mb-1">Complemento</label><input type="text" id="complemento" class="input-field" placeholder="Apto, bloco, etc."></div></div>
           <div class="address-row"><div><label class="block font-semibold mb-1">Cidade *</label><input type="text" id="cidade" class="input-field" required></div><div><label class="block font-semibold mb-1">UF *</label><input type="text" id="uf" class="input-field" maxlength="2" required></div></div>
@@ -160,6 +160,7 @@
       <div id="frete-gratis-bar" class="progress-bar-container mt-2 hidden">
         <div id="frete-gratis-fill" class="progress-fill"></div>
       </div>
+      <p id="min-order-notice" class="mt-3 text-sm text-on-surface-variant hidden"></p>
       <button id="submit-order" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-bold">Confirmar Pedido</button>
       <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
     </div>
@@ -175,7 +176,7 @@
 
   let cart = [], appliedCoupon = null, userId = null, guestId = null, currentFrete = 0;
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00, frete_gratis_distancia_maxima: 5, store_lat: STORE_LAT, store_lng: STORE_LNG };
-  let cepValido = false, currentDistance = null, isSubmitting = false;
+  let cepValido = false, currentDistance = null, isSubmitting = false, minOrder = 0;
 
   // ================== VALIDAÇÃO CPF (CORREÇÃO #8) ==================
   function isValidCPF(cpf) {
@@ -255,6 +256,81 @@
     if (value.length > 3) return value.replace(/^(\d{3})(\d{0,3})$/, '$1.$2');
     return value;
   }
+  function getSubtotalValue() {
+    return cart.reduce((sum, item) => sum + ((item.price_cents / 100) * (item.quantity || 1)), 0);
+  }
+  function canSubmitOrder() {
+    const deliveryType = document.getElementById('delivery-type').value;
+    const subtotal = getSubtotalValue();
+    const atendeMinimo = subtotal >= minOrder;
+    const atendeCep = deliveryType === 'pickup' || cepValido;
+    return atendeMinimo && atendeCep;
+  }
+  function updateSubmitAvailability() {
+    const btn = document.getElementById('submit-order');
+    if (!btn) return;
+    if (isSubmitting) return;
+    btn.disabled = !canSubmitOrder();
+  }
+  async function loadMinOrder() {
+    const notice = document.getElementById('min-order-notice');
+    try {
+      const response = await fetch('/api/settings/min-order');
+      if (!response.ok) throw new Error('Falha ao carregar pedido minimo');
+      const payload = await response.json();
+      minOrder = Number(payload?.minOrder ?? payload?.min_order ?? 0) || 0;
+    } catch (err) {
+      console.warn('Nao foi possivel carregar pedido minimo:', err);
+      minOrder = 0;
+    }
+    if (notice && minOrder > 0) {
+      notice.textContent = `Pedido minimo: R$ ${minOrder.toFixed(2).replace('.', ',')}`;
+      notice.classList.remove('hidden');
+    } else if (notice) {
+      notice.classList.add('hidden');
+    }
+    updateSubmitAvailability();
+  }
+  async function validarCepAtendido(cep) {
+    const cepMsg = document.getElementById('cep-validation-message');
+    const deliveryType = document.getElementById('delivery-type').value;
+    if (deliveryType === 'pickup') {
+      cepValido = true;
+      cepMsg.classList.add('hidden');
+      updateSubmitAvailability();
+      return true;
+    }
+    const cepLimpo = (cep || '').replace(/\D/g, '');
+    if (cepLimpo.length !== 8) {
+      cepValido = false;
+      cepMsg.textContent = 'CEP invalido';
+      cepMsg.classList.remove('hidden');
+      updateSubmitAvailability();
+      return false;
+    }
+    try {
+      const response = await fetch(`/api/delivery/check-cep?cep=${cepLimpo}`);
+      if (response.status === 404) {
+        cepValido = false;
+        cepMsg.textContent = 'CEP não atendido';
+        cepMsg.classList.remove('hidden');
+        updateSubmitAvailability();
+        return false;
+      }
+      if (!response.ok) throw new Error('Falha na validacao de CEP');
+      cepValido = true;
+      cepMsg.classList.add('hidden');
+      updateSubmitAvailability();
+      return true;
+    } catch (err) {
+      console.error('Erro ao validar CEP:', err);
+      cepValido = false;
+      cepMsg.textContent = 'Nao foi possivel validar o CEP';
+      cepMsg.classList.remove('hidden');
+      updateSubmitAvailability();
+      return false;
+    }
+  }
   async function loadConfig() {
     const { data, error } = await supabaseClient.from('app_config').select('frete_gratis_minimo, frete_padrao, frete_gratis_distancia_maxima').single();
     if (!error && data) {
@@ -312,12 +388,14 @@
       currentFrete = 0;
       document.getElementById('frete').innerText = 'R$ 0,00';
       atualizarTotal(); atualizarAvisoFreteGratis(); cepValido = true;
+      updateSubmitAvailability();
       return;
     }
     const cep = document.getElementById('cep').value;
     if (!cep || cep.replace(/\D/g, '').length !== 8) {
       document.getElementById('frete').innerText = '--';
       currentFrete = 0; atualizarTotal(); atualizarAvisoFreteGratis(); cepValido = false;
+      updateSubmitAvailability();
       return;
     }
     const rua = document.getElementById('rua').value;
@@ -332,12 +410,14 @@
     document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     cepValido = true;
     atualizarTotal(); atualizarAvisoFreteGratis();
+    updateSubmitAvailability();
   }
   function atualizarTotal() {
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
     const desconto = parseFloat(document.getElementById('desconto').innerText.replace('- R$ ', '').replace(',', '.') || 0);
     const total = subtotal + currentFrete - desconto;
     document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+    updateSubmitAvailability();
   }
   function atualizarAvisoFreteGratis() {
     const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.'));
@@ -369,16 +449,22 @@
       addressBlock.classList.add('hidden-block');
       pickupBlock.classList.remove('hidden-block');
       document.querySelectorAll('#address-block input, #address-block select').forEach(f => f.removeAttribute('required'));
+      document.getElementById('cep-validation-message').classList.add('hidden');
+      cepValido = true;
     } else {
       addressBlock.classList.remove('hidden-block');
       pickupBlock.classList.add('hidden-block');
       const requiredFields = ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf'];
       requiredFields.forEach(id => { const f = document.getElementById(id); if (f) f.setAttribute('required', 'required'); });
+      const cep = document.getElementById('cep').value;
+      cepValido = cep.replace(/\D/g, '').length === 8 ? cepValido : false;
     }
     atualizarFrete();
+    updateSubmitAvailability();
   }
   async function loadData() {
     await loadConfig();
+    await loadMinOrder();
     const storedCart = localStorage.getItem('cart');
     cart = safeJsonParse(storedCart, []);
     if (!Array.isArray(cart) || cart.length === 0) {
@@ -390,6 +476,7 @@
     appliedCoupon = safeJsonParse(storedCoupon, null);
     updateCartCount();
     renderSummary();
+    updateSubmitAvailability();
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       userId = session.user.id; guestId = null;
@@ -458,6 +545,10 @@
       if (!name || !phone) throw new Error('Preencha nome e telefone.');
       if (cpfRaw && cpfRaw.length !== 11) throw new Error('CPF inválido.');
       if (cart.length === 0) throw new Error('Carrinho vazio.');
+      const subtotal = getSubtotalValue();
+      if (subtotal < minOrder) {
+        throw new Error(`Pedido minimo: R$ ${minOrder.toFixed(2).replace('.', ',')}`);
+      }
       let deliveryAddress = null;
       if (deliveryType === 'delivery') {
         const rua = document.getElementById('rua').value.trim();
@@ -468,6 +559,7 @@
         const complemento = document.getElementById('complemento').value.trim();
         const referencia = document.getElementById('referencia').value.trim();
         if (!rua || !numero || !bairro || !cidade || !uf) throw new Error('Preencha todos os campos do endereço.');
+        if (!cepValido) throw new Error('CEP não atendido');
         deliveryAddress = `${rua}, ${numero}${complemento ? `, ${complemento}` : ''} - ${bairro}, ${cidade} - ${uf}`;
         if (referencia) deliveryAddress += ` (ref: ${referencia})`;
       }
@@ -505,6 +597,14 @@
   document.getElementById('buscar-cep').addEventListener('click', async () => {
     let cep = document.getElementById('cep').value.replace(/\D/g, '');
     if (cep.length !== 8) { alert('CEP inválido'); return; }
+    const cepAtendido = await validarCepAtendido(cep);
+    if (!cepAtendido) {
+      document.getElementById('frete').innerText = '--';
+      currentFrete = 0;
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
+      return;
+    }
     const endereco = await buscarEnderecoPorCep(cep);
     if (endereco) {
       document.getElementById('rua').value = endereco.logradouro || '';
@@ -517,9 +617,33 @@
   });
   document.getElementById('cep').addEventListener('blur', async () => {
     let cep = document.getElementById('cep').value.replace(/\D/g, '');
-    if (cep.length === 8) { await atualizarFrete(); }
-    else { document.getElementById('frete').innerText = '--'; currentFrete = 0; atualizarTotal(); atualizarAvisoFreteGratis(); cepValido = false; }
+    if (cep.length === 8) {
+      const cepAtendido = await validarCepAtendido(cep);
+      if (cepAtendido) {
+        await atualizarFrete();
+      } else {
+        document.getElementById('frete').innerText = '--';
+        currentFrete = 0;
+        atualizarTotal();
+        atualizarAvisoFreteGratis();
+      }
+    } else {
+      document.getElementById('frete').innerText = '--';
+      currentFrete = 0;
+      atualizarTotal();
+      atualizarAvisoFreteGratis();
+      cepValido = false;
+      document.getElementById('cep-validation-message').classList.add('hidden');
+      updateSubmitAvailability();
+    }
     saveFormData();
+  });
+  document.getElementById('cep').addEventListener('change', async () => {
+    const cep = document.getElementById('cep').value.replace(/\D/g, '');
+    if (cep.length === 8) {
+      const cepAtendido = await validarCepAtendido(cep);
+      if (cepAtendido) await atualizarFrete();
+    }
   });
   const addressFields = ['rua', 'numero', 'bairro', 'cidade', 'uf'];
   addressFields.forEach(field => {
