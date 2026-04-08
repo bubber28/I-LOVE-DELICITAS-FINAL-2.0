@@ -158,6 +158,16 @@
     loadCrossSell();
   }
 
+  function getSafeImageSrc(value, fallback) {
+    if (!value) return fallback;
+    try {
+      const resolved = new URL(value, window.location.origin);
+      return /^https?:$/i.test(resolved.protocol) ? resolved.href : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  }
+
   function renderCart() {
     const container = document.getElementById('cart-items');
     if (!cart.length) {
@@ -166,25 +176,68 @@
       return;
     }
     document.getElementById('checkout-btn').disabled = false;
-    container.innerHTML = cart.map((item, idx) => {
+    container.textContent = '';
+    const fragment = document.createDocumentFragment();
+    cart.forEach((item, idx) => {
       const itemTotal = (item.price_cents / 100) * (item.quantity || 1);
-      return `
-      <div class="bg-white rounded-lg p-4 flex gap-4 items-center shadow-sm" data-index="${idx}">
-        <img class="cart-item-image" src="${item.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(item.name)}">
-        <div class="flex-grow">
-          <h3 class="font-bold text-lg">${escapeHtml(item.name)}</h3>
-          <div class="flex justify-between items-center mt-2">
-            <span class="text-primary font-bold">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>
-            <div class="flex items-center gap-2">
-              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center" data-idx="${idx}" data-delta="-1">-</button>
-              <span class="w-8 text-center font-semibold">${item.quantity || 1}</span>
-              <button class="qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center" data-idx="${idx}" data-delta="1">+</button>
-              <button class="remove-btn text-error" data-idx="${idx}">🗑️</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `}).join('');
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-lg p-4 flex gap-4 items-center shadow-sm';
+      card.dataset.index = String(idx);
+
+      const image = document.createElement('img');
+      image.className = 'cart-item-image';
+      image.src = getSafeImageSrc(item.image_url, 'https://placehold.co/300x300?text=Delícia');
+      image.alt = item.name || 'Produto';
+      card.appendChild(image);
+
+      const content = document.createElement('div');
+      content.className = 'flex-grow';
+      const title = document.createElement('h3');
+      title.className = 'font-bold text-lg';
+      title.textContent = item.name || 'Produto';
+      content.appendChild(title);
+
+      const footer = document.createElement('div');
+      footer.className = 'flex justify-between items-center mt-2';
+      const total = document.createElement('span');
+      total.className = 'text-primary font-bold';
+      total.textContent = `R$ ${itemTotal.toFixed(2).replace('.', ',')}`;
+      footer.appendChild(total);
+
+      const controls = document.createElement('div');
+      controls.className = 'flex items-center gap-2';
+
+      const minusBtn = document.createElement('button');
+      minusBtn.type = 'button';
+      minusBtn.className = 'qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center';
+      minusBtn.dataset.idx = String(idx);
+      minusBtn.dataset.delta = '-1';
+      minusBtn.textContent = '-';
+
+      const quantity = document.createElement('span');
+      quantity.className = 'w-8 text-center font-semibold';
+      quantity.textContent = String(item.quantity || 1);
+
+      const plusBtn = document.createElement('button');
+      plusBtn.type = 'button';
+      plusBtn.className = 'qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center';
+      plusBtn.dataset.idx = String(idx);
+      plusBtn.dataset.delta = '1';
+      plusBtn.textContent = '+';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-btn text-error';
+      removeBtn.dataset.idx = String(idx);
+      removeBtn.textContent = '🗑️';
+
+      controls.append(minusBtn, quantity, plusBtn, removeBtn);
+      footer.appendChild(controls);
+      content.appendChild(footer);
+      card.appendChild(content);
+      fragment.appendChild(card);
+    });
+    container.appendChild(fragment);
 
     document.querySelectorAll('.qty-btn').forEach(btn => {
       btn.removeEventListener('click', handleQuantityClick);
@@ -308,21 +361,58 @@
 
       const container = document.getElementById('cross-sell-container');
       const section = document.getElementById('cross-sell-section');
-      container.innerHTML = suggestions.map(prod => `
-        <div class="bg-white rounded-2xl p-5 shadow-sm product-card transition-all">
-          <div class="mb-4 overflow-hidden rounded-xl">
-            <img class="product-image w-full h-40 object-cover" src="${prod.image_url || 'https://placehold.co/300x300?text=Delícia'}" alt="${escapeHtml(prod.name)}">
-          </div>
-          <h3 class="font-headline font-bold text-xl mb-1">${escapeHtml(prod.name)}</h3>
-          <p class="text-sm text-on-surface-variant mb-3 line-clamp-2">${escapeHtml(prod.description || 'Delícia artesanal')}</p>
-          <div class="flex justify-between items-center">
-            <span class="text-2xl font-black text-on-surface">R$ ${(prod.price_cents / 100).toFixed(2).replace('.', ',')}</span>
-            <button onclick="addToCartCrossSell('${prod.id}', '${escapeHtml(prod.name)}', ${prod.price_cents}, '${prod.image_url || ''}')" class="bg-secondary text-white p-3 rounded-full hover:scale-110 transition">
-              <span class="material-symbols-outlined">add_shopping_cart</span>
-            </button>
-          </div>
-        </div>
-      `).join('');
+      container.textContent = '';
+      const fragment = document.createDocumentFragment();
+      suggestions.forEach((prod) => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl p-5 shadow-sm product-card transition-all';
+
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'mb-4 overflow-hidden rounded-xl';
+        const image = document.createElement('img');
+        image.className = 'product-image w-full h-40 object-cover';
+        image.src = getSafeImageSrc(prod.image_url, 'https://placehold.co/300x300?text=Delícia');
+        image.alt = prod.name || 'Produto';
+        imageWrap.appendChild(image);
+        card.appendChild(imageWrap);
+
+        const title = document.createElement('h3');
+        title.className = 'font-headline font-bold text-xl mb-1';
+        title.textContent = prod.name || 'Produto';
+        card.appendChild(title);
+
+        const description = document.createElement('p');
+        description.className = 'text-sm text-on-surface-variant mb-3 line-clamp-2';
+        description.textContent = prod.description || 'Delícia artesanal';
+        card.appendChild(description);
+
+        const footer = document.createElement('div');
+        footer.className = 'flex justify-between items-center';
+        const price = document.createElement('span');
+        price.className = 'text-2xl font-black text-on-surface';
+        price.textContent = `R$ ${((prod.price_cents || 0) / 100).toFixed(2).replace('.', ',')}`;
+        footer.appendChild(price);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'bg-secondary text-white p-3 rounded-full hover:scale-110 transition';
+        button.dataset.id = prod.id;
+        button.dataset.name = prod.name || '';
+        button.dataset.price = String(prod.price_cents || 0);
+        button.dataset.image = prod.image_url || '';
+        button.addEventListener('click', () => {
+          addToCartCrossSell(button.dataset.id, button.dataset.name, Number(button.dataset.price), button.dataset.image);
+        });
+        const icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined';
+        icon.textContent = 'add_shopping_cart';
+        button.appendChild(icon);
+        footer.appendChild(button);
+
+        card.appendChild(footer);
+        fragment.appendChild(card);
+      });
+      container.appendChild(fragment);
       section.classList.remove('hidden');
     } catch (err) {
       console.error('Falha no cross‑sell:', err);
@@ -347,7 +437,11 @@
 
   function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+    return str
+      .replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]))
+      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, (c) => c)
+      .replace(/'/g, '&#39;')
+      .replace(/"/g, '&quot;');
   }
 
   // ================== HEADER AUTH ==================

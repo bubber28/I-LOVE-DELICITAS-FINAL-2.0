@@ -283,28 +283,45 @@
   }
 
   function formatTypeBadge(deliveryType) {
+    const badge = document.createElement('span');
+    badge.className = 'px-3 py-1 rounded-full text-xs font-bold';
     if (deliveryType === 'pickup') {
-      return '<span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">🏠 pickup</span>';
+      badge.classList.add('bg-slate-100', 'text-slate-700');
+      badge.textContent = '🏠 pickup';
+      return badge;
     }
 
-    return '<span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">🛵 delivery</span>';
+    badge.classList.add('bg-emerald-100', 'text-emerald-700');
+    badge.textContent = '🛵 delivery';
+    return badge;
   }
 
   function renderFlow(status) {
     const orderIndex = ORDER_STATUS_FLOW.indexOf(status);
 
-    return `
-      <div class="flex flex-wrap gap-2 mt-3">
-        ${['received', 'preparing', 'delivery', 'delivered'].map((step) => {
-          const stepIndex = ORDER_STATUS_FLOW.indexOf(step);
-          const isDone = orderIndex > stepIndex;
-          const isCurrent = status === step;
-          const cls = isDone ? 'done' : (isCurrent ? `current-${step}` : '');
-          return `<span class="status-pill ${cls}">${STATUS_LABELS[step]}</span>`;
-        }).join('')}
-        ${status === 'canceled' ? '<span class="status-pill current-canceled">Cancelado</span>' : ''}
-      </div>
-    `;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex flex-wrap gap-2 mt-3';
+
+    ['received', 'preparing', 'delivery', 'delivered'].forEach((step) => {
+      const pill = document.createElement('span');
+      const stepIndex = ORDER_STATUS_FLOW.indexOf(step);
+      const isDone = orderIndex > stepIndex;
+      const isCurrent = status === step;
+      pill.className = 'status-pill';
+      if (isDone) pill.classList.add('done');
+      else if (isCurrent) pill.classList.add(`current-${step}`);
+      pill.textContent = STATUS_LABELS[step];
+      wrapper.appendChild(pill);
+    });
+
+    if (status === 'canceled') {
+      const canceledPill = document.createElement('span');
+      canceledPill.className = 'status-pill current-canceled';
+      canceledPill.textContent = 'Cancelado';
+      wrapper.appendChild(canceledPill);
+    }
+
+    return wrapper;
   }
 
   function getStatusBadge(status) {
@@ -317,7 +334,108 @@
       canceled: 'bg-red-100 text-red-700'
     };
 
-    return `<span class="px-3 py-1 rounded-full text-xs font-bold ${map[status] || 'bg-slate-100 text-slate-700'}">${STATUS_LABELS[status] || status}</span>`;
+    const badge = document.createElement('span');
+    badge.className = `px-3 py-1 rounded-full text-xs font-bold ${map[status] || 'bg-slate-100 text-slate-700'}`;
+    badge.textContent = STATUS_LABELS[status] || status;
+    return badge;
+  }
+
+  function createInfoItem(label, value) {
+    const paragraph = document.createElement('p');
+    const strong = document.createElement('strong');
+    strong.textContent = `${label}:`;
+    paragraph.appendChild(strong);
+    paragraph.appendChild(document.createTextNode(` ${value}`));
+    return paragraph;
+  }
+
+  function createOrderButton({ className, text, onClick }) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.textContent = text;
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  function createOrderCard(order, filteredOrders) {
+    const article = document.createElement('article');
+    article.className = 'bg-white border border-[#f0d9d2] rounded-2xl p-4 md:p-5 shadow-sm';
+
+    const header = document.createElement('div');
+    header.className = 'flex flex-wrap items-center justify-between gap-2';
+
+    const orderMeta = document.createElement('div');
+    const orderTitle = document.createElement('p');
+    orderTitle.className = 'font-mono font-bold';
+    orderTitle.textContent = `Pedido #${order.id.slice(0, 8)}`;
+    const orderDate = document.createElement('p');
+    orderDate.className = 'text-xs text-slate-500';
+    orderDate.textContent = new Date(order.created_at).toLocaleString('pt-BR');
+    orderMeta.append(orderTitle, orderDate);
+
+    const badges = document.createElement('div');
+    badges.className = 'flex items-center gap-2';
+    badges.append(formatTypeBadge(order.delivery_type), getStatusBadge(order.status));
+
+    header.append(orderMeta, badges);
+    article.appendChild(header);
+    article.appendChild(renderFlow(order.status));
+
+    const infoGrid = document.createElement('div');
+    infoGrid.className = 'mt-4 grid md:grid-cols-3 gap-2 text-sm';
+    const total = `R$ ${((order.total_cents || 0) / 100).toFixed(2).replace('.', ',')}`;
+    infoGrid.append(
+      createInfoItem('Cliente', order.customer_name || 'Nao informado'),
+      createInfoItem('Telefone', order.customer_phone || 'Nao informado'),
+      createInfoItem('Total', total)
+    );
+    article.appendChild(infoGrid);
+
+    const actions = document.createElement('div');
+    actions.className = 'mt-4 grid md:grid-cols-3 gap-2';
+    const action = getStatusAction(order);
+
+    if (action) {
+      actions.appendChild(createOrderButton({
+        className: `px-4 py-2 rounded-xl font-semibold ${action.btnClass}`,
+        text: `${action.emoji} ${action.label}`,
+        onClick: async () => {
+          if (action.actionType === 'send-tracking') {
+            await sendTrackingAndStartDelivery(order.id);
+            return;
+          }
+          await updateOrderStatus(order.id, action.nextStatus);
+        }
+      }));
+    }
+
+    if (order.status === 'delivery') {
+      actions.appendChild(createOrderButton({
+        className: 'px-4 py-2 rounded-xl font-semibold bg-emerald-700 text-white',
+        text: '✓ Usar FAB neste pedido',
+        onClick: () => {
+          deliveryFabOrderId = order.id;
+          syncDeliveryFab(filteredOrders);
+        }
+      }));
+    }
+
+    if (order.status !== 'delivered' && order.status !== 'canceled') {
+      actions.appendChild(createOrderButton({
+        className: 'px-4 py-2 rounded-xl font-semibold bg-red-600 text-white',
+        text: '❌ Cancelar',
+        onClick: async () => {
+          await updateOrderStatus(order.id, 'canceled');
+        }
+      }));
+    }
+
+    if (actions.childElementCount > 0) {
+      article.appendChild(actions);
+    }
+
+    return article;
   }
 
   function getFilteredOrders() {
@@ -363,63 +481,12 @@
       return;
     }
 
-    container.innerHTML = filteredOrders.map((order) => {
-      const date = new Date(order.created_at).toLocaleString('pt-BR');
-      const total = ((order.total_cents || 0) / 100).toFixed(2).replace('.', ',');
-      const action = getStatusAction(order);
-
-      return `
-        <article class="bg-white border border-[#f0d9d2] rounded-2xl p-4 md:p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p class="font-mono font-bold">Pedido #${order.id.slice(0, 8)}</p>
-              <p class="text-xs text-slate-500">${date}</p>
-            </div>
-            <div class="flex items-center gap-2">
-              ${formatTypeBadge(order.delivery_type)}
-              ${getStatusBadge(order.status)}
-            </div>
-          </div>
-
-          ${renderFlow(order.status)}
-
-          <div class="mt-4 grid md:grid-cols-3 gap-2 text-sm">
-            <p><strong>Cliente:</strong> ${order.customer_name || 'Nao informado'}</p>
-            <p><strong>Telefone:</strong> ${order.customer_phone || 'Nao informado'}</p>
-            <p><strong>Total:</strong> R$ ${total}</p>
-          </div>
-
-          <div class="mt-4 grid md:grid-cols-3 gap-2">
-            ${action ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold ${action.btnClass}" data-action-type="${action.actionType}" data-next-status="${action.nextStatus || ''}" data-order-id="${order.id}">${action.emoji} ${action.label}</button>` : ''}
-            ${order.status === 'delivery' ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold bg-emerald-700 text-white" data-bind-fab="${order.id}">✓ Usar FAB neste pedido</button>` : ''}
-            ${(order.status !== 'delivered' && order.status !== 'canceled') ? `<button type="button" class="px-4 py-2 rounded-xl font-semibold bg-red-600 text-white" data-cancel-order="${order.id}">❌ Cancelar</button>` : ''}
-          </div>
-        </article>
-      `;
-    }).join('');
-
-    container.querySelectorAll('[data-action-type]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (btn.dataset.actionType === 'send-tracking') {
-          await sendTrackingAndStartDelivery(btn.dataset.orderId);
-          return;
-        }
-        await updateOrderStatus(btn.dataset.orderId, btn.dataset.nextStatus);
-      });
+    container.textContent = '';
+    const fragment = document.createDocumentFragment();
+    filteredOrders.forEach((order) => {
+      fragment.appendChild(createOrderCard(order, filteredOrders));
     });
-
-    container.querySelectorAll('[data-cancel-order]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        await updateOrderStatus(btn.dataset.cancelOrder, 'canceled');
-      });
-    });
-
-    container.querySelectorAll('[data-bind-fab]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        deliveryFabOrderId = btn.dataset.bindFab;
-        syncDeliveryFab(filteredOrders);
-      });
-    });
+    container.appendChild(fragment);
   }
 
   async function updateOrderStatus(orderId, nextStatus) {
