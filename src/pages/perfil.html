@@ -375,7 +375,8 @@
 
     const { error } = await supabaseClient
       .from('profiles')
-      .upsert({ id: userId, name, phone, address, cidade, cpf, email: session.user.email, updated_at: new Date().toISOString() });
+      .update({ name, phone, address, cidade, cpf, updated_at: new Date().toISOString() })
+      .eq('id', userId);
     if (error) {
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');
