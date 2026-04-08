@@ -215,6 +215,17 @@
       return fallback;
     }
   }
+  async function getToken() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session?.access_token) return session.access_token;
+    return (
+      localStorage.getItem('token') ||
+      localStorage.getItem('access_token') ||
+      sessionStorage.getItem('token') ||
+      sessionStorage.getItem('access_token') ||
+      null
+    );
+  }
 
   // ================== PERSISTÊNCIA ==================
   function getStorageKey() {
@@ -545,6 +556,22 @@
       if (!name || !phone) throw new Error('Preencha nome e telefone.');
       if (cpfRaw && cpfRaw.length !== 11) throw new Error('CPF inválido.');
       if (cart.length === 0) throw new Error('Carrinho vazio.');
+      if (couponCode) {
+        const token = await getToken();
+        if (!token) throw new Error('Faça login para aplicar o cupom.');
+        const applyResponse = await fetch('/api/user/coupon/apply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ code: couponCode })
+        });
+        if (!applyResponse.ok) {
+          const payload = await applyResponse.json().catch(() => null);
+          throw new Error(payload?.message || 'Não foi possível aplicar o cupom.');
+        }
+      }
       const subtotal = getSubtotalValue();
       if (subtotal < minOrder) {
         throw new Error(`Pedido minimo: R$ ${minOrder.toFixed(2).replace('.', ',')}`);

@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://ilove-delicitas-admin.onrender.com/api/$1" },
     { "source": "/admin", "destination": "/src/pages/admin.html" },
     { "source": "/", "destination": "/src/pages/index.html" },
     { "source": "/cardapio", "destination": "/src/pages/cardapio.html" },
