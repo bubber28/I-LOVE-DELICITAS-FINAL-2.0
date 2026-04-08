@@ -76,24 +76,60 @@
   const form = document.getElementById('reset-form');
   const errorEl = document.getElementById('error-message');
   const successEl = document.getElementById('success-message');
+  let isSubmitting = false;
+
+  function mapRecoveryError(error) {
+    const message = (error?.message || '').toLowerCase();
+    if (error?.status === 429 || message.includes('too many requests')) {
+      return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.';
+    }
+    if (message.includes('user not found') || message.includes('email not found') || message.includes('invalid email')) {
+      return 'Informe um e-mail valido para receber o link de recuperacao.';
+    }
+    return 'Nao foi possivel solicitar a recuperacao de senha agora. Tente novamente.';
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     errorEl.classList.add('hidden');
     successEl.classList.add('hidden');
 
     const email = document.getElementById('email').value.trim();
-    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`
-    });
-
-    if (error) {
-      errorEl.textContent = error.message;
+    if (!email) {
+      errorEl.textContent = 'Informe seu e-mail para continuar.';
       errorEl.classList.remove('hidden');
-    } else {
-      successEl.textContent = 'Enviamos um e‑mail com instruções para redefinir sua senha.';
-      successEl.classList.remove('hidden');
-      setTimeout(() => { window.location.href = '/login'; }, 5000);
+      return;
+    }
+    if (!form.reportValidity()) return;
+
+    isSubmitting = true;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
+
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+
+      if (error) {
+        errorEl.textContent = mapRecoveryError(error);
+        errorEl.classList.remove('hidden');
+      } else {
+        successEl.textContent = 'Enviamos um link de recuperacao para seu e-mail. Abra a mensagem para continuar em /reset-password.';
+        successEl.classList.remove('hidden');
+        setTimeout(() => { window.location.href = '/login'; }, 5000);
+      }
+    } catch (err) {
+      errorEl.textContent = 'Falha de conexao. Verifique sua internet e tente novamente.';
+      errorEl.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      isSubmitting = false;
     }
   });
 </script>

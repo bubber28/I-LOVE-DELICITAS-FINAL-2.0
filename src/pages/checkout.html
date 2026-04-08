@@ -140,7 +140,7 @@
           <p class="text-xs text-on-surface-variant mt-2">Funcionamento: seg-sex 9h-18h</p>
         </div>
         <div><label class="block font-semibold mb-1">Tipo de entrega</label><select id="delivery-type" class="input-field"><option value="delivery">Entrega</option><option value="pickup">Retirada no local</option></select></div>
-        <div><label class="block font-semibold mb-1">Forma de pagamento</label><select id="payment-method" class="input-field"><option value="pix">PIX</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option></select></div>
+        <div><label class="block font-semibold mb-1">Forma de pagamento</label><select id="payment-method" class="input-field"><option value="pix">PIX</option><option value="cartao">Cartão de Crédito</option></select></div>
         <div>
           <label class="block font-semibold mb-1">Cupom de desconto</label>
           <input type="text" id="coupon-input" class="input-field hidden" placeholder="CUPOM10" disabled readonly aria-hidden="true">
@@ -256,6 +256,7 @@
         if (el && value) el.value = value;
       }
     } catch(e) { console.warn(e); }
+    sanitizePaymentMethod();
   }
   function attachAutoSave() {
     const fields = ['customer-name', 'customer-phone', 'delivery-type', 'payment-method'];
@@ -264,6 +265,14 @@
     document.body.addEventListener('click', (e) => { const link = e.target.closest('a'); if (link && link.href) saveFormData(); });
   }
   function clearFormData() { localStorage.removeItem(getStorageKey()); }
+  function sanitizePaymentMethod() {
+    const paymentField = document.getElementById('payment-method');
+    if (!paymentField) return;
+    const allowedMethods = new Set(['pix', 'cartao']);
+    if (!allowedMethods.has(paymentField.value)) {
+      paymentField.value = 'pix';
+    }
+  }
   function formatCPF(value) {
     value = value.replace(/\D/g, '');
     if (value.length > 11) value = value.slice(0, 11);
@@ -587,7 +596,9 @@
     syncCouponDisplay();
     renderSummary();
     atualizarTotal();
-    restoreFormData(); attachAutoSave();
+    restoreFormData();
+    sanitizePaymentMethod();
+    attachAutoSave();
     const cpfInput = document.getElementById('cpf');
     if (cpfInput) cpfInput.addEventListener('input', function(e) { this.value = formatCPF(this.value); saveFormData(); });
     toggleAddressBlocks();
@@ -629,6 +640,7 @@
       const name = document.getElementById('customer-name').value.trim();
       const phone = document.getElementById('customer-phone').value.trim();
       const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
+      sanitizePaymentMethod();
       const deliveryType = document.getElementById('delivery-type').value;
       const payment = document.getElementById('payment-method').value;
       const couponInputEl = document.getElementById('coupon-input');
