@@ -184,6 +184,13 @@
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
+  function getFriendlyCouponName(code) {
+    const rawCode = String(code || '').trim();
+    if (!rawCode) return 'Cupom de primeira compra';
+    const prefix = rawCode.split('-')[0];
+    return prefix || 'Cupom de primeira compra';
+  }
+
   function renderCouponsHistory(coupons) {
     const container = document.getElementById('coupons-history-container');
     if (!container) return;
@@ -195,7 +202,9 @@
 
     container.innerHTML = coupons.map((coupon, index) => {
       const status = getCouponHistoryStatus(coupon);
-      const code = escapeHTML(coupon.code || coupon.codigo || 'SEM-CODIGO');
+      const rawCode = coupon.code || coupon.codigo || '';
+      const code = escapeHTML(rawCode || 'SEM-CODIGO');
+      const friendlyCode = escapeHTML(getFriendlyCouponName(rawCode));
       const discountText = coupon.discount_percent ?? coupon.desconto ?? coupon.percent;
       const discountLabel = discountText != null ? `${Number(discountText)}% OFF` : 'Desconto disponível';
       const statusText = status.isActive ? 'Ativo' : (status.isUsed ? 'Usado' : 'Expirado');
@@ -205,7 +214,7 @@
           <div class="rounded-xl border p-4" style="border-color:#16a34a;background:#f0fdf4;">
             <div class="flex items-start justify-between gap-2">
               <div>
-                <p class="text-lg font-extrabold text-green-700 tracking-wide">${code}</p>
+                <p class="text-lg font-extrabold text-green-700 tracking-wide" data-fullcode="${code}">${friendlyCode}</p>
                 <p class="text-sm text-green-700/90">${escapeHTML(discountLabel)}</p>
                 <p class="text-xs text-green-800/80 mt-1">Válido até ${formatCouponDate(status.validUntil)}</p>
               </div>
@@ -219,7 +228,7 @@
         <div class="rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 opacity-90">
           <div class="flex items-start justify-between gap-2">
             <div>
-              <p class="text-lg font-extrabold text-on-surface tracking-wide">${code}</p>
+              <p class="text-lg font-extrabold text-on-surface tracking-wide" data-fullcode="${code}">${friendlyCode}</p>
               <p class="text-sm text-on-surface-variant">${escapeHTML(discountLabel)}</p>
               <p class="text-xs text-on-surface-variant mt-1">Validade: ${formatCouponDate(status.validUntil)}</p>
             </div>
@@ -596,6 +605,7 @@
 
     const formattedDate = expiry.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     const safeCode = activeCoupon.code.replace(/['"<>&]/g, c => ({'\'':'&#39;','"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    const friendlyCode = escapeHTML(getFriendlyCouponName(activeCoupon.code));
 
     container.innerHTML = `
       <div class="rounded-2xl overflow-hidden shadow-xl" style="background:linear-gradient(135deg,#3b1a0a 0%,#6b3520 55%,#3b1a0a 100%);">
@@ -604,7 +614,7 @@
           <p class="text-amber-100/70 text-xs mt-1">Use o código abaixo no próximo pedido</p>
         </div>
         <div class="mx-4 mb-2 rounded-xl border-2 border-dashed px-6 py-4 text-center" style="border-color:rgba(212,175,55,0.55);background:rgba(0,0,0,0.25);">
-          <span class="font-headline font-extrabold text-3xl tracking-widest select-all" style="color:#f0c040;">${safeCode}</span>
+          <span class="font-headline font-extrabold text-3xl tracking-widest" style="color:#f0c040;" data-fullcode="${safeCode}">${friendlyCode}</span>
         </div>
         <p class="text-center text-xs mb-4" style="color:rgba(240,192,64,0.65);">Válido até ${formattedDate}</p>
         <div class="flex gap-3 px-4 pb-6">

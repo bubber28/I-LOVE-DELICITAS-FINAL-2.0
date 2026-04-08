@@ -141,7 +141,7 @@
         </div>
         <div><label class="block font-semibold mb-1">Tipo de entrega</label><select id="delivery-type" class="input-field"><option value="delivery">Entrega</option><option value="pickup">Retirada no local</option></select></div>
         <div><label class="block font-semibold mb-1">Forma de pagamento</label><select id="payment-method" class="input-field"><option value="pix">PIX</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option></select></div>
-        <div><label class="block font-semibold mb-1">Cupom de desconto</label><input type="text" id="coupon-input" class="input-field" placeholder="CUPOM10"></div>
+        <div><label class="block font-semibold mb-1">Cupom de desconto</label><input type="text" id="coupon-input" class="input-field" placeholder="CUPOM10"><p id="coupon-display-name" class="text-xs text-on-surface-variant mt-1 hidden"></p></div>
       </form>
     </div>
     <div class="bg-white rounded-2xl p-6 shadow-sm">
@@ -266,6 +266,28 @@
     if (value.length > 6) return value.replace(/^(\d{3})(\d{3})(\d{0,3})$/, '$1.$2.$3');
     if (value.length > 3) return value.replace(/^(\d{3})(\d{0,3})$/, '$1.$2');
     return value;
+  }
+  function getFriendlyCouponName(code) {
+    const rawCode = String(code || '').trim();
+    if (!rawCode) return 'Cupom de primeira compra';
+    const prefix = rawCode.split('-')[0];
+    return prefix || 'Cupom de primeira compra';
+  }
+  function syncCouponDisplay() {
+    const couponInput = document.getElementById('coupon-input');
+    const couponDisplay = document.getElementById('coupon-display-name');
+    if (!couponInput || !couponDisplay) return;
+
+    if (appliedCoupon && appliedCoupon.code) {
+      couponInput.dataset.fullcode = appliedCoupon.code;
+      couponInput.value = getFriendlyCouponName(appliedCoupon.code);
+      couponDisplay.textContent = `Cupom aplicado: ${getFriendlyCouponName(appliedCoupon.code)}`;
+      couponDisplay.classList.remove('hidden');
+      return;
+    }
+
+    delete couponInput.dataset.fullcode;
+    couponDisplay.classList.add('hidden');
   }
   function getSubtotalValue() {
     return cart.reduce((sum, item) => sum + ((item.price_cents / 100) * (item.quantity || 1)), 0);
@@ -485,6 +507,7 @@
 
     const storedCoupon = localStorage.getItem('appliedCoupon');
     appliedCoupon = safeJsonParse(storedCoupon, null);
+    syncCouponDisplay();
     updateCartCount();
     renderSummary();
     updateSubmitAvailability();
@@ -552,7 +575,8 @@
       const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
       const deliveryType = document.getElementById('delivery-type').value;
       const payment = document.getElementById('payment-method').value;
-      const couponCode = document.getElementById('coupon-input').value.trim().toUpperCase() || null;
+      const couponInputEl = document.getElementById('coupon-input');
+      const couponCode = (couponInputEl.dataset.fullcode || couponInputEl.value).trim().toUpperCase() || null;
       if (!name || !phone) throw new Error('Preencha nome e telefone.');
       if (cpfRaw && cpfRaw.length !== 11) throw new Error('CPF inválido.');
       if (cart.length === 0) throw new Error('Carrinho vazio.');
@@ -621,6 +645,18 @@
     } finally { isSubmitting = false; }
   }
   document.getElementById('submit-order').addEventListener('click', submitOrder);
+  document.getElementById('coupon-input').addEventListener('input', () => {
+    const couponInput = document.getElementById('coupon-input');
+    if (couponInput.dataset.fullcode && couponInput.value !== getFriendlyCouponName(couponInput.dataset.fullcode)) {
+      delete couponInput.dataset.fullcode;
+      appliedCoupon = null;
+      localStorage.removeItem('appliedCoupon');
+      const couponDisplay = document.getElementById('coupon-display-name');
+      couponDisplay.classList.add('hidden');
+      renderSummary();
+      atualizarTotal();
+    }
+  });
   document.getElementById('buscar-cep').addEventListener('click', async () => {
     let cep = document.getElementById('cep').value.replace(/\D/g, '');
     if (cep.length !== 8) { alert('CEP inválido'); return; }
