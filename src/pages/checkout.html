@@ -308,7 +308,7 @@
   async function loadMinOrder() {
     const notice = document.getElementById('min-order-notice');
     try {
-      const response = await fetch('/api/settings/min-order');
+      const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/settings/min-order');
       if (!response.ok) throw new Error('Falha ao carregar pedido minimo');
       const payload = await response.json();
       minOrder = Number(payload?.minOrder ?? payload?.min_order ?? 0) || 0;
@@ -342,7 +342,7 @@
       return false;
     }
     try {
-      const response = await fetch(`/api/delivery/check-cep?cep=${cepLimpo}`);
+      const response = await fetch(`https://ilove-delicitas-admin.onrender.com/api/delivery/check-cep?cep=${cepLimpo}`);
       if (response.status === 404) {
         cepValido = false;
         cepMsg.textContent = 'CEP não atendido';
@@ -583,7 +583,7 @@
       if (couponCode) {
         const token = await getToken();
         if (!token) throw new Error('Faça login para aplicar o cupom.');
-        const applyResponse = await fetch('/api/user/coupon/apply', {
+        const applyResponse = await fetch('https://ilove-delicitas-admin.onrender.com/api/user/coupon/apply', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
