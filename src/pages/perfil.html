@@ -358,9 +358,12 @@
     errorEl.classList.add('hidden');
     successEl.classList.add('hidden');
 
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) return;
-    const userId = session.user.id;
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) {
+      errorEl.textContent = 'Usuário não autenticado.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const address = document.getElementById('address').value.trim();
@@ -376,14 +379,14 @@
     const { error } = await supabaseClient
       .from('profiles')
       .update({ name, phone, address, cidade, cpf, updated_at: new Date().toISOString() })
-      .eq('id', userId);
+      .eq('id', user.id);
     if (error) {
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');
     } else {
       successEl.textContent = 'Perfil atualizado com sucesso!';
       successEl.classList.remove('hidden');
-      document.getElementById('user-name').innerText = name || session.user.email.split('@')[0];
+      document.getElementById('user-name').innerText = name || user.email.split('@')[0];
     }
   });
 
