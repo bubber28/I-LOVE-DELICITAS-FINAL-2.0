@@ -141,7 +141,11 @@
         </div>
         <div><label class="block font-semibold mb-1">Tipo de entrega</label><select id="delivery-type" class="input-field"><option value="delivery">Entrega</option><option value="pickup">Retirada no local</option></select></div>
         <div><label class="block font-semibold mb-1">Forma de pagamento</label><select id="payment-method" class="input-field"><option value="pix">PIX</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option></select></div>
-        <div><label class="block font-semibold mb-1">Cupom de desconto</label><input type="text" id="coupon-input" class="input-field" placeholder="CUPOM10"><p id="coupon-display-name" class="text-xs text-on-surface-variant mt-1 hidden"></p></div>
+        <div>
+          <label class="block font-semibold mb-1">Cupom de desconto</label>
+          <input type="text" id="coupon-input" class="input-field hidden" placeholder="CUPOM10" disabled readonly aria-hidden="true">
+          <p id="coupon-display-name" class="text-xs text-secondary mt-1 hidden"></p>
+        </div>
       </form>
     </div>
     <div class="bg-white rounded-2xl p-6 shadow-sm">
@@ -177,6 +181,7 @@
   let cart = [], appliedCoupon = null, userId = null, guestId = null, currentFrete = 0;
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00, frete_gratis_distancia_maxima: 5, store_lat: STORE_LAT, store_lng: STORE_LNG };
   let cepValido = false, currentDistance = null, isSubmitting = false, minOrder = 0;
+  const FRIENDLY_COUPON_TEXT = 'Cupom de primeira compra - 50% OFF';
 
   // ================== VALIDAÇÃO CPF (CORREÇÃO #8) ==================
   function isValidCPF(cpf) {
@@ -273,20 +278,56 @@
     const prefix = rawCode.split('-')[0];
     return prefix || 'Cupom de primeira compra';
   }
+  function isCouponStillActive(coupon) {
+    if (!coupon || !coupon.code) return false;
+    if (coupon.used) return false;
+    const validUntilRaw = coupon.valid_until || coupon.expires_at || coupon.validUntil;
+    if (!validUntilRaw) return true;
+    const validUntil = new Date(validUntilRaw);
+    if (Number.isNaN(validUntil.getTime())) return false;
+    return validUntil > new Date();
+  }
+  function normalizeCoupon(coupon) {
+    if (!coupon || !coupon.code) return null;
+    return {
+      ...coupon,
+      desconto: Number(coupon.desconto ?? coupon.discount_percent ?? coupon.percent ?? 50)
+    };
+  }
+  async function fetchActiveCouponForCheckout(token) {
+    if (!token) return null;
+    try {
+      const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/user/coupon', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) return null;
+      const payload = await response.json();
+      const normalized = normalizeCoupon(payload);
+      return isCouponStillActive(normalized) ? normalized : null;
+    } catch (err) {
+      console.warn('Nao foi possivel carregar cupom ativo no checkout:', err);
+      return null;
+    }
+  }
   function syncCouponDisplay() {
     const couponInput = document.getElementById('coupon-input');
     const couponDisplay = document.getElementById('coupon-display-name');
     if (!couponInput || !couponDisplay) return;
 
+    couponInput.disabled = true;
+    couponInput.readOnly = true;
+
     if (appliedCoupon && appliedCoupon.code) {
       couponInput.dataset.fullcode = appliedCoupon.code;
-      couponInput.value = getFriendlyCouponName(appliedCoupon.code);
-      couponDisplay.textContent = `Cupom aplicado: ${getFriendlyCouponName(appliedCoupon.code)}`;
+      couponInput.value = FRIENDLY_COUPON_TEXT;
+      couponDisplay.textContent = 'Cupom de primeira compra aplicado automaticamente!';
       couponDisplay.classList.remove('hidden');
       return;
     }
 
     delete couponInput.dataset.fullcode;
+    couponInput.value = '';
+    couponDisplay.textContent = '';
     couponDisplay.classList.add('hidden');
   }
   function getSubtotalValue() {
@@ -507,6 +548,10 @@
 
     const storedCoupon = localStorage.getItem('appliedCoupon');
     appliedCoupon = safeJsonParse(storedCoupon, null);
+    if (!isCouponStillActive(appliedCoupon)) {
+      appliedCoupon = null;
+      localStorage.removeItem('appliedCoupon');
+    }
     syncCouponDisplay();
     updateCartCount();
     renderSummary();
@@ -514,6 +559,12 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       userId = session.user.id; guestId = null;
+      const token = await getToken();
+      const remoteCoupon = await fetchActiveCouponForCheckout(token);
+      if (remoteCoupon && remoteCoupon.code) {
+        appliedCoupon = remoteCoupon;
+        localStorage.setItem('appliedCoupon', JSON.stringify(remoteCoupon));
+      }
       const { data: profile } = await supabaseClient.from('profiles').select('name, phone, address, cpf').eq('id', userId).single();
       if (profile) {
         const key = getStorageKey();
@@ -525,12 +576,17 @@
       }
     } else {
       userId = null;
+      appliedCoupon = null;
+      localStorage.removeItem('appliedCoupon');
       guestId = localStorage.getItem('guest_id');
       if (!guestId) {
         guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
         localStorage.setItem('guest_id', guestId);
       }
     }
+    syncCouponDisplay();
+    renderSummary();
+    atualizarTotal();
     restoreFormData(); attachAutoSave();
     const cpfInput = document.getElementById('cpf');
     if (cpfInput) cpfInput.addEventListener('input', function(e) { this.value = formatCPF(this.value); saveFormData(); });
@@ -576,10 +632,22 @@
       const deliveryType = document.getElementById('delivery-type').value;
       const payment = document.getElementById('payment-method').value;
       const couponInputEl = document.getElementById('coupon-input');
-      const couponCode = (couponInputEl.dataset.fullcode || couponInputEl.value).trim().toUpperCase() || null;
+      let couponCode = (appliedCoupon?.code || couponInputEl?.dataset.fullcode || '').trim().toUpperCase() || null;
       if (!name || !phone) throw new Error('Preencha nome e telefone.');
       if (cpfRaw && cpfRaw.length !== 11) throw new Error('CPF inválido.');
       if (cart.length === 0) throw new Error('Carrinho vazio.');
+      if (!couponCode) {
+        const token = await getToken();
+        const remoteCoupon = await fetchActiveCouponForCheckout(token);
+        if (remoteCoupon?.code) {
+          appliedCoupon = remoteCoupon;
+          localStorage.setItem('appliedCoupon', JSON.stringify(remoteCoupon));
+          couponCode = String(remoteCoupon.code).trim().toUpperCase();
+          syncCouponDisplay();
+          renderSummary();
+          atualizarTotal();
+        }
+      }
       if (couponCode) {
         const token = await getToken();
         if (!token) throw new Error('Faça login para aplicar o cupom.');
@@ -645,18 +713,6 @@
     } finally { isSubmitting = false; }
   }
   document.getElementById('submit-order').addEventListener('click', submitOrder);
-  document.getElementById('coupon-input').addEventListener('input', () => {
-    const couponInput = document.getElementById('coupon-input');
-    if (couponInput.dataset.fullcode && couponInput.value !== getFriendlyCouponName(couponInput.dataset.fullcode)) {
-      delete couponInput.dataset.fullcode;
-      appliedCoupon = null;
-      localStorage.removeItem('appliedCoupon');
-      const couponDisplay = document.getElementById('coupon-display-name');
-      couponDisplay.classList.add('hidden');
-      renderSummary();
-      atualizarTotal();
-    }
-  });
   document.getElementById('buscar-cep').addEventListener('click', async () => {
     let cep = document.getElementById('cep').value.replace(/\D/g, '');
     if (cep.length !== 8) { alert('CEP inválido'); return; }
