@@ -33,6 +33,10 @@
   }
 </script>
 <style>
+  :root {
+    --brand-primary: #ae2f34;
+    --brand-secondary: #006a65;
+  }
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
   body { background-color: #fff8f7; min-height: 100dvh; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -158,7 +162,8 @@
 </header>
 
 <main class="pt-24 pb-32 px-4 max-w-7xl mx-auto">
-  <h1 class="text-3xl font-bold mb-6">Cardápio</h1>
+  <h1 class="text-3xl font-bold mb-2 cardapio-title">Cardápio</h1>
+  <p class="text-on-surface-variant mb-6 cardapio-subtitle">Escolha seus favoritos e monte seu pedido com delícias fresquinhas.</p>
 
   <div class="mb-8 overflow-x-auto no-scrollbar">
     <div id="category-filters" class="flex gap-2 pb-2">
@@ -172,7 +177,11 @@
 </main>
 
 <footer class="bg-[#fff0ef] py-12 text-center">
-  <p class="font-semibold">I Love Delicitas</p>
+  <p class="font-semibold logo-text">I Love Delicitas</p>
+  <p class="text-sm mt-1 slogan">Sabor que vira memória</p>
+  <p class="text-sm text-on-surface-variant mt-1" id="cardapio-preparation-time">Tempo médio de preparo: até 45 min</p>
+  <p class="text-sm text-on-surface-variant mt-1" id="cardapio-opening-hours">Funcionamento: seg-sex 9h-18h</p>
+  <p class="text-sm text-on-surface-variant mt-1" id="cardapio-shipping-info">Frete padrao: R$ 7,00</p>
   <p class="text-sm text-on-surface-variant mt-1">CNPJ: 61.316.392/0001-97</p>
   <p class="text-sm mt-1">© 2026 I Love Delicitas. Todos os direitos reservados.</p>
 </footer>
@@ -180,11 +189,139 @@
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const SETTINGS_BASE_URL = 'https://ilove-delicitas-admin.onrender.com/api/settings';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let categories = [];
   let allProducts = [];
   let currentCategory = 'all';
+
+  function getNestedValue(obj, path) {
+    return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+  }
+
+  function pickFirstValue(source, candidates) {
+    for (const candidate of candidates) {
+      const value = getNestedValue(source, candidate);
+      if (value !== undefined && value !== null && value !== '') return value;
+    }
+    return null;
+  }
+
+  function applyTextIfFound(selector, value) {
+    if (!value) return;
+    const element = document.querySelector(selector);
+    if (element) element.textContent = String(value);
+  }
+
+  function applyBrandTheme(brandPayload) {
+    const brand = brandPayload?.brand || brandPayload?.data || brandPayload || {};
+    const logoText = pickFirstValue(brand, ['logoText', 'logo_text', 'name']);
+    const slogan = pickFirstValue(brand, ['slogan', 'tagline']);
+    const primaryColor = pickFirstValue(brand, ['primaryColor', 'primary_color']);
+
+    applyTextIfFound('.logo-text', logoText);
+    applyTextIfFound('.slogan', slogan);
+
+    if (primaryColor) {
+      document.documentElement.style.setProperty('--brand-primary', String(primaryColor));
+      document.querySelectorAll('.text-primary').forEach((el) => {
+        el.style.color = String(primaryColor);
+      });
+      document.querySelectorAll('.bg-primary').forEach((el) => {
+        el.style.backgroundColor = String(primaryColor);
+      });
+    }
+  }
+
+  function applyContentConfig(contentPayload) {
+    const content = contentPayload?.content || contentPayload?.data || contentPayload || {};
+    applyTextIfFound('.cardapio-title', pickFirstValue(content, ['menu.title', 'catalog.title', 'cardapio.title']));
+    applyTextIfFound('.cardapio-subtitle', pickFirstValue(content, ['menu.subtitle', 'catalog.subtitle', 'cardapio.subtitle']));
+  }
+
+  function applyPreparationTimeConfig(payload) {
+    const prep = payload?.preparationTime ?? payload?.data?.preparationTime ?? payload?.data ?? payload;
+    let value = null;
+    if (typeof prep === 'number') {
+      value = `${prep} min`;
+    } else if (typeof prep === 'string') {
+      value = prep;
+    } else {
+      value = pickFirstValue(prep || {}, ['label', 'display', 'average', 'time', 'preparationTime']);
+    }
+    if (value) applyTextIfFound('#cardapio-preparation-time', `Tempo médio de preparo: ${value}`);
+  }
+
+  function formatOpeningHours(opening) {
+    if (!opening || typeof opening !== 'object') return null;
+    const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const dayLabel = { monday: 'seg', tuesday: 'ter', wednesday: 'qua', thursday: 'qui', friday: 'sex', saturday: 'sab', sunday: 'dom' };
+    const enabled = dayOrder.filter((day) => opening[day]?.enabled);
+    if (!enabled.length) return null;
+    const sameSchedule = enabled.every((day) => {
+      const first = opening[enabled[0]];
+      const current = opening[day];
+      return first?.open === current?.open && first?.close === current?.close;
+    });
+    if (sameSchedule && enabled.length > 1) {
+      const first = opening[enabled[0]];
+      return `${dayLabel[enabled[0]]}-${dayLabel[enabled[enabled.length - 1]]} ${first.open}-${first.close}`;
+    }
+    return enabled.map((day) => `${dayLabel[day]} ${opening[day].open}-${opening[day].close}`).join(' | ');
+  }
+
+  function applyOpeningHoursConfig(payload) {
+    const opening = payload?.openingHours || payload?.data || payload || {};
+    const value = pickFirstValue(opening, ['label', 'display', 'summary', 'hours']) || formatOpeningHours(opening);
+    if (value) applyTextIfFound('#cardapio-opening-hours', `Funcionamento: ${value}`);
+  }
+
+  function applyShippingConfig(payload) {
+    const shipping = payload?.shipping || payload?.data || payload || {};
+    const standard = pickFirstValue(shipping, ['standardFee', 'standard_fee', 'frete_padrao', 'defaultShipping']);
+    const freeMin = pickFirstValue(shipping, ['freeShippingMinimum', 'free_shipping_minimum', 'frete_gratis_minimo', 'freeShippingMin']);
+    if (standard !== null && freeMin !== null) {
+      const standardValue = Number(standard) || 0;
+      const freeMinValue = Number(freeMin) || 0;
+      applyTextIfFound('#cardapio-shipping-info', `Frete padrao: R$ ${standardValue.toFixed(2).replace('.', ',')} | Gratis acima de R$ ${freeMinValue.toFixed(2).replace('.', ',')}`);
+    }
+  }
+
+  async function fetchSettings(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.warn('Falha ao carregar configuracao:', url, error);
+      return null;
+    }
+  }
+
+  async function loadDynamicSettings() {
+    const [brand, content, preparationTime, openingHours, shipping] = await Promise.all([
+      fetchSettings(`${SETTINGS_BASE_URL}/brand`),
+      fetchSettings(`${SETTINGS_BASE_URL}/content`),
+      fetchSettings(`${SETTINGS_BASE_URL}/preparation-time`),
+      fetchSettings(`${SETTINGS_BASE_URL}/opening-hours`),
+      fetchSettings(`${SETTINGS_BASE_URL}/shipping`)
+    ]);
+
+    if (brand) applyBrandTheme(brand);
+    if (content) applyContentConfig(content);
+    if (preparationTime) applyPreparationTimeConfig(preparationTime);
+    if (openingHours) applyOpeningHoursConfig(openingHours);
+    if (shipping) applyShippingConfig(shipping);
+  }
+
+  function initDynamicSettingsOnReady() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadDynamicSettings);
+      return;
+    }
+    loadDynamicSettings();
+  }
 
   function showToast(message, isError = false) {
     const existingToast = document.querySelector('.toast');
@@ -448,6 +585,7 @@
   updateSidebarAuth();
   loadCategories();
   loadProducts();
+  initDynamicSettingsOnReady();
 </script>
 </body>
 </html>

@@ -33,6 +33,10 @@
     }
   </script>
   <style>
+    :root {
+      --brand-primary: #ae2f34;
+      --brand-secondary: #006a65;
+    }
     .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     body { background-color: #fff8f7; }
     .input-field { width: 100%; padding: 0.75rem; border-radius: 1rem; border: 1px solid #e0bfbd; background: white; transition: all 0.2s; }
@@ -118,7 +122,8 @@
 </header>
 
 <main class="pt-24 pb-32 px-4 max-w-4xl mx-auto">
-  <h1 class="text-3xl font-bold text-primary mb-6">Confirmar Pedido</h1>
+  <h1 class="text-3xl font-bold text-primary mb-2 checkout-title">Confirmar Pedido</h1>
+  <p class="text-on-surface-variant mb-6 checkout-subtitle">Revise os dados de entrega e finalize seu pedido com seguranca.</p>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
     <div class="bg-white rounded-2xl p-6 shadow-sm">
       <h2 class="text-xl font-bold mb-4">Dados para entrega</h2>
@@ -137,7 +142,7 @@
           <span class="material-symbols-outlined text-secondary">storefront</span>
           <p class="font-bold mt-1">Retire na loja:</p>
           <p>Rua Bandeirantes do Oeste, 21B - Nova Cintra, Belo Horizonte - MG</p>
-          <p class="text-xs text-on-surface-variant mt-2">Funcionamento: seg-sex 9h-18h</p>
+          <p class="text-xs text-on-surface-variant mt-2" id="checkout-opening-hours">Funcionamento: seg-sex 9h-18h</p>
         </div>
         <div><label class="block font-semibold mb-1">Tipo de entrega</label><select id="delivery-type" class="input-field"><option value="delivery">Entrega</option><option value="pickup">Retirada no local</option></select></div>
         <div><label class="block font-semibold mb-1">Forma de pagamento</label><select id="payment-method" class="input-field"><option value="pix">PIX</option><option value="cartao">Cartão de Crédito</option></select></div>
@@ -165,6 +170,8 @@
         <div id="frete-gratis-fill" class="progress-fill"></div>
       </div>
       <p id="min-order-notice" class="mt-3 text-sm text-on-surface-variant hidden"></p>
+      <p id="checkout-preparation-time" class="mt-2 text-sm text-on-surface-variant">Tempo medio de preparo: ate 45 min</p>
+      <p id="checkout-shipping-rules" class="mt-1 text-sm text-on-surface-variant">Frete padrao: R$ 7,00</p>
       <button id="submit-order" class="w-full mt-6 bg-primary text-white py-3 rounded-full font-bold">Confirmar Pedido</button>
       <p id="error-message" class="text-error text-sm text-center mt-3 hidden"></p>
     </div>
@@ -174,6 +181,7 @@
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const SETTINGS_BASE_URL = 'https://ilove-delicitas-admin.onrender.com/api/settings';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const STORE_LAT = -19.94928035532827;
   const STORE_LNG = -43.98666216297332;
@@ -182,6 +190,132 @@
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00, frete_gratis_distancia_maxima: 5, store_lat: STORE_LAT, store_lng: STORE_LNG };
   let cepValido = false, currentDistance = null, isSubmitting = false, minOrder = 0;
   const FRIENDLY_COUPON_TEXT = 'Cupom de primeira compra - 50% OFF';
+
+  function getNestedValue(obj, path) {
+    return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+  }
+
+  function pickFirstValue(source, candidates) {
+    for (const candidate of candidates) {
+      const value = getNestedValue(source, candidate);
+      if (value !== undefined && value !== null && value !== '') return value;
+    }
+    return null;
+  }
+
+  function applyTextIfFound(selector, value) {
+    if (!value) return;
+    const element = document.querySelector(selector);
+    if (element) element.textContent = String(value);
+  }
+
+  async function fetchSettings(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.warn('Falha ao carregar configuracao:', url, error);
+      return null;
+    }
+  }
+
+  function parseCurrencyNumber(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function parseIntegerNumber(value, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function applyBrandTheme(brandPayload) {
+    const brand = brandPayload?.brand || brandPayload?.data || brandPayload || {};
+    const primaryColor = pickFirstValue(brand, ['primaryColor', 'primary_color']);
+    const logoText = pickFirstValue(brand, ['logoText', 'logo_text', 'name']);
+
+    if (logoText) document.title = `Finalizar Pedido - ${logoText}`;
+    if (primaryColor) {
+      document.documentElement.style.setProperty('--brand-primary', String(primaryColor));
+      document.querySelectorAll('.checkout-title').forEach((el) => {
+        el.style.color = String(primaryColor);
+      });
+    }
+  }
+
+  function applyContentConfig(contentPayload) {
+    const content = contentPayload?.content || contentPayload?.data || contentPayload || {};
+    applyTextIfFound('.checkout-title', pickFirstValue(content, ['checkout.title', 'checkout.heading']));
+    applyTextIfFound('.checkout-subtitle', pickFirstValue(content, ['checkout.subtitle', 'checkout.description']));
+  }
+
+  function applyPreparationTimeConfig(payload) {
+    const prep = payload?.preparationTime ?? payload?.data?.preparationTime ?? payload?.data ?? payload;
+    let value = null;
+    if (typeof prep === 'number') {
+      value = `${prep} min`;
+    } else if (typeof prep === 'string') {
+      value = prep;
+    } else {
+      value = pickFirstValue(prep || {}, ['label', 'display', 'average', 'time', 'preparationTime']);
+    }
+    if (value) applyTextIfFound('#checkout-preparation-time', `Tempo medio de preparo: ${value}`);
+  }
+
+  function formatOpeningHours(opening) {
+    if (!opening || typeof opening !== 'object') return null;
+    const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const dayLabel = { monday: 'seg', tuesday: 'ter', wednesday: 'qua', thursday: 'qui', friday: 'sex', saturday: 'sab', sunday: 'dom' };
+    const enabled = dayOrder.filter((day) => opening[day]?.enabled);
+    if (!enabled.length) return null;
+    const sameSchedule = enabled.every((day) => {
+      const first = opening[enabled[0]];
+      const current = opening[day];
+      return first?.open === current?.open && first?.close === current?.close;
+    });
+    if (sameSchedule && enabled.length > 1) {
+      const first = opening[enabled[0]];
+      return `${dayLabel[enabled[0]]}-${dayLabel[enabled[enabled.length - 1]]} ${first.open}-${first.close}`;
+    }
+    return enabled.map((day) => `${dayLabel[day]} ${opening[day].open}-${opening[day].close}`).join(' | ');
+  }
+
+  function applyOpeningHoursConfig(payload) {
+    const opening = payload?.openingHours || payload?.data || payload || {};
+    const value = pickFirstValue(opening, ['label', 'display', 'summary', 'hours']) || formatOpeningHours(opening);
+    if (value) applyTextIfFound('#checkout-opening-hours', `Funcionamento: ${value}`);
+  }
+
+  function applyShippingConfig(payload) {
+    const shipping = payload?.shipping || payload?.data || payload || {};
+    const freeMin = pickFirstValue(shipping, ['freeShippingMinimum', 'free_shipping_minimum', 'frete_gratis_minimo', 'freeShippingMin']);
+    const standardFee = pickFirstValue(shipping, ['standardFee', 'standard_fee', 'frete_padrao', 'defaultShipping']);
+    const maxDistance = pickFirstValue(shipping, ['freeShippingMaxDistance', 'free_shipping_max_distance', 'frete_gratis_distancia_maxima', 'maxDistanceFree']);
+
+    if (freeMin !== null) config.frete_gratis_minimo = parseCurrencyNumber(freeMin, config.frete_gratis_minimo);
+    if (standardFee !== null) config.frete_padrao = parseCurrencyNumber(standardFee, config.frete_padrao);
+    if (maxDistance !== null) config.frete_gratis_distancia_maxima = parseIntegerNumber(maxDistance, config.frete_gratis_distancia_maxima);
+
+    const shippingText = `Frete padrao: R$ ${config.frete_padrao.toFixed(2).replace('.', ',')} | Frete gratis acima de R$ ${config.frete_gratis_minimo.toFixed(2).replace('.', ',')}`;
+    applyTextIfFound('#checkout-shipping-rules', shippingText);
+  }
+
+  async function loadDynamicSettings() {
+    const [brand, content, preparationTime, openingHours, shipping] = await Promise.all([
+      fetchSettings(`${SETTINGS_BASE_URL}/brand`),
+      fetchSettings(`${SETTINGS_BASE_URL}/content`),
+      fetchSettings(`${SETTINGS_BASE_URL}/preparation-time`),
+      fetchSettings(`${SETTINGS_BASE_URL}/opening-hours`),
+      fetchSettings(`${SETTINGS_BASE_URL}/shipping`)
+    ]);
+
+    if (brand) applyBrandTheme(brand);
+    if (content) applyContentConfig(content);
+    if (preparationTime) applyPreparationTimeConfig(preparationTime);
+    if (openingHours) applyOpeningHoursConfig(openingHours);
+    if (shipping) applyShippingConfig(shipping);
+  }
 
   // ================== VALIDAÇÃO CPF (CORREÇÃO #8) ==================
   function isValidCPF(cpf) {
@@ -420,6 +554,11 @@
       config.frete_gratis_minimo = parseFloat(data.frete_gratis_minimo) || 0;
       config.frete_padrao = parseFloat(data.frete_padrao) || 7.00;
       config.frete_gratis_distancia_maxima = parseInt(data.frete_gratis_distancia_maxima) || 5;
+    }
+
+    const shipping = await fetchSettings(`${SETTINGS_BASE_URL}/shipping`);
+    if (shipping) {
+      applyShippingConfig(shipping);
     }
   }
   async function geocodeAddress(address) {
@@ -820,7 +959,19 @@
     await supabaseClient.auth.signOut(); clearFormData(); localStorage.removeItem('cart'); window.location.href = '/';
   });
   function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
-  updateHeaderAuth(); updateSidebarAuth(); loadData();
+
+  function initCheckoutPage() {
+    updateHeaderAuth();
+    updateSidebarAuth();
+    loadDynamicSettings();
+    loadData();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCheckoutPage);
+  } else {
+    initCheckoutPage();
+  }
 </script>
 <script src="/src/pages/floating-order-button.js"></script>
 </body>
