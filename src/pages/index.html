@@ -127,7 +127,6 @@
     height: auto;
     display: block;
     object-fit: contain;
-    max-height: 80vh;
   }
 
   /* Efeito de brilho dourado deslizante */
@@ -152,6 +151,20 @@
 
   /* Desktop (acima de 768px) */
   @media (min-width: 769px) {
+    .banner-link {
+      max-width: 800px;
+      margin: 30px auto;
+    }
+
+    .banner-link img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+      border-radius: 28px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+    }
+
     .banner-link:hover {
       transform: scale(1.01);
     }
