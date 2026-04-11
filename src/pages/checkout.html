@@ -191,10 +191,10 @@
   let cepValido = false, currentDistance = null, isSubmitting = false, minOrder = 0;
   const FRIENDLY_COUPON_TEXT = 'Cupom de primeira compra - 50% OFF';
 
+  // ================== FUNÇÕES AUXILIARES (MANTIDAS) ==================
   function getNestedValue(obj, path) {
     return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
   }
-
   function pickFirstValue(source, candidates) {
     for (const candidate of candidates) {
       const value = getNestedValue(source, candidate);
@@ -202,13 +202,11 @@
     }
     return null;
   }
-
   function applyTextIfFound(selector, value) {
     if (!value) return;
     const element = document.querySelector(selector);
     if (element) element.textContent = String(value);
   }
-
   async function fetchSettings(url) {
     try {
       const response = await fetch(url);
@@ -219,50 +217,37 @@
       return null;
     }
   }
-
   function parseCurrencyNumber(value, fallback) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
   }
-
   function parseIntegerNumber(value, fallback) {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : fallback;
   }
-
   function applyBrandTheme(brandPayload) {
     const brand = brandPayload?.brand || brandPayload?.data || brandPayload || {};
     const primaryColor = pickFirstValue(brand, ['primaryColor', 'primary_color']);
     const logoText = pickFirstValue(brand, ['logoText', 'logo_text', 'name']);
-
     if (logoText) document.title = `Finalizar Pedido - ${logoText}`;
     if (primaryColor) {
       document.documentElement.style.setProperty('--brand-primary', String(primaryColor));
-      document.querySelectorAll('.checkout-title').forEach((el) => {
-        el.style.color = String(primaryColor);
-      });
+      document.querySelectorAll('.checkout-title').forEach((el) => { el.style.color = String(primaryColor); });
     }
   }
-
   function applyContentConfig(contentPayload) {
     const content = contentPayload?.content || contentPayload?.data || contentPayload || {};
     applyTextIfFound('.checkout-title', pickFirstValue(content, ['checkout.title', 'checkout.heading']));
     applyTextIfFound('.checkout-subtitle', pickFirstValue(content, ['checkout.subtitle', 'checkout.description']));
   }
-
   function applyPreparationTimeConfig(payload) {
     const prep = payload?.preparationTime ?? payload?.data?.preparationTime ?? payload?.data ?? payload;
     let value = null;
-    if (typeof prep === 'number') {
-      value = `${prep} min`;
-    } else if (typeof prep === 'string') {
-      value = prep;
-    } else {
-      value = pickFirstValue(prep || {}, ['label', 'display', 'average', 'time', 'preparationTime']);
-    }
+    if (typeof prep === 'number') value = `${prep} min`;
+    else if (typeof prep === 'string') value = prep;
+    else value = pickFirstValue(prep || {}, ['label', 'display', 'average', 'time', 'preparationTime']);
     if (value) applyTextIfFound('#checkout-preparation-time', `Tempo medio de preparo: ${value}`);
   }
-
   function formatOpeningHours(opening) {
     if (!opening || typeof opening !== 'object') return null;
     const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -280,27 +265,22 @@
     }
     return enabled.map((day) => `${dayLabel[day]} ${opening[day].open}-${opening[day].close}`).join(' | ');
   }
-
   function applyOpeningHoursConfig(payload) {
     const opening = payload?.openingHours || payload?.data || payload || {};
     const value = pickFirstValue(opening, ['label', 'display', 'summary', 'hours']) || formatOpeningHours(opening);
     if (value) applyTextIfFound('#checkout-opening-hours', `Funcionamento: ${value}`);
   }
-
   function applyShippingConfig(payload) {
     const shipping = payload?.shipping || payload?.data || payload || {};
     const freeMin = pickFirstValue(shipping, ['freeShippingMinimum', 'free_shipping_minimum', 'frete_gratis_minimo', 'freeShippingMin']);
     const standardFee = pickFirstValue(shipping, ['standardFee', 'standard_fee', 'frete_padrao', 'defaultShipping']);
     const maxDistance = pickFirstValue(shipping, ['freeShippingMaxDistance', 'free_shipping_max_distance', 'frete_gratis_distancia_maxima', 'maxDistanceFree']);
-
     if (freeMin !== null) config.frete_gratis_minimo = parseCurrencyNumber(freeMin, config.frete_gratis_minimo);
     if (standardFee !== null) config.frete_padrao = parseCurrencyNumber(standardFee, config.frete_padrao);
     if (maxDistance !== null) config.frete_gratis_distancia_maxima = parseIntegerNumber(maxDistance, config.frete_gratis_distancia_maxima);
-
     const shippingText = `Frete padrao: R$ ${config.frete_padrao.toFixed(2).replace('.', ',')} | Frete gratis acima de R$ ${config.frete_gratis_minimo.toFixed(2).replace('.', ',')}`;
     applyTextIfFound('#checkout-shipping-rules', shippingText);
   }
-
   async function loadDynamicSettings() {
     const [brand, content, preparationTime, openingHours, shipping] = await Promise.all([
       fetchSettings(`${SETTINGS_BASE_URL}/brand`),
@@ -309,33 +289,26 @@
       fetchSettings(`${SETTINGS_BASE_URL}/opening-hours`),
       fetchSettings(`${SETTINGS_BASE_URL}/shipping`)
     ]);
-
     if (brand) applyBrandTheme(brand);
     if (content) applyContentConfig(content);
     if (preparationTime) applyPreparationTimeConfig(preparationTime);
     if (openingHours) applyOpeningHoursConfig(openingHours);
     if (shipping) applyShippingConfig(shipping);
   }
-
-  // ================== VALIDAÇÃO CPF (CORREÇÃO #8) ==================
   function isValidCPF(cpf) {
     const strCpf = String(cpf).padStart(11, '0');
     if (strCpf.length !== 11 || /^(\d)\1{10}$/.test(strCpf)) return false;
-    
     let sum = 0, remainder;
     for (let i = 0; i < 9; i++) sum += parseInt(strCpf[i]) * (10 - i);
     remainder = (sum * 10) % 11;
     if (remainder === 10 || remainder === 11) remainder = 0;
     if (remainder !== parseInt(strCpf[9])) return false;
-    
     sum = 0;
     for (let i = 0; i < 10; i++) sum += parseInt(strCpf[i]) * (11 - i);
     remainder = (sum * 10) % 11;
     if (remainder === 10 || remainder === 11) remainder = 0;
     return remainder === parseInt(strCpf[10]);
   }
-
-  // ================== DEBOUNCE (CORREÇÃO #4) ==================
   function debounce(fn, delay) {
     let timeout;
     return function(...args) {
@@ -343,8 +316,6 @@
       timeout = setTimeout(() => fn(...args), delay);
     };
   }
-
-  // Evita quebra total da página quando o localStorage estiver corrompido.
   function safeJsonParse(value, fallback) {
     if (!value) return fallback;
     try {
@@ -357,16 +328,8 @@
   async function getToken() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session?.access_token) return session.access_token;
-    return (
-      localStorage.getItem('token') ||
-      localStorage.getItem('access_token') ||
-      sessionStorage.getItem('token') ||
-      sessionStorage.getItem('access_token') ||
-      null
-    );
+    return localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token') || sessionStorage.getItem('access_token') || null;
   }
-
-  // ================== PERSISTÊNCIA ==================
   function getStorageKey() {
     if (userId) return `checkout_form_data_${userId}`;
     if (guestId) return `checkout_form_data_guest`;
@@ -403,9 +366,7 @@
     const paymentField = document.getElementById('payment-method');
     if (!paymentField) return;
     const allowedMethods = new Set(['pix', 'cartao']);
-    if (!allowedMethods.has(paymentField.value)) {
-      paymentField.value = 'pix';
-    }
+    if (!allowedMethods.has(paymentField.value)) paymentField.value = 'pix';
   }
   function formatCPF(value) {
     value = value.replace(/\D/g, '');
@@ -432,10 +393,7 @@
   }
   function normalizeCoupon(coupon) {
     if (!coupon || !coupon.code) return null;
-    return {
-      ...coupon,
-      desconto: Number(coupon.desconto ?? coupon.discount_percent ?? coupon.percent ?? 50)
-    };
+    return { ...coupon, desconto: Number(coupon.desconto ?? coupon.discount_percent ?? coupon.percent ?? 50) };
   }
   async function fetchActiveCouponForCheckout(token) {
     if (!token) return null;
@@ -456,22 +414,19 @@
     const couponInput = document.getElementById('coupon-input');
     const couponDisplay = document.getElementById('coupon-display-name');
     if (!couponInput || !couponDisplay) return;
-
     couponInput.disabled = true;
     couponInput.readOnly = true;
-
     if (appliedCoupon && appliedCoupon.code) {
       couponInput.dataset.fullcode = appliedCoupon.code;
       couponInput.value = FRIENDLY_COUPON_TEXT;
       couponDisplay.textContent = 'Cupom de primeira compra aplicado automaticamente!';
       couponDisplay.classList.remove('hidden');
-      return;
+    } else {
+      delete couponInput.dataset.fullcode;
+      couponInput.value = '';
+      couponDisplay.textContent = '';
+      couponDisplay.classList.add('hidden');
     }
-
-    delete couponInput.dataset.fullcode;
-    couponInput.value = '';
-    couponDisplay.textContent = '';
-    couponDisplay.classList.add('hidden');
   }
   function getSubtotalValue() {
     return cart.reduce((sum, item) => sum + ((item.price_cents / 100) * (item.quantity || 1)), 0);
@@ -503,9 +458,7 @@
     if (notice && minOrder > 0) {
       notice.textContent = `Pedido minimo: R$ ${minOrder.toFixed(2).replace('.', ',')}`;
       notice.classList.remove('hidden');
-    } else if (notice) {
-      notice.classList.add('hidden');
-    }
+    } else if (notice) notice.classList.add('hidden');
     updateSubmitAvailability();
   }
   async function validarCepAtendido(cep) {
@@ -555,11 +508,8 @@
       config.frete_padrao = parseFloat(data.frete_padrao) || 7.00;
       config.frete_gratis_distancia_maxima = parseInt(data.frete_gratis_distancia_maxima) || 5;
     }
-
     const shipping = await fetchSettings(`${SETTINGS_BASE_URL}/shipping`);
-    if (shipping) {
-      applyShippingConfig(shipping);
-    }
+    if (shipping) applyShippingConfig(shipping);
   }
   async function geocodeAddress(address) {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
@@ -684,6 +634,28 @@
     atualizarFrete();
     updateSubmitAvailability();
   }
+  function updateCartCount() {
+    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    document.getElementById('cart-count').innerText = totalItems;
+  }
+  function renderSummary() {
+    const container = document.getElementById('cart-items-summary');
+    if (!cart.length) {
+      container.innerHTML = '<div class="text-center py-4">Carrinho vazio. <a href="/cardapio" class="text-primary underline">Escolha produtos</a></div>';
+      document.getElementById('submit-order').disabled = true;
+      return;
+    }
+    let subtotal = 0;
+    const itemsHtml = cart.map(item => {
+      const itemTotal = (item.price_cents / 100) * (item.quantity || 1);
+      subtotal += itemTotal;
+      return `<div class="flex justify-between text-sm"><span>${item.quantity}x ${escapeHtml(item.name)}</span><span>R$ ${itemTotal.toFixed(2).replace('.', ',')}</span></div>`;
+    }).join('');
+    container.innerHTML = itemsHtml;
+    let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
+    document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+    document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
+  }
   async function loadData() {
     await loadConfig();
     await loadMinOrder();
@@ -693,7 +665,6 @@
       window.location.href = '/carrinho';
       return;
     }
-
     const storedCoupon = localStorage.getItem('appliedCoupon');
     appliedCoupon = safeJsonParse(storedCoupon, null);
     if (!isCouponStillActive(appliedCoupon)) {
@@ -745,33 +716,11 @@
     document.getElementById('frete').innerText = '--';
     currentFrete = 0; atualizarTotal();
   }
-  function updateCartCount() {
-    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    document.getElementById('cart-count').innerText = totalItems;
-  }
-  function renderSummary() {
-    const container = document.getElementById('cart-items-summary');
-    if (!cart.length) {
-      container.innerHTML = '<div class="text-center py-4">Carrinho vazio. <a href="/cardapio" class="text-primary underline">Escolha produtos</a></div>';
-      document.getElementById('submit-order').disabled = true;
-      return;
-    }
-    let subtotal = 0;
-    const itemsHtml = cart.map(item => {
-      const itemTotal = (item.price_cents / 100) * (item.quantity || 1);
-      subtotal += itemTotal;
-      return `<div class="flex justify-between text-sm"><span>${item.quantity}x ${escapeHtml(item.name)}</span><span>R$ ${itemTotal.toFixed(2).replace('.', ',')}</span></div>`;
-    }).join('');
-    container.innerHTML = itemsHtml;
-    let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0;
-    document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-    document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
-  }
-  
-  // ============================================================
-  // INTEGRAÇÃO PAGAMENTO PIX (adicionado conforme diretrizes)
-  // ============================================================
+
+  // ================== FUNÇÃO DE PAGAMENTO PIX (INTEGRAÇÃO) ==================
   async function gerarPagamentoPIX(valor, descricao, email) {
+    console.log('🔥 [DEBUG] gerarPagamentoPIX foi chamada!');
+    console.log('   valor:', valor, 'descricao:', descricao, 'email:', email);
     try {
       const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/pagamento/pix', {
         method: 'POST',
@@ -782,13 +731,16 @@
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Erro ao gerar pagamento PIX');
       }
-      return await response.json();
+      const pixData = await response.json();
+      console.log('✅ PIX gerado com sucesso:', pixData);
+      return pixData;
     } catch (err) {
-      console.error('Erro na geração do PIX:', err);
+      console.error('❌ Erro na geração do PIX:', err);
       throw err;
     }
   }
 
+  // ================== SUBMIT PEDIDO (COM INTEGRAÇÃO PIX) ==================
   async function submitOrder() {
     if (isSubmitting) { console.warn('Pedido já em andamento'); return; }
     isSubmitting = true;
@@ -804,11 +756,12 @@
       sanitizePaymentMethod();
       const deliveryType = document.getElementById('delivery-type').value;
       const payment = document.getElementById('payment-method').value;
-      const couponInputEl = document.getElementById('coupon-input');
-      let couponCode = (appliedCoupon?.code || couponInputEl?.dataset.fullcode || '').trim().toUpperCase() || null;
+      let couponCode = (appliedCoupon?.code || document.getElementById('coupon-input')?.dataset.fullcode || '').trim().toUpperCase() || null;
+
       if (!name || !phone) throw new Error('Preencha nome e telefone.');
       if (cpfRaw && cpfRaw.length !== 11) throw new Error('CPF inválido.');
       if (cart.length === 0) throw new Error('Carrinho vazio.');
+
       if (!couponCode) {
         const token = await getToken();
         const remoteCoupon = await fetchActiveCouponForCheckout(token);
@@ -828,24 +781,18 @@
         const descricao = `Pedido - ${name}`;
         const { data: { user } } = await supabaseClient.auth.getUser();
         const emailCliente = user?.email || 'cliente@exemplo.com';
-
         const pixData = await gerarPagamentoPIX(valorTotal, descricao, emailCliente);
-        // Armazena os dados do PIX para exibir após criação do pedido (ou em modal)
         sessionStorage.setItem('pixData', JSON.stringify(pixData));
-        // Opcional: exibir modal com QR Code aqui (não implementado para não quebrar fluxo)
-        console.log('Pagamento PIX gerado:', pixData);
+        console.log('Pagamento PIX gerado. QR Code disponível:', pixData.qr_code);
+        // Aqui você pode implementar a exibição do QR Code (modal, popup, etc.)
       }
 
-      // Aplicar cupom (se existir)
       if (couponCode) {
         const token = await getToken();
         if (!token) throw new Error('Faça login para aplicar o cupom.');
         const applyResponse = await fetch('https://ilove-delicitas-admin.onrender.com/api/user/coupon/apply', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ code: couponCode })
         });
         if (!applyResponse.ok) {
@@ -855,9 +802,7 @@
       }
 
       const subtotal = getSubtotalValue();
-      if (subtotal < minOrder) {
-        throw new Error(`Pedido minimo: R$ ${minOrder.toFixed(2).replace('.', ',')}`);
-      }
+      if (subtotal < minOrder) throw new Error(`Pedido minimo: R$ ${minOrder.toFixed(2).replace('.', ',')}`);
 
       let deliveryAddress = null;
       if (deliveryType === 'delivery') {
@@ -883,7 +828,6 @@
       if (error) throw error;
       const orderId = data.order_id;
       console.log('Pedido criado, ID:', orderId);
-      // 🔥 SALVA O ID DO PEDIDO PARA O BOTÃO FLUTUANTE
       localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
       try {
         await supabaseClient.channel('admin-notifications').send({
@@ -894,8 +838,6 @@
       clearFormData();
       localStorage.removeItem('cart');
       localStorage.removeItem('appliedCoupon');
-      // Se pagamento foi PIX, redirecionar para página de exibição do QR Code (a implementar)
-      // Por enquanto, redireciona para confirmação normal
       window.location.href = `/pedido-confirmado?id=${orderId}`;
     } catch (err) {
       console.error('Erro:', err.message);
@@ -906,6 +848,8 @@
       btn.textContent = originalText;
     } finally { isSubmitting = false; }
   }
+
+  // ================== EVENT LISTENERS E INICIALIZAÇÃO ==================
   document.getElementById('submit-order').addEventListener('click', submitOrder);
   document.getElementById('buscar-cep').addEventListener('click', async () => {
     let cep = document.getElementById('cep').value.replace(/\D/g, '');
@@ -932,9 +876,8 @@
     let cep = document.getElementById('cep').value.replace(/\D/g, '');
     if (cep.length === 8) {
       const cepAtendido = await validarCepAtendido(cep);
-      if (cepAtendido) {
-        await atualizarFrete();
-      } else {
+      if (cepAtendido) await atualizarFrete();
+      else {
         document.getElementById('frete').innerText = '--';
         currentFrete = 0;
         atualizarTotal();
