@@ -767,6 +767,28 @@
     document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
     document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
   }
+  
+  // ============================================================
+  // INTEGRAÇÃO PAGAMENTO PIX (adicionado conforme diretrizes)
+  // ============================================================
+  async function gerarPagamentoPIX(valor, descricao, email) {
+    try {
+      const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/pagamento/pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valor, descricao, email })
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro ao gerar pagamento PIX');
+      }
+      return await response.json();
+    } catch (err) {
+      console.error('Erro na geração do PIX:', err);
+      throw err;
+    }
+  }
+
   async function submitOrder() {
     if (isSubmitting) { console.warn('Pedido já em andamento'); return; }
     isSubmitting = true;
@@ -799,6 +821,22 @@
           atualizarTotal();
         }
       }
+
+      // ========== GERAR PAGAMENTO PIX (se o método for PIX) ==========
+      if (payment === 'pix') {
+        const valorTotal = parseFloat(document.getElementById('total').innerText.replace('R$ ', '').replace(',', '.'));
+        const descricao = `Pedido - ${name}`;
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const emailCliente = user?.email || 'cliente@exemplo.com';
+
+        const pixData = await gerarPagamentoPIX(valorTotal, descricao, emailCliente);
+        // Armazena os dados do PIX para exibir após criação do pedido (ou em modal)
+        sessionStorage.setItem('pixData', JSON.stringify(pixData));
+        // Opcional: exibir modal com QR Code aqui (não implementado para não quebrar fluxo)
+        console.log('Pagamento PIX gerado:', pixData);
+      }
+
+      // Aplicar cupom (se existir)
       if (couponCode) {
         const token = await getToken();
         if (!token) throw new Error('Faça login para aplicar o cupom.');
@@ -815,10 +853,12 @@
           throw new Error(payload?.message || 'Não foi possível aplicar o cupom.');
         }
       }
+
       const subtotal = getSubtotalValue();
       if (subtotal < minOrder) {
         throw new Error(`Pedido minimo: R$ ${minOrder.toFixed(2).replace('.', ',')}`);
       }
+
       let deliveryAddress = null;
       if (deliveryType === 'delivery') {
         const rua = document.getElementById('rua').value.trim();
@@ -833,6 +873,7 @@
         deliveryAddress = `${rua}, ${numero}${complemento ? `, ${complemento}` : ''} - ${bairro}, ${cidade} - ${uf}`;
         if (referencia) deliveryAddress += ` (ref: ${referencia})`;
       }
+
       const itemsForRpc = cart.map(item => ({ product_id: item.id || null, name: item.name, quantity: item.quantity || 1, price_cents: item.price_cents }));
       const { data, error } = await supabaseClient.rpc('create_order_secure', {
         p_customer_name: name, p_customer_phone: phone, p_delivery_type: deliveryType, p_payment_method: payment,
@@ -853,6 +894,8 @@
       clearFormData();
       localStorage.removeItem('cart');
       localStorage.removeItem('appliedCoupon');
+      // Se pagamento foi PIX, redirecionar para página de exibição do QR Code (a implementar)
+      // Por enquanto, redireciona para confirmação normal
       window.location.href = `/pedido-confirmado?id=${orderId}`;
     } catch (err) {
       console.error('Erro:', err.message);
