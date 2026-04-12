@@ -740,11 +740,17 @@
     }
   }
 
-  // ================== SUBMIT PEDIDO (COM INTEGRAÇÃO PIX) ==================
+  // ================== SUBMIT PEDIDO (COM VERIFICAÇÃO DE NULL) ==================
   async function submitOrder() {
+    console.log('🚀 submitOrder foi chamada!');
+    const btn = document.getElementById('submit-order');
+    if (!btn) {
+      console.error('❌ Botão "submit-order" não encontrado no DOM!');
+      return;
+    }
+
     if (isSubmitting) { console.warn('Pedido já em andamento'); return; }
     isSubmitting = true;
-    const btn = document.getElementById('submit-order');
     const originalText = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Processando...';
@@ -784,7 +790,6 @@
         const pixData = await gerarPagamentoPIX(valorTotal, descricao, emailCliente);
         sessionStorage.setItem('pixData', JSON.stringify(pixData));
         console.log('Pagamento PIX gerado. QR Code disponível:', pixData.qr_code);
-        // Aqui você pode implementar a exibição do QR Code (modal, popup, etc.)
       }
 
       if (couponCode) {
@@ -842,11 +847,16 @@
     } catch (err) {
       console.error('Erro:', err.message);
       const errorEl = document.getElementById('error-message');
-      errorEl.textContent = err.message || 'Erro ao criar pedido. Tente novamente.';
-      errorEl.classList.remove('hidden');
-      btn.disabled = false;
-      btn.textContent = originalText;
-    } finally { isSubmitting = false; }
+      if (errorEl) errorEl.textContent = err.message || 'Erro ao criar pedido. Tente novamente.';
+      if (errorEl) errorEl.classList.remove('hidden');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    } finally {
+      isSubmitting = false;
+      if (btn) btn.disabled = false;
+    }
   }
 
   // ================== EVENT LISTENERS E INICIALIZAÇÃO ==================
@@ -914,17 +924,22 @@
     const userMenu = document.getElementById('user-menu');
     const loginLink = document.getElementById('login-link');
     if (session) {
-      userMenu.classList.remove('hidden'); loginLink.classList.add('hidden');
+      if (userMenu) userMenu.classList.remove('hidden');
+      if (loginLink) loginLink.classList.add('hidden');
       const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
-      document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
-    } else { userMenu.classList.add('hidden'); loginLink.classList.remove('hidden'); }
+      const userNameSpan = document.getElementById('user-name');
+      if (userNameSpan) userNameSpan.innerText = profile?.name || session.user.email.split('@')[0];
+    } else {
+      if (userMenu) userMenu.classList.add('hidden');
+      if (loginLink) loginLink.classList.remove('hidden');
+    }
   }
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
     await supabaseClient.auth.signOut(); clearFormData(); localStorage.removeItem('cart'); window.location.href = '/';
   });
   const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay'), openBtn = document.getElementById('open-sidebar-btn'), closeBtn = document.getElementById('close-sidebar-btn');
-  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  function closeSidebar() { if (sidebar) sidebar.classList.add('-translate-x-full'); if (overlay) overlay.classList.add('hidden'); }
+  function openSidebar() { if (sidebar) sidebar.classList.remove('-translate-x-full'); if (overlay) overlay.classList.remove('hidden'); }
   openBtn?.addEventListener('click', openSidebar); closeBtn?.addEventListener('click', closeSidebar); overlay?.addEventListener('click', closeSidebar);
   document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
   async function updateSidebarAuth() {
