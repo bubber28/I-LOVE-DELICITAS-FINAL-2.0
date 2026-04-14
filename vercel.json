@@ -12,16 +12,20 @@
   ],
   "rewrites": [
     {
-      "source": "/pagamento-pix.html",
-      "destination": "/pagamento-pix.html"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "https://ilove-delicitas-admin.onrender.com/api/$1"
     },
     {
       "source": "/config.js",
       "destination": "/config.js"
+    },
+    {
+      "source": "/pagamento-pix",
+      "destination": "/src/pages/pagamento-pix.html"
+    },
+    {
+      "source": "/pagamento-pix.html",
+      "destination": "/src/pages/pagamento-pix.html"
     },
     {
       "source": "/",
