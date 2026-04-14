@@ -11,23 +11,65 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://ilove-delicitas-admin.onrender.com/api/$1" },
-    { "source": "/admin", "destination": "/src/pages/admin.html" },
-    { "source": "/", "destination": "/src/pages/index.html" },
-    { "source": "/cardapio", "destination": "/src/pages/cardapio.html" },
-    { "source": "/carrinho", "destination": "/src/pages/carrinho.html" },
-    { "source": "/checkout", "destination": "/src/pages/checkout.html" },
-    { "source": "/acompanhamento", "destination": "/src/pages/acompanhamento.html" },
-    { "source": "/pedido-confirmado", "destination": "/src/pages/pedido-confirmado.html" },
-    { "source": "/login", "destination": "/src/pages/login.html" },
-    { "source": "/cadastro", "destination": "/src/pages/cadastro.html" },
-    { "source": "/esqueci-senha", "destination": "/src/pages/esqueci-senha.html" },
-    { "source": "/reset-password", "destination": "/src/pages/reset-password.html" },
-    { "source": "/perfil", "destination": "/src/pages/perfil.html" },
-    { "source": "/meus-pedidos", "destination": "/src/pages/meus-pedidos.html" },
-    { "source": "/src/pages/:path*.js", "destination": "/src/pages/:path*.js" },
-    { "source": "/src/pages/:path*.mp3", "destination": "/src/pages/:path*.mp3" },
-    { "source": "/alert.mp3.mp3", "destination": "/src/pages/alert.mp3.mp3" },
-    { "source": "/:path*", "destination": "/src/pages/:path*.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "https://ilove-delicitas-admin.onrender.com/api/$1"
+    },
+    {
+      "source": "/",
+      "destination": "/src/pages/index.html"
+    },
+    {
+      "source": "/cardapio",
+      "destination": "/src/pages/cardapio.html"
+    },
+    {
+      "source": "/carrinho",
+      "destination": "/src/pages/carrinho.html"
+    },
+    {
+      "source": "/checkout",
+      "destination": "/src/pages/checkout.html"
+    },
+    {
+      "source": "/acompanhamento",
+      "destination": "/src/pages/acompanhamento.html"
+    },
+    {
+      "source": "/pedido-confirmado",
+      "destination": "/src/pages/pedido-confirmado.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/src/pages/login.html"
+    },
+    {
+      "source": "/cadastro",
+      "destination": "/src/pages/cadastro.html"
+    },
+    {
+      "source": "/esqueci-senha",
+      "destination": "/src/pages/esqueci-senha.html"
+    },
+    {
+      "source": "/reset-password",
+      "destination": "/src/pages/reset-password.html"
+    },
+    {
+      "source": "/perfil",
+      "destination": "/src/pages/perfil.html"
+    },
+    {
+      "source": "/meus-pedidos",
+      "destination": "/src/pages/meus-pedidos.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/src/pages/admin.html"
+    },
+    {
+      "source": "/alert.mp3",
+      "destination": "/src/pages/alert.mp3.mp3"
+    }
   ]
 }
