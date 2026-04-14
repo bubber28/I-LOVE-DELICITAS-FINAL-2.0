@@ -16,6 +16,14 @@
       "destination": "https://ilove-delicitas-admin.onrender.com/api/$1"
     },
     {
+      "source": "/pagamento-pix",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/config.js",
+      "destination": "/config.js"
+    },
+    {
       "source": "/",
       "destination": "/src/pages/index.html"
     },
@@ -70,6 +78,10 @@
     {
       "source": "/alert.mp3",
       "destination": "/src/pages/alert.mp3.mp3"
+    },
+    {
+      "source": "/(.*)\\.(html|js|css|png|jpg|jpeg|gif|ico|json|xml|txt|mp3|mp4)",
+      "destination": "/$1.$2"
     }
   ]
 }
