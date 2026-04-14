@@ -4,13 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>Pagamento PIX - I Love Delicitas</title>
-  <!-- Tailwind + Plugins -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Fontes (mesmas do carrinho) -->
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Material Icons -->
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
@@ -39,13 +35,12 @@
   <style>
     .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     body { background-color: #fff8f7; }
-    /* Evita que o QR code ultrapasse o container */
     .qr-code-container img { max-width: 200px; height: auto; margin: 0 auto; }
   </style>
 </head>
 <body>
 
-<!-- ========== SIDEBAR (menu hambúrguer) – idêntico ao carrinho ========== -->
+<!-- Sidebar (mesmo do checkout) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -53,9 +48,7 @@
       <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
       <span class="text-primary font-headline font-bold text-lg">Menu</span>
     </div>
-    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
-      <span class="material-symbols-outlined">close</span>
-    </button>
+    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
   </div>
   <nav class="flex-1 px-4 py-6 space-y-2">
     <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
@@ -70,17 +63,17 @@
   </nav>
 </div>
 
-<!-- ========== HEADER FIXO ========== -->
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
     <div class="flex items-center gap-2">
-      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
-        <span class="material-symbols-outlined text-primary">menu</span>
-      </button>
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-primary">menu</span></button>
       <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo"></a>
     </div>
     <div class="flex items-center gap-4">
-      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center leading-none font-semibold">0</span></a>
+      <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef] transition-colors">
+        <span class="material-symbols-outlined text-primary text-2xl">shopping_bag</span>
+        <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+      </a>
       <div id="user-menu" class="hidden flex items-center gap-3">
         <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
         <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
@@ -92,35 +85,21 @@
   </div>
 </header>
 
-<!-- ========== CONTEÚDO PRINCIPAL ========== -->
 <main class="pt-24 pb-32 px-4 max-w-5xl mx-auto">
   <h1 class="text-3xl font-headline font-bold mb-6 text-on-surface">💳 Pagamento com PIX</h1>
-
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Formulário + QR Code -->
     <div class="lg:col-span-2 space-y-6">
       <div class="bg-white rounded-2xl p-6 shadow-sm">
         <h2 class="text-xl font-bold mb-4">Gerar QR Code PIX</h2>
         <form id="form-pix" class="space-y-4">
-          <div>
-            <label class="block font-semibold mb-1 text-on-surface-variant">💵 Valor (R$)</label>
-            <input type="number" id="valor" step="0.01" min="1" placeholder="Ex: 25,90" required class="w-full border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-          </div>
-          <div>
-            <label class="block font-semibold mb-1 text-on-surface-variant">📝 Descrição</label>
-            <input type="text" id="descricao" placeholder="Ex: Pedido #123 - Coxinha + Refri" required class="w-full border rounded-full px-4 py-2">
-          </div>
-          <div>
-            <label class="block font-semibold mb-1 text-on-surface-variant">📧 Seu e-mail</label>
-            <input type="email" id="email" placeholder="cliente@email.com" required class="w-full border rounded-full px-4 py-2">
-          </div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">💵 Valor (R$)</label><input type="number" id="valor" step="0.01" min="1" required class="w-full border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"></div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">📝 Descrição</label><input type="text" id="descricao" required class="w-full border rounded-full px-4 py-2"></div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">📧 Seu e-mail</label><input type="email" id="email" required class="w-full border rounded-full px-4 py-2"></div>
           <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold text-lg hover:brightness-105 transition">🔓 Gerar QR Code PIX</button>
         </form>
         <div id="resposta" class="mt-6"></div>
       </div>
     </div>
-
-    <!-- Resumo / Informações laterais (opcional) -->
     <div class="space-y-6">
       <div class="bg-white rounded-2xl p-6 shadow-sm">
         <h2 class="text-xl font-bold mb-4">ℹ️ Como pagar</h2>
@@ -135,32 +114,26 @@
 </main>
 
 <script>
-  // Configuração do Supabase (igual ao carrinho, para manter a consistência)
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  // URL do backend (Render) – se você tiver variável de ambiente, use; senão, URL fixa
   const API_URL = 'https://ilove-delicitas-admin.onrender.com';
 
-  // Elementos do DOM
   const form = document.getElementById('form-pix');
   const respostaDiv = document.getElementById('resposta');
 
-  // Carregar dados do pedido (caso venha do checkout via sessionStorage)
+  // Função para carregar dados do pedido salvo no sessionStorage (vindo do checkout)
   function carregarDadosDoPedido() {
     const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
     if (pedidoSalvo) {
       try {
         const pedido = JSON.parse(pedidoSalvo);
-        if (pedido.valor) document.getElementById('valor').value = pedido.valor;
+        if (pedido.valorTotal) document.getElementById('valor').value = pedido.valorTotal;
         if (pedido.descricao) document.getElementById('descricao').value = pedido.descricao;
         if (pedido.email) document.getElementById('email').value = pedido.email;
-        // Limpa para não usar de novo
-        sessionStorage.removeItem('pedidoPendente');
       } catch(e) {}
     } else {
-      // Fallback: tentar via URL (ex: ?valor=10&descricao=Pedido&email=...)
+      // Fallback: parâmetros URL
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('valor')) document.getElementById('valor').value = urlParams.get('valor');
       if (urlParams.has('descricao')) document.getElementById('descricao').value = urlParams.get('descricao');
@@ -168,7 +141,86 @@
     }
   }
 
-  // Atualizar contador do carrinho no header
+  // Função para criar o pedido no Supabase (reutiliza a mesma lógica do checkout)
+  async function criarPedidoComDados(dadosPedido) {
+    try {
+      // Aplica cupom se existir
+      if (dadosPedido.couponCode) {
+        const token = await getToken();
+        if (!token) throw new Error('Faça login para aplicar o cupom.');
+        const applyResponse = await fetch('https://ilove-delicitas-admin.onrender.com/api/user/coupon/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ code: dadosPedido.couponCode })
+        });
+        if (!applyResponse.ok) {
+          const payload = await applyResponse.json().catch(() => null);
+          throw new Error(payload?.message || 'Não foi possível aplicar o cupom.');
+        }
+      }
+
+      const itemsForRpc = dadosPedido.items.map(item => ({
+        product_id: item.id || null,
+        name: item.name,
+        quantity: item.quantity || 1,
+        price_cents: item.price_cents
+      }));
+
+      const { data, error } = await supabaseClient.rpc('create_order_secure', {
+        p_customer_name: dadosPedido.name,
+        p_customer_phone: dadosPedido.phone,
+        p_delivery_type: dadosPedido.deliveryType,
+        p_payment_method: dadosPedido.payment,
+        p_items: itemsForRpc,
+        p_cpf: dadosPedido.cpfRaw || null,
+        p_delivery_address: dadosPedido.deliveryAddress,
+        p_coupon_code: dadosPedido.couponCode,
+        p_guest_id: dadosPedido.guestId,
+        p_user_id: dadosPedido.userId,
+        p_distance_km: dadosPedido.currentDistance
+      });
+
+      if (error) throw error;
+      const orderId = data.order_id;
+      console.log('Pedido criado, ID:', orderId);
+      localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
+      return orderId;
+    } catch (err) {
+      console.error('Erro ao criar pedido:', err);
+      throw err;
+    }
+  }
+
+  // Função auxiliar getToken (igual ao checkout)
+  async function getToken() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session?.access_token) return session.access_token;
+    return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+  }
+
+  // Função para finalizar o pedido após o pagamento
+  async function finalizarPedido() {
+    const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
+    if (!pedidoSalvo) {
+      alert('Nenhum pedido pendente encontrado. Volte ao checkout.');
+      window.location.href = '/checkout';
+      return;
+    }
+    try {
+      const dadosPedido = JSON.parse(pedidoSalvo);
+      const orderId = await criarPedidoComDados(dadosPedido);
+      // Limpa os dados temporários
+      sessionStorage.removeItem('pedidoPendente');
+      sessionStorage.removeItem('pixData');
+      localStorage.removeItem('cart');
+      localStorage.removeItem('appliedCoupon');
+      window.location.href = `/pedido-confirmado?id=${orderId}`;
+    } catch (err) {
+      alert('Erro ao finalizar pedido: ' + err.message);
+    }
+  }
+
+  // Atualizar contador do carrinho
   function atualizarContadorCarrinho() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
@@ -176,31 +228,21 @@
     if (contador) contador.innerText = totalItems;
   }
 
-  // ========== SUBMISSÃO DO FORMULÁRIO ==========
+  // Submissão do formulário (gerar PIX)
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const valor = document.getElementById('valor').value;
     const descricao = document.getElementById('descricao').value;
     const email = document.getElementById('email').value;
-
     respostaDiv.innerHTML = '<div class="text-center py-4 text-on-surface-variant">⏳ Gerando pagamento, aguarde...</div>';
-
     try {
       const response = await fetch(`${API_URL}/api/pagamento/pix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ valor, descricao, email })
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        respostaDiv.innerHTML = `<div class="bg-error/10 text-error p-4 rounded-2xl">❌ Erro: ${data.error || 'Falha ao gerar PIX'}</div>`;
-        return;
-      }
-
-      // Exibe QR Code e código copiável
+      if (!response.ok) throw new Error(data.error || 'Falha ao gerar PIX');
       let html = '<div class="bg-surface p-4 rounded-2xl text-center">';
       if (data.qr_code_base64) {
         html += `<div class="qr-code-container mb-4"><img src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX" class="mx-auto rounded-xl shadow"></div>`;
@@ -209,34 +251,18 @@
         html += `<div class="bg-gray-100 p-3 rounded-xl break-all text-sm mb-2">${data.qr_code}</div>`;
         html += `<div class="text-secondary font-semibold mb-2">✅ Código PIX copiável. Use no app do seu banco.</div>`;
       } else {
-        html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}. Aguarde confirmação.</div>`;
+        html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}.</div>`;
       }
-
-      // Botão para copiar código (se existir)
-      if (data.qr_code) {
-        html += `<button id="copiarCodigoBtn" class="mt-3 bg-secondary text-white px-4 py-2 rounded-full text-sm hover:brightness-105 transition">📋 Copiar código</button>`;
-      }
-
-      html += `<hr class="my-4"><button onclick="window.location.href='/acompanhamento'" class="w-full bg-primary text-white py-2 rounded-full mt-2">🚀 Ir para acompanhamento</button>`;
+      html += `<hr class="my-4"><button id="finalizarPedidoBtn" class="w-full bg-primary text-white py-2 rounded-full mt-2">✅ Já paguei - Ir para acompanhamento</button>`;
       html += '</div>';
       respostaDiv.innerHTML = html;
-
-      // Adiciona evento de cópia
-      if (data.qr_code) {
-        const copyBtn = document.getElementById('copiarCodigoBtn');
-        if (copyBtn) {
-          copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(data.qr_code);
-            alert('Código PIX copiado!');
-          });
-        }
-      }
+      document.getElementById('finalizarPedidoBtn').addEventListener('click', finalizarPedido);
     } catch (error) {
-      respostaDiv.innerHTML = `<div class="bg-error/10 text-error p-4 rounded-2xl">⚠️ Erro de rede: ${error.message}</div>`;
+      respostaDiv.innerHTML = `<div class="bg-error/10 text-error p-4 rounded-2xl">⚠️ Erro: ${error.message}</div>`;
     }
   });
 
-  // ========== HEADER / SIDEBAR AUTH (igual ao carrinho) ==========
+  // Funções de autenticação para header/sidebar (idênticas ao checkout)
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
@@ -245,14 +271,12 @@
       userMenu.classList.remove('hidden');
       loginLink.classList.add('hidden');
       const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
-      const userName = profile?.name || session.user.email.split('@')[0];
-      document.getElementById('user-name').innerText = userName;
+      document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
     } else {
       userMenu.classList.add('hidden');
       loginLink.classList.remove('hidden');
     }
   }
-
   async function updateSidebarAuth() {
     const loginLink = document.getElementById('sidebar-login-link');
     const meusPedidos = document.getElementById('sidebar-meus-pedidos');
@@ -273,7 +297,6 @@
       }
     }
   }
-
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
     localStorage.removeItem('cart');
@@ -284,12 +307,7 @@
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
-
-  // Sidebar hambúrguer
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('mobile-overlay');
-  const openBtn = document.getElementById('open-sidebar-btn');
-  const closeBtn = document.getElementById('close-sidebar-btn');
+  const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay'), openBtn = document.getElementById('open-sidebar-btn'), closeBtn = document.getElementById('close-sidebar-btn');
   function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
   function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
   if (openBtn) openBtn.addEventListener('click', openSidebar);
@@ -297,17 +315,12 @@
   if (overlay) overlay.addEventListener('click', closeSidebar);
   document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
 
-  // Inicialização
   carregarDadosDoPedido();
   atualizarContadorCarrinho();
   updateHeaderAuth();
   updateSidebarAuth();
-
-  // Atualiza contador do carrinho quando houver mudanças (escuta storage)
   window.addEventListener('storage', (e) => { if (e.key === 'cart') atualizarContadorCarrinho(); });
 </script>
-
-<!-- Botão flutuante de acompanhamento (mesmo do carrinho) -->
 <script src="/src/pages/floating-order-button.js"></script>
 </body>
 </html>
