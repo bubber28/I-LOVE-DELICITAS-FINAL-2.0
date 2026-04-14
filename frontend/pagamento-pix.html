@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento PIX - I Love Delicitas</title>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; }
+        input, button { display: block; width: 100%; margin-bottom: 15px; padding: 10px; font-size: 16px; }
+        button { background-color: #C41E3A; color: white; border: none; cursor: pointer; }
+        .qr-code { text-align: center; margin-top: 20px; }
+        img { max-width: 200px; }
+        .erro { color: red; }
+        .sucesso { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Pagamento com PIX</h1>
+    <form id="form-pix">
+        <input type="number" id="valor" placeholder="Valor (R$)" step="0.01" required>
+        <input type="text" id="descricao" placeholder="Descrição (ex: Pedido #123)" required>
+        <input type="email" id="email" placeholder="Seu e-mail" required>
+        <button type="submit">Gerar QR Code PIX</button>
+    </form>
+    <div id="resposta"></div>
+
+    <script>
+        const form = document.getElementById('form-pix');
+        const respostaDiv = document.getElementById('resposta');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const valor = document.getElementById('valor').value;
+            const descricao = document.getElementById('descricao').value;
+            const email = document.getElementById('email').value;
+
+            respostaDiv.innerHTML = '<p>Gerando pagamento...</p>';
+
+            try {
+                const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/pagamento/pix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ valor, descricao, email })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    respostaDiv.innerHTML = `<p class="erro">Erro: ${data.error || 'Falha ao gerar PIX'}</p>`;
+                    return;
+                }
+
+                // Se o backend retornar o QR Code (campo qr_code_base64 ou qr_code)
+                if (data.qr_code_base64) {
+                    respostaDiv.innerHTML = `
+                        <div class="qr-code">
+                            <p class="sucesso">Pagamento gerado! Escaneie o QR Code abaixo com seu banco:</p>
+                            <img src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX">
+                            <p><strong>Código copiável:</strong></p>
+                            <textarea rows="2" readonly style="width:100%">${data.qr_code || ''}</textarea>
+                        </div>
+                    `;
+                } else if (data.qr_code) {
+                    respostaDiv.innerHTML = `
+                        <div class="qr-code">
+                            <p class="sucesso">Pagamento gerado! Use o código abaixo:</p>
+                            <textarea rows="2" readonly style="width:100%">${data.qr_code}</textarea>
+                        </div>
+                    `;
+                } else {
+                    respostaDiv.innerHTML = `<p class="sucesso">Pagamento criado! ID: ${data.payment_id}</p>`;
+                }
+            } catch (error) {
+                respostaDiv.innerHTML = `<p class="erro">Erro de rede: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
