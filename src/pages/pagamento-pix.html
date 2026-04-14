@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Pagamento PIX - I Love Delicitas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: #FAF0E6;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 32px;
+            padding: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #C41E3A;
+            font-size: 1.8rem;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .sub {
+            text-align: center;
+            color: #5D3A1A;
+            margin-bottom: 24px;
+            font-weight: 500;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #5D3A1A;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 16px;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #C41E3A;
+            box-shadow: 0 0 0 3px rgba(196,30,58,0.1);
+        }
+        button {
+            width: 100%;
+            background: #C41E3A;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 40px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #a01830;
+        }
+        .qr-area {
+            margin-top: 24px;
+            text-align: center;
+            background: #f9f9f9;
+            border-radius: 24px;
+            padding: 16px;
+        }
+        .qr-code {
+            background: white;
+            padding: 16px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 16px;
+        }
+        .qr-code img {
+            max-width: 200px;
+            width: 100%;
+            height: auto;
+        }
+        .codigo-copia {
+            background: #f0f0f0;
+            padding: 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            word-break: break-all;
+            margin-top: 12px;
+        }
+        .erro {
+            color: #C41E3A;
+            background: #ffe6e6;
+            padding: 12px;
+            border-radius: 16px;
+            margin-top: 16px;
+        }
+        .sucesso {
+            color: #2E7D32;
+            background: #e6f4ea;
+            padding: 12px;
+            border-radius: 16px;
+            margin-top: 16px;
+        }
+        .loading {
+            text-align: center;
+            margin-top: 20px;
+            color: #5D3A1A;
+        }
+        hr {
+            margin: 20px 0;
+            border: none;
+            height: 1px;
+            background: #eee;
+        }
+        .voltar {
+            background: #5D3A1A;
+            margin-top: 16px;
+        }
+        .voltar:hover {
+            background: #3e2610;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>💖 I Love Delicitas</h1>
+    <div class="sub">Pagamento com PIX</div>
+
+    <form id="form-pix">
+        <div class="form-group">
+            <label>💵 Valor (R$)</label>
+            <input type="number" id="valor" step="0.01" min="1" placeholder="Ex: 25,90" required>
+        </div>
+        <div class="form-group">
+            <label>📝 Descrição</label>
+            <input type="text" id="descricao" placeholder="Ex: Pedido #123 - Coxinha + Refri" required>
+        </div>
+        <div class="form-group">
+            <label>📧 Seu e-mail</label>
+            <input type="email" id="email" placeholder="cliente@email.com" required>
+        </div>
+        <button type="submit">🔓 Gerar QR Code PIX</button>
+    </form>
+
+    <div id="resposta"></div>
+
+    <hr>
+    <button class="voltar" onclick="window.location.href='/'">⬅ Voltar ao início</button>
+</div>
+
+<script>
+    // Configuração da URL do backend (use a variável de ambiente se disponível, ou a URL fixa)
+    // Se o seu frontend tiver uma variável global, você pode usá-la. Caso contrário, a URL fixa.
+    const API_URL = window.ENV?.REACT_APP_API_URL || 'https://ilove-delicitas-admin.onrender.com';
+
+    const form = document.getElementById('form-pix');
+    const respostaDiv = document.getElementById('resposta');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const valor = document.getElementById('valor').value;
+        const descricao = document.getElementById('descricao').value;
+        const email = document.getElementById('email').value;
+
+        respostaDiv.innerHTML = '<div class="loading">⏳ Gerando pagamento, aguarde...</div>';
+
+        try {
+            const response = await fetch(`${API_URL}/api/pagamento/pix`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valor, descricao, email })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                respostaDiv.innerHTML = `<div class="erro">❌ Erro: ${data.error || 'Falha ao gerar PIX'}</div>`;
+                return;
+            }
+
+            if (data.qr_code_base64) {
+                respostaDiv.innerHTML = `
+                    <div class="qr-area">
+                        <div class="qr-code">
+                            <img src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX">
+                        </div>
+                        <div class="sucesso">✅ Pagamento gerado! Escaneie o QR Code com seu banco.</div>
+                        <div class="codigo-copia">
+                            <strong>📋 Código copiável:</strong><br>
+                            <span id="codigoPix">${data.qr_code || ''}</span>
+                            <button onclick="copiarCodigo()" style="margin-top:8px; background:#2E7D32; padding:6px 12px; font-size:14px;">Copiar código</button>
+                        </div>
+                    </div>
+                `;
+            } else if (data.qr_code) {
+                respostaDiv.innerHTML = `
+                    <div class="qr-area">
+                        <div class="sucesso">✅ Pagamento gerado! Use o código abaixo:</div>
+                        <div class="codigo-copia">
+                            <span id="codigoPix">${data.qr_code}</span>
+                            <button onclick="copiarCodigo()" style="margin-top:8px; background:#2E7D32; padding:6px 12px; font-size:14px;">Copiar código</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                respostaDiv.innerHTML = `<div class="sucesso">✅ Pagamento criado! ID: ${data.payment_id}. Aguarde confirmação.</div>`;
+            }
+        } catch (error) {
+            respostaDiv.innerHTML = `<div class="erro">⚠️ Erro de rede: ${error.message}. Verifique sua conexão.</div>`;
+        }
+    });
+
+    function copiarCodigo() {
+        const codigo = document.getElementById('codigoPix');
+        if (codigo) {
+            navigator.clipboard.writeText(codigo.innerText);
+            alert('Código PIX copiado! Cole no seu banco para pagar.');
+        }
+    }
+</script>
+</body>
+</html>
