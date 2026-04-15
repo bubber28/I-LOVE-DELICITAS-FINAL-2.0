@@ -36,11 +36,17 @@
     .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     body { background-color: #fff8f7; }
     .qr-code-container img { max-width: 200px; height: auto; margin: 0 auto; }
+    input:disabled {
+      background-color: #f3f4f6;
+      color: #374151;
+      cursor: not-allowed;
+      border-color: #e5e7eb;
+    }
   </style>
 </head>
 <body>
 
-<!-- Sidebar (mesmo do checkout) -->
+<!-- Sidebar (idêntica ao checkout) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -90,11 +96,20 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <div class="lg:col-span-2 space-y-6">
       <div class="bg-white rounded-2xl p-6 shadow-sm">
-        <h2 class="text-xl font-bold mb-4">Gerar QR Code PIX</h2>
+        <h2 class="text-xl font-bold mb-4">Confirmar pagamento</h2>
         <form id="form-pix" class="space-y-4">
-          <div><label class="block font-semibold mb-1 text-on-surface-variant">💵 Valor (R$)</label><input type="number" id="valor" step="0.01" min="1" required class="w-full border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"></div>
-          <div><label class="block font-semibold mb-1 text-on-surface-variant">📝 Descrição</label><input type="text" id="descricao" required class="w-full border rounded-full px-4 py-2"></div>
-          <div><label class="block font-semibold mb-1 text-on-surface-variant">📧 Seu e-mail</label><input type="email" id="email" required class="w-full border rounded-full px-4 py-2"></div>
+          <div>
+            <label class="block font-semibold mb-1 text-on-surface-variant">💵 Valor (R$)</label>
+            <input type="number" id="valor" step="0.01" min="1" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-on-surface-variant">📝 Descrição</label>
+            <input type="text" id="descricao" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-on-surface-variant">📧 E-mail</label>
+            <input type="email" id="email" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled>
+          </div>
           <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold text-lg hover:brightness-105 transition">🔓 Gerar QR Code PIX</button>
         </form>
         <div id="resposta" class="mt-6"></div>
@@ -121,30 +136,43 @@
 
   const form = document.getElementById('form-pix');
   const respostaDiv = document.getElementById('resposta');
+  let pollingInterval = null;
 
-  // Função para carregar dados do pedido salvo no sessionStorage (vindo do checkout)
   function carregarDadosDoPedido() {
     const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
+    const valorInput = document.getElementById('valor');
+    const descricaoInput = document.getElementById('descricao');
+    const emailInput = document.getElementById('email');
+
     if (pedidoSalvo) {
       try {
         const pedido = JSON.parse(pedidoSalvo);
-        if (pedido.valorTotal) document.getElementById('valor').value = pedido.valorTotal;
-        if (pedido.descricao) document.getElementById('descricao').value = pedido.descricao;
-        if (pedido.email) document.getElementById('email').value = pedido.email;
-      } catch(e) {}
+        if (pedido.valorTotal) valorInput.value = pedido.valorTotal;
+        if (pedido.descricao) descricaoInput.value = pedido.descricao;
+        if (pedido.email) emailInput.value = pedido.email;
+      } catch(e) { console.warn(e); }
     } else {
-      // Fallback: parâmetros URL
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('valor')) document.getElementById('valor').value = urlParams.get('valor');
-      if (urlParams.has('descricao')) document.getElementById('descricao').value = urlParams.get('descricao');
-      if (urlParams.has('email')) document.getElementById('email').value = urlParams.get('email');
+      if (urlParams.has('valor')) valorInput.value = urlParams.get('valor');
+      if (urlParams.has('descricao')) descricaoInput.value = urlParams.get('descricao');
+      if (urlParams.has('email')) emailInput.value = urlParams.get('email');
     }
+
+    const aviso = document.createElement('p');
+    aviso.className = 'text-xs text-secondary mt-2 text-center';
+    aviso.innerHTML = '🔒 Os dados do pedido estão confirmados e não podem ser alterados.';
+    form.prepend(aviso);
   }
 
-  // Função para criar o pedido no Supabase (reutiliza a mesma lógica do checkout)
+  function atualizarContadorCarrinho() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    const contador = document.getElementById('cart-count');
+    if (contador) contador.innerText = totalItems;
+  }
+
   async function criarPedidoComDados(dadosPedido) {
     try {
-      // Aplica cupom se existir
       if (dadosPedido.couponCode) {
         const token = await getToken();
         if (!token) throw new Error('Faça login para aplicar o cupom.');
@@ -158,14 +186,12 @@
           throw new Error(payload?.message || 'Não foi possível aplicar o cupom.');
         }
       }
-
       const itemsForRpc = dadosPedido.items.map(item => ({
         product_id: item.id || null,
         name: item.name,
         quantity: item.quantity || 1,
         price_cents: item.price_cents
       }));
-
       const { data, error } = await supabaseClient.rpc('create_order_secure', {
         p_customer_name: dadosPedido.name,
         p_customer_phone: dadosPedido.phone,
@@ -179,10 +205,8 @@
         p_user_id: dadosPedido.userId,
         p_distance_km: dadosPedido.currentDistance
       });
-
       if (error) throw error;
       const orderId = data.order_id;
-      console.log('Pedido criado, ID:', orderId);
       localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
       return orderId;
     } catch (err) {
@@ -191,14 +215,12 @@
     }
   }
 
-  // Função auxiliar getToken (igual ao checkout)
   async function getToken() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session?.access_token) return session.access_token;
     return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
   }
 
-  // Função para finalizar o pedido após o pagamento
   async function finalizarPedido() {
     const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
     if (!pedidoSalvo) {
@@ -209,7 +231,6 @@
     try {
       const dadosPedido = JSON.parse(pedidoSalvo);
       const orderId = await criarPedidoComDados(dadosPedido);
-      // Limpa os dados temporários
       sessionStorage.removeItem('pedidoPendente');
       sessionStorage.removeItem('pixData');
       localStorage.removeItem('cart');
@@ -220,21 +241,30 @@
     }
   }
 
-  // Atualizar contador do carrinho
-  function atualizarContadorCarrinho() {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    const contador = document.getElementById('cart-count');
-    if (contador) contador.innerText = totalItems;
+  function verificarStatusPagamento(paymentId) {
+    fetch(`${API_URL}/api/pagamento/status/${paymentId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'approved' || data.status === 'paid') {
+          if (pollingInterval) clearInterval(pollingInterval);
+          finalizarPedido();
+        }
+      })
+      .catch(err => console.warn('Erro ao verificar status:', err));
   }
 
-  // Submissão do formulário (gerar PIX)
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) return;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Gerando...';
+
     const valor = document.getElementById('valor').value;
     const descricao = document.getElementById('descricao').value;
     const email = document.getElementById('email').value;
     respostaDiv.innerHTML = '<div class="text-center py-4 text-on-surface-variant">⏳ Gerando pagamento, aguarde...</div>';
+
     try {
       const response = await fetch(`${API_URL}/api/pagamento/pix`, {
         method: 'POST',
@@ -243,6 +273,8 @@
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao gerar PIX');
+
+      const paymentId = data.payment_id;
       let html = '<div class="bg-surface p-4 rounded-2xl text-center">';
       if (data.qr_code_base64) {
         html += `<div class="qr-code-container mb-4"><img src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX" class="mx-auto rounded-xl shadow"></div>`;
@@ -251,18 +283,25 @@
         html += `<div class="bg-gray-100 p-3 rounded-xl break-all text-sm mb-2">${data.qr_code}</div>`;
         html += `<div class="text-secondary font-semibold mb-2">✅ Código PIX copiável. Use no app do seu banco.</div>`;
       } else {
-        html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}.</div>`;
+        html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${paymentId}.</div>`;
       }
-      html += `<hr class="my-4"><button id="finalizarPedidoBtn" class="w-full bg-primary text-white py-2 rounded-full mt-2">✅ Já paguei - Ir para acompanhamento</button>`;
+      html += `<div class="mt-4 text-sm text-center text-on-surface-variant">⏳ Aguardando confirmação do pagamento... Você será redirecionado automaticamente.</div>`;
       html += '</div>';
       respostaDiv.innerHTML = html;
-      document.getElementById('finalizarPedidoBtn').addEventListener('click', finalizarPedido);
+
+      if (paymentId) {
+        if (pollingInterval) clearInterval(pollingInterval);
+        pollingInterval = setInterval(() => verificarStatusPagamento(paymentId), 3000);
+      } else {
+        throw new Error('Pagamento gerado mas sem payment_id. Contate o suporte.');
+      }
     } catch (error) {
       respostaDiv.innerHTML = `<div class="bg-error/10 text-error p-4 rounded-2xl">⚠️ Erro: ${error.message}</div>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Gerar QR Code PIX';
     }
   });
 
-  // Funções de autenticação para header/sidebar (idênticas ao checkout)
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
@@ -314,6 +353,10 @@
   if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
   if (overlay) overlay.addEventListener('click', closeSidebar);
   document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
+
+  window.addEventListener('beforeunload', () => {
+    if (pollingInterval) clearInterval(pollingInterval);
+  });
 
   carregarDadosDoPedido();
   atualizarContadorCarrinho();
