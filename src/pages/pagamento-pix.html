@@ -123,6 +123,9 @@
   const form = document.getElementById('form-pix');
   const respostaDiv = document.getElementById('resposta');
 
+  let pollingInterval = null;
+  let currentPaymentId = null;
+
   // ================== FUNÇÕES DE AUTENTICAÇÃO E SIDEBAR ==================
   async function getToken() {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -209,6 +212,26 @@
     if (contador) contador.innerText = totalItems;
   }
 
+  // ================== POLLING AUTOMÁTICO ==================
+  function iniciarPolling(paymentId) {
+    if (pollingInterval) clearInterval(pollingInterval);
+    currentPaymentId = paymentId;
+    pollingInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/pagamento/status/${paymentId}`);
+        const data = await response.json();
+        if (data.status === 'approved' || data.status === 'paid') {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+          // Pagamento confirmado! Cria o pedido e redireciona
+          await finalizarPedido();
+        }
+      } catch (err) {
+        console.warn('Erro no polling:', err);
+      }
+    }, 3000); // a cada 3 segundos
+  }
+
   // ================== CRIAÇÃO DO PEDIDO (MESMA LÓGICA DO CHECKOUT) ==================
   async function criarPedidoComDados(dadosPedido) {
     try {
@@ -268,7 +291,7 @@
       sessionStorage.removeItem('pixData');
       localStorage.removeItem('cart');
       localStorage.removeItem('appliedCoupon');
-      window.location.href = `/pedido-confirmado?id=${orderId}`;
+      window.location.href = `/acompanhamento?id=${orderId}`;
     } catch (err) {
       alert('Erro ao finalizar pedido: ' + err.message);
     }
@@ -296,6 +319,11 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao gerar PIX');
 
+      // Inicia polling automático
+      if (data.payment_id) {
+        iniciarPolling(data.payment_id);
+      }
+
       let html = '<div class="bg-surface p-4 rounded-2xl text-center">';
       if (data.qr_code_base64) {
         html += `<div class="qr-code-container mb-4"><img src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX" class="mx-auto rounded-xl shadow"></div>`;
@@ -309,7 +337,7 @@
       } else {
         html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}.</div>`;
       }
-      html += `<hr class="my-4"><button id="finalizarPedidoBtn" class="w-full bg-primary text-white py-2 rounded-full mt-2">✅ Já paguei - Ir para acompanhamento</button>`;
+      html += `<div class="mt-4 text-sm text-on-surface-variant">⏳ Aguardando confirmação do pagamento... Você será redirecionado automaticamente.</div>`;
       html += '</div>';
       respostaDiv.innerHTML = html;
 
@@ -319,8 +347,6 @@
           navigator.clipboard.writeText(data.qr_code).then(() => alert('Código PIX copiado!')).catch(() => alert('Copie manualmente.'));
         });
       }
-      const finalizarBtn = document.getElementById('finalizarPedidoBtn');
-      if (finalizarBtn) finalizarBtn.addEventListener('click', finalizarPedido);
     } catch (error) {
       respostaDiv.innerHTML = `<div class="bg-error/10 text-error p-4 rounded-2xl">⚠️ Erro: ${error.message}</div>`;
       submitBtn.disabled = false;
