@@ -36,17 +36,12 @@
     .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     body { background-color: #fff8f7; }
     .qr-code-container img { max-width: 200px; height: auto; margin: 0 auto; }
-    input:disabled {
-      background-color: #f3f4f6;
-      color: #374151;
-      cursor: not-allowed;
-      border-color: #e5e7eb;
-    }
+    input:disabled { background-color: #f3f4f6; color: #374151; cursor: not-allowed; border-color: #e5e7eb; }
   </style>
 </head>
 <body>
 
-<!-- Sidebar (idêntica ao checkout) -->
+<!-- Sidebar (menu hambúrguer) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -98,18 +93,9 @@
       <div class="bg-white rounded-2xl p-6 shadow-sm">
         <h2 class="text-xl font-bold mb-4">Confirmar pagamento</h2>
         <form id="form-pix" class="space-y-4">
-          <div>
-            <label class="block font-semibold mb-1 text-on-surface-variant">💵 Valor (R$)</label>
-            <input type="number" id="valor" step="0.01" min="1" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled>
-          </div>
-          <div>
-            <label class="block font-semibold mb-1 text-on-surface-variant">📝 Descrição</label>
-            <input type="text" id="descricao" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled>
-          </div>
-          <div>
-            <label class="block font-semibold mb-1 text-on-surface-variant">📧 E-mail</label>
-            <input type="email" id="email" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled>
-          </div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">💵 Valor (R$)</label><input type="number" id="valor" step="0.01" min="1" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled></div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">📝 Descrição</label><input type="text" id="descricao" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled></div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">📧 E-mail</label><input type="email" id="email" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled></div>
           <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold text-lg hover:brightness-105 transition">🔓 Gerar QR Code PIX</button>
         </form>
         <div id="resposta" class="mt-6"></div>
@@ -136,28 +122,80 @@
 
   const form = document.getElementById('form-pix');
   const respostaDiv = document.getElementById('resposta');
-  let pollingInterval = null;
 
+  // ================== FUNÇÕES DE AUTENTICAÇÃO E SIDEBAR ==================
+  async function getToken() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session?.access_token) return session.access_token;
+    return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+  }
+
+  async function updateHeaderAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const userMenu = document.getElementById('user-menu');
+    const loginLink = document.getElementById('login-link');
+    if (session) {
+      userMenu.classList.remove('hidden');
+      loginLink.classList.add('hidden');
+      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
+      document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
+    } else {
+      userMenu.classList.add('hidden');
+      loginLink.classList.remove('hidden');
+    }
+  }
+
+  async function updateSidebarAuth() {
+    const loginLink = document.getElementById('sidebar-login-link');
+    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
+    const perfil = document.getElementById('sidebar-perfil');
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (loginLink && meusPedidos && perfil && logoutBtn) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        loginLink.classList.add('hidden');
+        meusPedidos.classList.remove('hidden');
+        perfil.classList.remove('hidden');
+        logoutBtn.classList.remove('hidden');
+      } else {
+        loginLink.classList.remove('hidden');
+        meusPedidos.classList.add('hidden');
+        perfil.classList.add('hidden');
+        logoutBtn.classList.add('hidden');
+      }
+    }
+  }
+
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay'), openBtn = document.getElementById('open-sidebar-btn'), closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
+
+  // ================== CARREGAR DADOS DO PEDIDO ==================
   function carregarDadosDoPedido() {
     const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
-    const valorInput = document.getElementById('valor');
-    const descricaoInput = document.getElementById('descricao');
-    const emailInput = document.getElementById('email');
-
     if (pedidoSalvo) {
       try {
         const pedido = JSON.parse(pedidoSalvo);
-        if (pedido.valorTotal) valorInput.value = pedido.valorTotal;
-        if (pedido.descricao) descricaoInput.value = pedido.descricao;
-        if (pedido.email) emailInput.value = pedido.email;
-      } catch(e) { console.warn(e); }
-    } else {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('valor')) valorInput.value = urlParams.get('valor');
-      if (urlParams.has('descricao')) descricaoInput.value = urlParams.get('descricao');
-      if (urlParams.has('email')) emailInput.value = urlParams.get('email');
+        if (pedido.valorTotal) document.getElementById('valor').value = pedido.valorTotal;
+        if (pedido.descricao) document.getElementById('descricao').value = pedido.descricao;
+        if (pedido.email) document.getElementById('email').value = pedido.email;
+      } catch(e) {}
     }
-
     const aviso = document.createElement('p');
     aviso.className = 'text-xs text-secondary mt-2 text-center';
     aviso.innerHTML = '🔒 Os dados do pedido estão confirmados e não podem ser alterados.';
@@ -171,6 +209,7 @@
     if (contador) contador.innerText = totalItems;
   }
 
+  // ================== CRIAÇÃO DO PEDIDO (MESMA LÓGICA DO CHECKOUT) ==================
   async function criarPedidoComDados(dadosPedido) {
     try {
       if (dadosPedido.couponCode) {
@@ -215,12 +254,6 @@
     }
   }
 
-  async function getToken() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session?.access_token) return session.access_token;
-    return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
-  }
-
   async function finalizarPedido() {
     const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
     if (!pedidoSalvo) {
@@ -241,18 +274,7 @@
     }
   }
 
-  function verificarStatusPagamento(paymentId) {
-    fetch(`${API_URL}/api/pagamento/status/${paymentId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'approved' || data.status === 'paid') {
-          if (pollingInterval) clearInterval(pollingInterval);
-          finalizarPedido();
-        }
-      })
-      .catch(err => console.warn('Erro ao verificar status:', err));
-  }
-
+  // ================== SUBMISSÃO DO FORMULÁRIO (GERAR PIX) ==================
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -274,27 +296,31 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao gerar PIX');
 
-      const paymentId = data.payment_id;
       let html = '<div class="bg-surface p-4 rounded-2xl text-center">';
       if (data.qr_code_base64) {
         html += `<div class="qr-code-container mb-4"><img src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX" class="mx-auto rounded-xl shadow"></div>`;
-        html += `<div class="text-secondary font-semibold mb-2">✅ Pagamento gerado! Escaneie o QR Code com seu banco.</div>`;
-      } else if (data.qr_code) {
-        html += `<div class="bg-gray-100 p-3 rounded-xl break-all text-sm mb-2">${data.qr_code}</div>`;
-        html += `<div class="text-secondary font-semibold mb-2">✅ Código PIX copiável. Use no app do seu banco.</div>`;
-      } else {
-        html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${paymentId}.</div>`;
       }
-      html += `<div class="mt-4 text-sm text-center text-on-surface-variant">⏳ Aguardando confirmação do pagamento... Você será redirecionado automaticamente.</div>`;
+      if (data.qr_code) {
+        html += `<div class="bg-gray-100 p-3 rounded-xl break-all text-sm mb-2">${data.qr_code}</div>`;
+        html += `<button id="copiarCodigoBtn" class="mb-2 bg-secondary text-white px-4 py-2 rounded-full text-sm hover:brightness-105 transition">📋 Copiar código</button>`;
+        html += `<div class="text-secondary font-semibold mt-2">✅ Pagamento gerado! Escaneie o QR Code ou copie o código acima.</div>`;
+      } else if (data.qr_code_base64) {
+        html += `<div class="text-secondary font-semibold mb-2">✅ Pagamento gerado! Escaneie o QR Code com seu banco.</div>`;
+      } else {
+        html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}.</div>`;
+      }
+      html += `<hr class="my-4"><button id="finalizarPedidoBtn" class="w-full bg-primary text-white py-2 rounded-full mt-2">✅ Já paguei - Ir para acompanhamento</button>`;
       html += '</div>';
       respostaDiv.innerHTML = html;
 
-      if (paymentId) {
-        if (pollingInterval) clearInterval(pollingInterval);
-        pollingInterval = setInterval(() => verificarStatusPagamento(paymentId), 3000);
-      } else {
-        throw new Error('Pagamento gerado mas sem payment_id. Contate o suporte.');
+      const copyBtn = document.getElementById('copiarCodigoBtn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(data.qr_code).then(() => alert('Código PIX copiado!')).catch(() => alert('Copie manualmente.'));
+        });
       }
+      const finalizarBtn = document.getElementById('finalizarPedidoBtn');
+      if (finalizarBtn) finalizarBtn.addEventListener('click', finalizarPedido);
     } catch (error) {
       respostaDiv.innerHTML = `<div class="bg-error/10 text-error p-4 rounded-2xl">⚠️ Erro: ${error.message}</div>`;
       submitBtn.disabled = false;
@@ -302,62 +328,7 @@
     }
   });
 
-  async function updateHeaderAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const userMenu = document.getElementById('user-menu');
-    const loginLink = document.getElementById('login-link');
-    if (session) {
-      userMenu.classList.remove('hidden');
-      loginLink.classList.add('hidden');
-      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
-      document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
-    } else {
-      userMenu.classList.add('hidden');
-      loginLink.classList.remove('hidden');
-    }
-  }
-  async function updateSidebarAuth() {
-    const loginLink = document.getElementById('sidebar-login-link');
-    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
-    const perfil = document.getElementById('sidebar-perfil');
-    const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (loginLink && meusPedidos && perfil && logoutBtn) {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        loginLink.classList.add('hidden');
-        meusPedidos.classList.remove('hidden');
-        perfil.classList.remove('hidden');
-        logoutBtn.classList.remove('hidden');
-      } else {
-        loginLink.classList.remove('hidden');
-        meusPedidos.classList.add('hidden');
-        perfil.classList.add('hidden');
-        logoutBtn.classList.add('hidden');
-      }
-    }
-  }
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-  const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay'), openBtn = document.getElementById('open-sidebar-btn'), closeBtn = document.getElementById('close-sidebar-btn');
-  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
-  if (openBtn) openBtn.addEventListener('click', openSidebar);
-  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-  if (overlay) overlay.addEventListener('click', closeSidebar);
-  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
-
-  window.addEventListener('beforeunload', () => {
-    if (pollingInterval) clearInterval(pollingInterval);
-  });
-
+  // ================== INICIALIZAÇÃO ==================
   carregarDadosDoPedido();
   atualizarContadorCarrinho();
   updateHeaderAuth();
