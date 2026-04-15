@@ -104,6 +104,8 @@
       <form id="delivery-form" class="space-y-4">
         <div><label class="block font-semibold mb-1">Nome completo *</label><input type="text" id="customer-name" class="input-field" required></div>
         <div><label class="block font-semibold mb-1">Telefone (WhatsApp) *</label><input type="tel" id="customer-phone" class="input-field" required></div>
+        <!-- 🔥 NOVO CAMPO DE E-MAIL (OBRIGATÓRIO PARA PIX) -->
+        <div><label class="block font-semibold mb-1">E-mail *</label><input type="email" id="customer-email" class="input-field" placeholder="seuemail@exemplo.com" required><p class="text-xs text-on-surface-variant mt-1">Enviaremos a confirmação do pedido e o QR Code PIX para este e-mail.</p></div>
         <div><label class="block font-semibold mb-1">CPF (opcional)</label><input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14"><p class="text-xs text-on-surface-variant mt-1">Necessário apenas para emissão de nota fiscal.</p></div>
         <div id="address-block">
           <div><label class="block font-semibold mb-1">CEP *</label><div class="flex gap-2"><input type="text" id="cep" class="input-field flex-1" placeholder="00000-000" maxlength="9" required><button type="button" id="buscar-cep" class="bg-secondary text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-secondary/80 transition">Buscar</button></div><p id="cep-validation-message" class="text-error text-sm mt-1 hidden">CEP não atendido</p></div>
@@ -184,9 +186,9 @@
   function safeJsonParse(value, fallback) { if (!value) return fallback; try { return JSON.parse(value); } catch (err) { console.warn('Falha ao fazer parse do localStorage:', err); return fallback; } }
   async function getToken() { const { data: { session } } = await supabaseClient.auth.getSession(); if (session?.access_token) return session.access_token; return localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token') || sessionStorage.getItem('access_token') || null; }
   function getStorageKey() { if (userId) return `checkout_form_data_${userId}`; if (guestId) return `checkout_form_data_guest`; return 'checkout_form_data_guest'; }
-  function saveFormData() { const key = getStorageKey(); const formFields = ['customer-name', 'customer-phone', 'delivery-type', 'payment-method']; const data = {}; formFields.forEach(field => { const el = document.getElementById(field); if (el) data[field] = el.value; }); localStorage.setItem(key, JSON.stringify(data)); }
+  function saveFormData() { const key = getStorageKey(); const formFields = ['customer-name', 'customer-phone', 'customer-email', 'delivery-type', 'payment-method']; const data = {}; formFields.forEach(field => { const el = document.getElementById(field); if (el) data[field] = el.value; }); localStorage.setItem(key, JSON.stringify(data)); }
   function restoreFormData() { const key = getStorageKey(); const saved = localStorage.getItem(key); if (!saved) return; try { const data = JSON.parse(saved); for (const [field, value] of Object.entries(data)) { const el = document.getElementById(field); if (el && value) el.value = value; } } catch(e) { console.warn(e); } sanitizePaymentMethod(); }
-  function attachAutoSave() { const fields = ['customer-name', 'customer-phone', 'delivery-type', 'payment-method']; fields.forEach(field => { const el = document.getElementById(field); if (el) { el.addEventListener('input', saveFormData); el.addEventListener('change', saveFormData); } }); window.addEventListener('beforeunload', saveFormData); document.body.addEventListener('click', (e) => { const link = e.target.closest('a'); if (link && link.href) saveFormData(); }); }
+  function attachAutoSave() { const fields = ['customer-name', 'customer-phone', 'customer-email', 'delivery-type', 'payment-method']; fields.forEach(field => { const el = document.getElementById(field); if (el) { el.addEventListener('input', saveFormData); el.addEventListener('change', saveFormData); } }); window.addEventListener('beforeunload', saveFormData); document.body.addEventListener('click', (e) => { const link = e.target.closest('a'); if (link && link.href) saveFormData(); }); }
   function clearFormData() { localStorage.removeItem(getStorageKey()); }
   function sanitizePaymentMethod() { const paymentField = document.getElementById('payment-method'); if (!paymentField) return; const allowedMethods = new Set(['pix', 'cartao']); if (!allowedMethods.has(paymentField.value)) paymentField.value = 'pix'; }
   function formatCPF(value) { value = value.replace(/\D/g, ''); if (value.length > 11) value = value.slice(0, 11); if (value.length > 9) return value.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4'); if (value.length > 6) return value.replace(/^(\d{3})(\d{3})(\d{0,3})$/, '$1.$2.$3'); if (value.length > 3) return value.replace(/^(\d{3})(\d{0,3})$/, '$1.$2'); return value; }
@@ -216,7 +218,6 @@
   // ================== FUNÇÕES DE CRIAÇÃO DE PEDIDO (REUTILIZÁVEIS) ==================
   async function criarPedidoComDados(dadosPedido) {
     try {
-      // Aplica cupom se existir
       if (dadosPedido.couponCode) {
         const token = await getToken();
         if (!token) throw new Error('Faça login para aplicar o cupom.');
@@ -230,18 +231,15 @@
           throw new Error(payload?.message || 'Não foi possível aplicar o cupom.');
         }
       }
-
       if (dadosPedido.subtotal < dadosPedido.minOrder) {
         throw new Error(`Pedido mínimo: R$ ${dadosPedido.minOrder.toFixed(2).replace('.', ',')}`);
       }
-
       const itemsForRpc = dadosPedido.items.map(item => ({
         product_id: item.id || null,
         name: item.name,
         quantity: item.quantity || 1,
         price_cents: item.price_cents
       }));
-
       const { data, error } = await supabaseClient.rpc('create_order_secure', {
         p_customer_name: dadosPedido.name,
         p_customer_phone: dadosPedido.phone,
@@ -255,7 +253,6 @@
         p_user_id: dadosPedido.userId,
         p_distance_km: dadosPedido.currentDistance
       });
-
       if (error) throw error;
       const orderId = data.order_id;
       console.log('Pedido criado, ID:', orderId);
@@ -267,16 +264,18 @@
     }
   }
 
-  // ================== NOVA FUNÇÃO: SALVAR DADOS DO PEDIDO PARA PIX ==================
+  // ================== SALVAR DADOS DO PEDIDO PARA PIX (COM E-MAIL DO FORMULÁRIO) ==================
   async function salvarDadosPedidoParaPix() {
     const name = document.getElementById('customer-name').value.trim();
     const phone = document.getElementById('customer-phone').value.trim();
+    const email = document.getElementById('customer-email').value.trim();
     const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
     const deliveryType = document.getElementById('delivery-type').value;
     const payment = 'pix';
     let couponCode = (appliedCoupon?.code || document.getElementById('coupon-input')?.dataset.fullcode || '').trim().toUpperCase() || null;
 
     if (!name || !phone) throw new Error('Preencha nome e telefone.');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Informe um e-mail válido (ex: nome@dominio.com).');
     if (cpfRaw && cpfRaw.length !== 11) throw new Error('CPF inválido.');
     if (cart.length === 0) throw new Error('Carrinho vazio.');
 
@@ -310,18 +309,10 @@
 
     const subtotal = getSubtotalValue();
     const valorTotal = parseFloat(document.getElementById('total').innerText.replace('R$ ', '').replace(',', '.'));
-
-    // Coleta dados do usuário (email)
-    let emailCliente = '';
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (user?.email) emailCliente = user.email;
-    else {
-      // Se não logado, podemos pedir email ou usar um padrão
-      emailCliente = `${phone.replace(/\D/g, '')}@cliente.temp`; // fallback
-    }
+    const descricao = `Pedido - ${name}`;
 
     const dadosPedido = {
-      name, phone, cpfRaw, deliveryType, payment, couponCode,
+      name, phone, email, cpfRaw, deliveryType, payment, couponCode,
       items: cart,
       deliveryAddress,
       currentDistance,
@@ -330,8 +321,7 @@
       guestId,
       userId,
       valorTotal,
-      descricao: `Pedido - ${name}`,
-      email: emailCliente
+      descricao
     };
 
     sessionStorage.setItem('pedidoPendente', JSON.stringify(dadosPedido));
@@ -349,7 +339,6 @@
     btn.textContent = 'Preparando PIX...';
     try {
       const dadosPedido = await salvarDadosPedidoParaPix();
-      // Gera o pagamento PIX
       const pixResponse = await fetch('https://ilove-delicitas-admin.onrender.com/api/pagamento/pix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -388,7 +377,7 @@
       return;
     }
 
-    // Fluxo original para cartão de crédito
+    // Fluxo original para cartão de crédito (mantido inalterado)
     const btn = document.getElementById('submit-order');
     if (!btn) return;
     if (isSubmitting) return;
@@ -400,6 +389,7 @@
       saveFormData();
       const name = document.getElementById('customer-name').value.trim();
       const phone = document.getElementById('customer-phone').value.trim();
+      const email = document.getElementById('customer-email').value.trim();
       const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, '');
       sanitizePaymentMethod();
       const deliveryType = document.getElementById('delivery-type').value;
@@ -407,6 +397,7 @@
       let couponCode = (appliedCoupon?.code || document.getElementById('coupon-input')?.dataset.fullcode || '').trim().toUpperCase() || null;
 
       if (!name || !phone) throw new Error('Preencha nome e telefone.');
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('E-mail inválido.');
       if (cpfRaw && cpfRaw.length !== 11) throw new Error('CPF inválido.');
       if (cart.length === 0) throw new Error('Carrinho vazio.');
 
