@@ -104,7 +104,6 @@
       <form id="delivery-form" class="space-y-4">
         <div><label class="block font-semibold mb-1">Nome completo *</label><input type="text" id="customer-name" class="input-field" required></div>
         <div><label class="block font-semibold mb-1">Telefone (WhatsApp) *</label><input type="tel" id="customer-phone" class="input-field" required></div>
-        <!-- 🔥 NOVO CAMPO DE E-MAIL (OBRIGATÓRIO PARA PIX) -->
         <div><label class="block font-semibold mb-1">E-mail *</label><input type="email" id="customer-email" class="input-field" placeholder="seuemail@exemplo.com" required><p class="text-xs text-on-surface-variant mt-1">Enviaremos a confirmação do pedido e o QR Code PIX para este e-mail.</p></div>
         <div><label class="block font-semibold mb-1">CPF (opcional)</label><input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14"><p class="text-xs text-on-surface-variant mt-1">Necessário apenas para emissão de nota fiscal.</p></div>
         <div id="address-block">
@@ -209,7 +208,60 @@
   async function calcularFrete(cep, addressString, subtotal) { if (!cep || cep.replace(/\D/g, '').length !== 8) return config.frete_padrao; const cepLimpo = cep.replace(/\D/g, ''); const { data: regiao } = await supabaseClient.from('frete_regioes').select('valor').lte('cep_inicio', cepLimpo).gte('cep_fim', cepLimpo).maybeSingle(); let frete = regiao ? parseFloat(regiao.valor) : config.frete_padrao; let distancia = null; if (addressString) { const coords = await geocodeAddress(addressString); if (coords) { distancia = haversineDistance(STORE_LAT, STORE_LNG, coords.lat, coords.lng); currentDistance = distancia; console.log(`Distância: ${distancia.toFixed(2)} km`); } } const freeShipping = (currentDistance !== null && currentDistance <= config.frete_gratis_distancia_maxima && subtotal >= config.frete_gratis_minimo); return freeShipping ? 0 : frete; }
   async function atualizarFrete() { const deliveryType = document.getElementById('delivery-type').value; if (deliveryType === 'pickup') { currentFrete = 0; document.getElementById('frete').innerText = 'R$ 0,00'; atualizarTotal(); atualizarAvisoFreteGratis(); cepValido = true; updateSubmitAvailability(); return; } const cep = document.getElementById('cep').value; if (!cep || cep.replace(/\D/g, '').length !== 8) { document.getElementById('frete').innerText = '--'; currentFrete = 0; atualizarTotal(); atualizarAvisoFreteGratis(); cepValido = false; updateSubmitAvailability(); return; } const rua = document.getElementById('rua').value; const numero = document.getElementById('numero').value; const bairro = document.getElementById('bairro').value; const cidade = document.getElementById('cidade').value; const uf = document.getElementById('uf').value; let addressString = (rua && numero && bairro && cidade && uf) ? `${rua}, ${numero} - ${bairro}, ${cidade} - ${uf}` : ''; const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.')); let frete = await calcularFrete(cep, addressString, subtotal); currentFrete = frete; document.getElementById('frete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`; cepValido = true; atualizarTotal(); atualizarAvisoFreteGratis(); updateSubmitAvailability(); }
   function atualizarTotal() { const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.')); const desconto = parseFloat(document.getElementById('desconto').innerText.replace('- R$ ', '').replace(',', '.') || 0); const total = subtotal + currentFrete - desconto; document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`; updateSubmitAvailability(); }
-  function atualizarAvisoFreteGratis() { const subtotal = parseFloat(document.getElementById('subtotal').innerText.replace('R$ ', '').replace(',', '.')); const min = config.frete_gratis_minimo; const deliveryType = document.getElementById('delivery-type').value; const avisoDiv = document.getElementById('frete-gratis-aviso'); const barDiv = document.getElementById('frete-gratis-bar'); if (deliveryType === 'pickup' || min <= 0 || cart.length === 0 || subtotal >= min) { avisoDiv.classList.add('hidden'); barDiv.classList.add('hidden'); return; } const falta = (min - subtotal).toFixed(2); const percentual = (subtotal / min) * 100; const mensagem = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">Que tal adicionar mais itens?</a>`; document.getElementById('frete-gratis-mensagem').innerHTML = mensagem; document.getElementById('frete-gratis-fill').style.width = `${percentual}%`; avisoDiv.classList.remove('hidden'); barDiv.classList.remove('hidden'); const link = document.getElementById('add-more-items-link'); if (link) { link.removeEventListener('click', saveFormData); link.addEventListener('click', saveFormData); } }
+  // 🔥 FUNÇÃO CORRIGIDA: Agora exibe aviso para valor mínimo do pedido (prioritário) e frete grátis
+  function atualizarAvisoFreteGratis() {
+    const subtotal = getSubtotalValue();
+    const minOrderValue = minOrder; // valor mínimo do pedido carregado do backend
+    const freteGratisMin = config.frete_gratis_minimo;
+    const deliveryType = document.getElementById('delivery-type').value;
+    const avisoDiv = document.getElementById('frete-gratis-aviso');
+    const barDiv = document.getElementById('frete-gratis-bar');
+
+    if (deliveryType === 'pickup' || cart.length === 0) {
+      avisoDiv.classList.add('hidden');
+      barDiv.classList.add('hidden');
+      return;
+    }
+
+    let mensagem = '';
+    let mostrar = false;
+    let percentual = 0;
+
+    // PRIORIDADE: Valor mínimo do pedido (se definido e não atingido)
+    if (minOrderValue > 0 && subtotal < minOrderValue) {
+      const falta = (minOrderValue - subtotal).toFixed(2);
+      mensagem = `💰 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para atingir o valor mínimo do pedido (R$ ${minOrderValue.toFixed(2)}). <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">➕ Adicionar mais itens</a>`;
+      mostrar = true;
+      percentual = (subtotal / minOrderValue) * 100;
+    }
+    // Caso contrário, verifica frete grátis
+    else if (freteGratisMin > 0 && subtotal < freteGratisMin) {
+      const falta = (freteGratisMin - subtotal).toFixed(2);
+      mensagem = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">➕ Adicionar mais itens</a>`;
+      mostrar = true;
+      percentual = (subtotal / freteGratisMin) * 100;
+    }
+
+    if (mostrar) {
+      document.getElementById('frete-gratis-mensagem').innerHTML = mensagem;
+      document.getElementById('frete-gratis-fill').style.width = `${percentual}%`;
+      avisoDiv.classList.remove('hidden');
+      barDiv.classList.remove('hidden');
+
+      const link = document.getElementById('add-more-items-link');
+      if (link && !link.hasListener) {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.location.href = '/cardapio';
+        });
+        link.hasListener = true;
+      }
+    } else {
+      avisoDiv.classList.add('hidden');
+      barDiv.classList.add('hidden');
+    }
+  }
+
   function toggleAddressBlocks() { const deliveryType = document.getElementById('delivery-type').value; const addressBlock = document.getElementById('address-block'); const pickupBlock = document.getElementById('pickup-block'); if (deliveryType === 'pickup') { addressBlock.classList.add('hidden-block'); pickupBlock.classList.remove('hidden-block'); document.querySelectorAll('#address-block input, #address-block select').forEach(f => f.removeAttribute('required')); document.getElementById('cep-validation-message').classList.add('hidden'); cepValido = true; } else { addressBlock.classList.remove('hidden-block'); pickupBlock.classList.add('hidden-block'); const requiredFields = ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf']; requiredFields.forEach(id => { const f = document.getElementById(id); if (f) f.setAttribute('required', 'required'); }); const cep = document.getElementById('cep').value; cepValido = cep.replace(/\D/g, '').length === 8 ? cepValido : false; } atualizarFrete(); updateSubmitAvailability(); }
   function updateCartCount() { const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0); document.getElementById('cart-count').innerText = totalItems; }
   function renderSummary() { const container = document.getElementById('cart-items-summary'); if (!cart.length) { container.innerHTML = '<div class="text-center py-4">Carrinho vazio. <a href="/cardapio" class="text-primary underline">Escolha produtos</a></div>'; document.getElementById('submit-order').disabled = true; return; } let subtotal = 0; const itemsHtml = cart.map(item => { const itemTotal = (item.price_cents / 100) * (item.quantity || 1); subtotal += itemTotal; return `<div class="flex justify-between text-sm"><span>${escapeHtml(item.name)} x ${item.quantity}</span><span>R$ ${itemTotal.toFixed(2).replace('.', ',')}</span></div>`; }).join(''); container.innerHTML = itemsHtml; let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0; document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`; document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`; }
