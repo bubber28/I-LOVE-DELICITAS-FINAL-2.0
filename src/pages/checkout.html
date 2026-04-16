@@ -164,10 +164,19 @@
   let cart = [], appliedCoupon = null, userId = null, guestId = null, currentFrete = 0;
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00, frete_gratis_distancia_maxima: 5, store_lat: STORE_LAT, store_lng: STORE_LNG };
   let cepValido = false, currentDistance = null, isSubmitting = false;
-  let minOrder = 0; // 🔥 será atualizado pela API
+  let minOrder = 0;
   const FRIENDLY_COUPON_TEXT = 'Cupom de primeira compra - 50% OFF';
+  
+  // 🔥 NOVO: Gerenciamento de guest_token
+  let guestToken = localStorage.getItem('guest_token');
+  if (!guestToken) {
+    guestToken = crypto.randomUUID ? crypto.randomUUID() : 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    localStorage.setItem('guest_token', guestToken);
+  }
+  sessionStorage.setItem('guest_token', guestToken);
+  console.log('🆔 Guest Token:', guestToken);
 
-  // ================== FUNÇÕES AUXILIARES (MANTIDAS) ==================
+  // ================== FUNÇÕES AUXILIARES ==================
   function getNestedValue(obj, path) { return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj); }
   function pickFirstValue(source, candidates) { for (const candidate of candidates) { const value = getNestedValue(source, candidate); if (value !== undefined && value !== null && value !== '') return value; } return null; }
   function applyTextIfFound(selector, value) { if (!value) return; const element = document.querySelector(selector); if (element) element.textContent = String(value); }
@@ -185,7 +194,7 @@
   function debounce(fn, delay) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => fn(...args), delay); }; }
   function safeJsonParse(value, fallback) { if (!value) return fallback; try { return JSON.parse(value); } catch (err) { console.warn('Falha ao fazer parse do localStorage:', err); return fallback; } }
   async function getToken() { const { data: { session } } = await supabaseClient.auth.getSession(); if (session?.access_token) return session.access_token; return localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token') || sessionStorage.getItem('access_token') || null; }
-  function getStorageKey() { if (userId) return `checkout_form_data_${userId}`; if (guestId) return `checkout_form_data_guest`; return 'checkout_form_data_guest'; }
+  function getStorageKey() { if (userId) return `checkout_form_data_${userId}`; if (guestToken) return `checkout_form_data_${guestToken}`; return 'checkout_form_data_guest'; }
   function saveFormData() { const key = getStorageKey(); const formFields = ['customer-name', 'customer-phone', 'customer-email', 'delivery-type', 'payment-method']; const data = {}; formFields.forEach(field => { const el = document.getElementById(field); if (el) data[field] = el.value; }); localStorage.setItem(key, JSON.stringify(data)); }
   function restoreFormData() { const key = getStorageKey(); const saved = localStorage.getItem(key); if (!saved) return; try { const data = JSON.parse(saved); for (const [field, value] of Object.entries(data)) { const el = document.getElementById(field); if (el && value) el.value = value; } } catch(e) { console.warn(e); } sanitizePaymentMethod(); }
   function attachAutoSave() { const fields = ['customer-name', 'customer-phone', 'customer-email', 'delivery-type', 'payment-method']; fields.forEach(field => { const el = document.getElementById(field); if (el) { el.addEventListener('input', saveFormData); el.addEventListener('change', saveFormData); } }); window.addEventListener('beforeunload', saveFormData); document.body.addEventListener('click', (e) => { const link = e.target.closest('a'); if (link && link.href) saveFormData(); }); }
@@ -205,7 +214,6 @@
     const subtotal = getSubtotalValue();
     const atendeMinimo = subtotal >= minOrder;
     const atendeCep = deliveryType === 'pickup' || cepValido;
-    console.log(`🔍 canSubmitOrder: subtotal=${subtotal}, minOrder=${minOrder}, atendeMinimo=${atendeMinimo}, atendeCep=${atendeCep}`);
     return atendeMinimo && atendeCep;
   }
   
@@ -220,14 +228,12 @@
   async function loadMinOrder() {
     const notice = document.getElementById('min-order-notice');
     try {
-      console.log('🔄 Carregando valor mínimo do backend...');
       const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/settings/min-order');
       if (!response.ok) throw new Error('Falha ao carregar pedido minimo');
       const data = await response.json();
       minOrder = data.minOrder || 0;
-      console.log(`✅ Valor mínimo carregado: ${minOrder}`);
     } catch (err) {
-      console.error('❌ Erro ao carregar pedido mínimo:', err);
+      console.warn('Nao foi possivel carregar pedido minimo:', err);
       minOrder = 0;
     }
     if (notice && minOrder > 0) {
@@ -237,9 +243,6 @@
       notice.classList.add('hidden');
     }
     updateSubmitAvailability();
-    if (typeof atualizarAvisoFreteGratis === 'function') {
-      atualizarAvisoFreteGratis();
-    }
   }
   
   // ================== AVISO DE FRETE GRÁTIS / VALOR MÍNIMO ==================
@@ -292,7 +295,7 @@
     }
   }
   
-  // ================== DEMAIS FUNÇÕES (VALIDAR CEP, FRETE, ETC.) ==================
+  // ================== FUNÇÕES DE VALIDAÇÃO E CARREGAMENTO ==================
   async function validarCepAtendido(cep) { const cepMsg = document.getElementById('cep-validation-message'); const deliveryType = document.getElementById('delivery-type').value; if (deliveryType === 'pickup') { cepValido = true; cepMsg.classList.add('hidden'); updateSubmitAvailability(); return true; } const cepLimpo = (cep || '').replace(/\D/g, ''); if (cepLimpo.length !== 8) { cepValido = false; cepMsg.textContent = 'CEP invalido'; cepMsg.classList.remove('hidden'); updateSubmitAvailability(); return false; } try { const response = await fetch(`https://ilove-delicitas-admin.onrender.com/api/delivery/check-cep?cep=${cepLimpo}`); if (response.status === 404) { cepValido = false; cepMsg.textContent = 'CEP não atendido'; cepMsg.classList.remove('hidden'); updateSubmitAvailability(); return false; } if (!response.ok) throw new Error('Falha na validacao de CEP'); cepValido = true; cepMsg.classList.add('hidden'); updateSubmitAvailability(); return true; } catch (err) { console.error('Erro ao validar CEP:', err); cepValido = false; cepMsg.textContent = 'Nao foi possivel validar o CEP'; cepMsg.classList.remove('hidden'); updateSubmitAvailability(); return false; } }
   async function loadConfig() { const { data, error } = await supabaseClient.from('app_config').select('frete_gratis_minimo, frete_padrao, frete_gratis_distancia_maxima').single(); if (!error && data) { config.frete_gratis_minimo = parseFloat(data.frete_gratis_minimo) || 0; config.frete_padrao = parseFloat(data.frete_padrao) || 7.00; config.frete_gratis_distancia_maxima = parseInt(data.frete_gratis_distancia_maxima) || 5; } const shipping = await fetchSettings(`${SETTINGS_BASE_URL}/shipping`); if (shipping) applyShippingConfig(shipping); }
   async function geocodeAddress(address) { const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`; try { const response = await fetch(url, { headers: { 'User-Agent': 'MeuDeliveryApp/1.0' } }); const data = await response.json(); if (data && data.length) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }; return null; } catch (err) { console.error(err); return null; } }
@@ -304,9 +307,29 @@
   function toggleAddressBlocks() { const deliveryType = document.getElementById('delivery-type').value; const addressBlock = document.getElementById('address-block'); const pickupBlock = document.getElementById('pickup-block'); if (deliveryType === 'pickup') { addressBlock.classList.add('hidden-block'); pickupBlock.classList.remove('hidden-block'); document.querySelectorAll('#address-block input, #address-block select').forEach(f => f.removeAttribute('required')); document.getElementById('cep-validation-message').classList.add('hidden'); cepValido = true; } else { addressBlock.classList.remove('hidden-block'); pickupBlock.classList.add('hidden-block'); const requiredFields = ['cep', 'rua', 'numero', 'bairro', 'cidade', 'uf']; requiredFields.forEach(id => { const f = document.getElementById(id); if (f) f.setAttribute('required', 'required'); }); const cep = document.getElementById('cep').value; cepValido = cep.replace(/\D/g, '').length === 8 ? cepValido : false; } atualizarFrete(); updateSubmitAvailability(); }
   function updateCartCount() { const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0); document.getElementById('cart-count').innerText = totalItems; }
   function renderSummary() { const container = document.getElementById('cart-items-summary'); if (!cart.length) { container.innerHTML = '<div class="text-center py-4">Carrinho vazio. <a href="/cardapio" class="text-primary underline">Escolha produtos</a></div>'; document.getElementById('submit-order').disabled = true; return; } let subtotal = 0; const itemsHtml = cart.map(item => { const itemTotal = (item.price_cents / 100) * (item.quantity || 1); subtotal += itemTotal; return `<div class="flex justify-between text-sm"><span>${escapeHtml(item.name)} x ${item.quantity}</span><span>R$ ${itemTotal.toFixed(2).replace('.', ',')}</span></div>`; }).join(''); container.innerHTML = itemsHtml; let desconto = appliedCoupon ? (subtotal * appliedCoupon.desconto) / 100 : 0; document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`; document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`; }
-  async function loadData() { await loadConfig(); await loadMinOrder(); const storedCart = localStorage.getItem('cart'); cart = safeJsonParse(storedCart, []); if (!Array.isArray(cart) || cart.length === 0) { window.location.href = '/carrinho'; return; } const storedCoupon = localStorage.getItem('appliedCoupon'); appliedCoupon = safeJsonParse(storedCoupon, null); if (!isCouponStillActive(appliedCoupon)) { appliedCoupon = null; localStorage.removeItem('appliedCoupon'); } syncCouponDisplay(); updateCartCount(); renderSummary(); updateSubmitAvailability(); const { data: { session } } = await supabaseClient.auth.getSession(); if (session) { userId = session.user.id; guestId = null; const token = await getToken(); const remoteCoupon = await fetchActiveCouponForCheckout(token); if (remoteCoupon && remoteCoupon.code) { appliedCoupon = remoteCoupon; localStorage.setItem('appliedCoupon', JSON.stringify(remoteCoupon)); } const { data: profile } = await supabaseClient.from('profiles').select('name, phone, address, cpf').eq('id', userId).single(); if (profile) { const key = getStorageKey(); if (!localStorage.getItem(key)) { if (profile.name) document.getElementById('customer-name').value = profile.name; if (profile.phone) document.getElementById('customer-phone').value = profile.phone; if (profile.cpf) document.getElementById('cpf').value = formatCPF(profile.cpf); } } } else { userId = null; appliedCoupon = null; localStorage.removeItem('appliedCoupon'); guestId = localStorage.getItem('guest_id'); if (!guestId) { guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); localStorage.setItem('guest_id', guestId); } } syncCouponDisplay(); renderSummary(); atualizarTotal(); restoreFormData(); sanitizePaymentMethod(); attachAutoSave(); const cpfInput = document.getElementById('cpf'); if (cpfInput) cpfInput.addEventListener('input', function(e) { this.value = formatCPF(this.value); saveFormData(); }); toggleAddressBlocks(); document.getElementById('delivery-type').addEventListener('change', () => { toggleAddressBlocks(); saveFormData(); }); document.getElementById('frete').innerText = '--'; currentFrete = 0; atualizarTotal(); }
   
-  // ================== FUNÇÕES DE CRIAÇÃO DE PEDIDO (MANTIDAS) ==================
+  // 🔥 NOVA FUNÇÃO: criar pedido guest no banco
+  async function criarPedidoGuest(dadosPedido, paymentId) {
+    try {
+      const { error } = await supabaseClient
+        .from('pedidos_guest')
+        .insert({
+          guest_token: guestToken,
+          status: 'pending',
+          payment_id: paymentId,
+          created_at: new Date(),
+          updated_at: new Date()
+        });
+      if (error) throw error;
+      console.log('✅ Pedido guest criado no banco');
+    } catch (err) {
+      console.error('❌ Erro ao criar pedido guest:', err);
+    }
+  }
+  
+  async function loadData() { await loadConfig(); await loadMinOrder(); const storedCart = localStorage.getItem('cart'); cart = safeJsonParse(storedCart, []); if (!Array.isArray(cart) || cart.length === 0) { window.location.href = '/carrinho'; return; } const storedCoupon = localStorage.getItem('appliedCoupon'); appliedCoupon = safeJsonParse(storedCoupon, null); if (!isCouponStillActive(appliedCoupon)) { appliedCoupon = null; localStorage.removeItem('appliedCoupon'); } syncCouponDisplay(); updateCartCount(); renderSummary(); updateSubmitAvailability(); const { data: { session } } = await supabaseClient.auth.getSession(); if (session) { userId = session.user.id; guestId = null; const token = await getToken(); const remoteCoupon = await fetchActiveCouponForCheckout(token); if (remoteCoupon && remoteCoupon.code) { appliedCoupon = remoteCoupon; localStorage.setItem('appliedCoupon', JSON.stringify(remoteCoupon)); } const { data: profile } = await supabaseClient.from('profiles').select('name, phone, address, cpf').eq('id', userId).single(); if (profile) { const key = getStorageKey(); if (!localStorage.getItem(key)) { if (profile.name) document.getElementById('customer-name').value = profile.name; if (profile.phone) document.getElementById('customer-phone').value = profile.phone; if (profile.cpf) document.getElementById('cpf').value = formatCPF(profile.cpf); } } } else { userId = null; appliedCoupon = null; localStorage.removeItem('appliedCoupon'); } syncCouponDisplay(); renderSummary(); atualizarTotal(); restoreFormData(); sanitizePaymentMethod(); attachAutoSave(); const cpfInput = document.getElementById('cpf'); if (cpfInput) cpfInput.addEventListener('input', function(e) { this.value = formatCPF(this.value); saveFormData(); }); toggleAddressBlocks(); document.getElementById('delivery-type').addEventListener('change', () => { toggleAddressBlocks(); saveFormData(); }); document.getElementById('frete').innerText = '--'; currentFrete = 0; atualizarTotal(); }
+  
+  // ================== FUNÇÕES DE CRIAÇÃO DE PEDIDO E PIX ==================
   async function criarPedidoComDados(dadosPedido) {
     try {
       if (dadosPedido.couponCode) {
@@ -325,7 +348,12 @@
       if (dadosPedido.subtotal < dadosPedido.minOrder) {
         throw new Error(`Pedido mínimo: R$ ${dadosPedido.minOrder.toFixed(2).replace('.', ',')}`);
       }
-      const itemsForRpc = dadosPedido.items.map(item => ({ product_id: item.id || null, name: item.name, quantity: item.quantity || 1, price_cents: item.price_cents }));
+      const itemsForRpc = dadosPedido.items.map(item => ({
+        product_id: item.id || null,
+        name: item.name,
+        quantity: item.quantity || 1,
+        price_cents: item.price_cents
+      }));
       const { data, error } = await supabaseClient.rpc('create_order_secure', {
         p_customer_name: dadosPedido.name,
         p_customer_phone: dadosPedido.phone,
@@ -335,13 +363,12 @@
         p_cpf: dadosPedido.cpfRaw || null,
         p_delivery_address: dadosPedido.deliveryAddress,
         p_coupon_code: dadosPedido.couponCode,
-        p_guest_id: dadosPedido.guestId,
+        p_guest_id: guestToken,
         p_user_id: dadosPedido.userId,
         p_distance_km: dadosPedido.currentDistance
       });
       if (error) throw error;
       const orderId = data.order_id;
-      console.log('Pedido criado, ID:', orderId);
       localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
       return orderId;
     } catch (err) {
@@ -398,7 +425,7 @@
       currentDistance,
       subtotal,
       minOrder,
-      guestId,
+      guestId: guestToken,
       userId,
       valorTotal,
       descricao
@@ -431,8 +458,11 @@
         throw new Error(errorData.error || 'Erro ao gerar pagamento PIX');
       }
       const pixData = await pixResponse.json();
+      // 🔥 Criar pedido guest no banco
+      await criarPedidoGuest(dadosPedido, pixData.payment_id);
       sessionStorage.setItem('pixData', JSON.stringify(pixData));
-      window.location.href = '/pagamento-pix';
+      sessionStorage.setItem('guest_token', guestToken);
+      window.location.href = `/pagamento-pix?token=${guestToken}&payment_id=${pixData.payment_id}`;
     } catch (err) {
       console.error(err);
       const errorEl = document.getElementById('error-message');
@@ -453,6 +483,7 @@
       await gerarPixERedirecionar();
       return;
     }
+    // Fluxo original para cartão (mantido)
     const btn = document.getElementById('submit-order');
     if (!btn) return;
     if (isSubmitting) return;
@@ -506,7 +537,9 @@
       const { data, error } = await supabaseClient.rpc('create_order_secure', {
         p_customer_name: name, p_customer_phone: phone, p_delivery_type: deliveryType, p_payment_method: payment,
         p_items: itemsForRpc, p_cpf: cpfRaw || null, p_delivery_address: deliveryAddress, p_coupon_code: couponCode,
-        p_guest_id: guestId, p_user_id: userId, p_distance_km: currentDistance
+        p_guest_id: guestToken,
+        p_user_id: userId,
+        p_distance_km: currentDistance
       });
       if (error) throw error;
       const orderId = data.order_id;
