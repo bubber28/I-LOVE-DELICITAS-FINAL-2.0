@@ -190,6 +190,12 @@
 
   // ================== CARREGAR DADOS DO PEDIDO ==================
   function carregarDadosDoPedido() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const paymentId = urlParams.get('payment_id');
+    if (token) sessionStorage.setItem('guest_token', token);
+    if (paymentId) currentPaymentId = paymentId;
+
     const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
     if (pedidoSalvo) {
       try {
@@ -197,10 +203,7 @@
         if (pedido.valorTotal) document.getElementById('valor').value = pedido.valorTotal;
         if (pedido.descricao) document.getElementById('descricao').value = pedido.descricao;
         if (pedido.email) document.getElementById('email').value = pedido.email;
-        console.log('📦 Dados do pedido carregados do sessionStorage');
-      } catch(e) { console.warn('Erro ao carregar pedido:', e); }
-    } else {
-      console.warn('Nenhum pedido pendente encontrado no sessionStorage');
+      } catch(e) {}
     }
     const aviso = document.createElement('p');
     aviso.className = 'text-xs text-secondary mt-2 text-center';
@@ -215,7 +218,7 @@
     if (contador) contador.innerText = totalItems;
   }
 
-  // ================== POLLING AUTOMÁTICO ==================
+  // ================== POLLING AUTOMÁTICO (SEM BOTÃO MANUAL) ==================
   function iniciarPolling(paymentId) {
     if (pollingInterval) clearInterval(pollingInterval);
     currentPaymentId = paymentId;
@@ -237,8 +240,34 @@
     }, 3000);
   }
 
-  // ================== CRIAÇÃO DO PEDIDO ==================
+  // ================== CRIAÇÃO DO PEDIDO FINAL ==================
+  async function finalizarPedido() {
+    const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
+    if (!pedidoSalvo) {
+      alert('Nenhum pedido pendente encontrado. Volte ao checkout.');
+      window.location.href = '/checkout';
+      return;
+    }
+    try {
+      const dadosPedido = JSON.parse(pedidoSalvo);
+      // Reutiliza a lógica de criação do pedido (RPC)
+      const orderId = await criarPedidoComDados(dadosPedido);
+      sessionStorage.removeItem('pedidoPendente');
+      sessionStorage.removeItem('pixData');
+      localStorage.removeItem('cart');
+      localStorage.removeItem('appliedCoupon');
+      const guestToken = sessionStorage.getItem('guest_token') || localStorage.getItem('guest_token');
+      window.location.href = `/acompanhamento?token=${guestToken}&id=${orderId}`;
+    } catch (err) {
+      alert('Erro ao finalizar pedido: ' + err.message);
+      console.error(err);
+    }
+  }
+
+  // Função criarPedidoComDados (igual à do checkout, precisa ser copiada)
   async function criarPedidoComDados(dadosPedido) {
+    // Esta função deve ser exatamente a mesma que está no checkout.html
+    // Para simplificar, vou reimplementar aqui (mas o ideal é compartilhar código)
     try {
       if (dadosPedido.couponCode) {
         const token = await getToken();
@@ -268,7 +297,7 @@
         p_cpf: dadosPedido.cpfRaw || null,
         p_delivery_address: dadosPedido.deliveryAddress,
         p_coupon_code: dadosPedido.couponCode,
-        p_guest_id: dadosPedido.guestId,
+        p_guest_id: sessionStorage.getItem('guest_token') || localStorage.getItem('guest_token'),
         p_user_id: dadosPedido.userId,
         p_distance_km: dadosPedido.currentDistance
       });
@@ -277,29 +306,8 @@
       localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
       return orderId;
     } catch (err) {
-      console.error('❌ Erro ao criar pedido:', err);
+      console.error('Erro ao criar pedido:', err);
       throw err;
-    }
-  }
-
-  async function finalizarPedido() {
-    const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
-    if (!pedidoSalvo) {
-      alert('Nenhum pedido pendente encontrado. Volte ao checkout.');
-      window.location.href = '/checkout';
-      return;
-    }
-    try {
-      const dadosPedido = JSON.parse(pedidoSalvo);
-      const orderId = await criarPedidoComDados(dadosPedido);
-      sessionStorage.removeItem('pedidoPendente');
-      sessionStorage.removeItem('pixData');
-      localStorage.removeItem('cart');
-      localStorage.removeItem('appliedCoupon');
-      window.location.href = `/acompanhamento?id=${orderId}`;
-    } catch (err) {
-      alert('Erro ao finalizar pedido: ' + err.message);
-      console.error(err);
     }
   }
 
@@ -344,8 +352,6 @@
         html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}.</div>`;
       }
       html += `<div class="mt-4 text-sm text-on-surface-variant">⏳ Aguardando confirmação do pagamento... Você será redirecionado automaticamente.</div>`;
-      // 🔥 BOTÃO DE CONTINGÊNCIA (caso o polling falhe)
-      html += `<button id="forceFinalizeBtn" class="mt-4 w-full bg-secondary text-white py-2 rounded-full text-sm hover:brightness-105 transition">✅ Já paguei – Ir para acompanhamento (manual)</button>`;
       html += '</div>';
       respostaDiv.innerHTML = html;
 
@@ -353,13 +359,6 @@
       if (copyBtn) {
         copyBtn.addEventListener('click', () => {
           navigator.clipboard.writeText(data.qr_code).then(() => alert('Código PIX copiado!')).catch(() => alert('Copie manualmente.'));
-        });
-      }
-      const forceBtn = document.getElementById('forceFinalizeBtn');
-      if (forceBtn) {
-        forceBtn.addEventListener('click', async () => {
-          if (pollingInterval) clearInterval(pollingInterval);
-          await finalizarPedido();
         });
       }
     } catch (error) {
