@@ -164,10 +164,10 @@
   let cart = [], appliedCoupon = null, userId = null, guestId = null, currentFrete = 0;
   let config = { frete_gratis_minimo: 0, frete_padrao: 7.00, frete_gratis_distancia_maxima: 5, store_lat: STORE_LAT, store_lng: STORE_LNG };
   let cepValido = false, currentDistance = null, isSubmitting = false;
-  let minOrder = 0; // 🔥 valor mínimo carregado do backend
+  let minOrder = 0; // 🔥 será atualizado pela API
   const FRIENDLY_COUPON_TEXT = 'Cupom de primeira compra - 50% OFF';
 
-  // ================== FUNÇÕES AUXILIARES ==================
+  // ================== FUNÇÕES AUXILIARES (MANTIDAS) ==================
   function getNestedValue(obj, path) { return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj); }
   function pickFirstValue(source, candidates) { for (const candidate of candidates) { const value = getNestedValue(source, candidate); if (value !== undefined && value !== null && value !== '') return value; } return null; }
   function applyTextIfFound(selector, value) { if (!value) return; const element = document.querySelector(selector); if (element) element.textContent = String(value); }
@@ -199,12 +199,13 @@
   function syncCouponDisplay() { const couponInput = document.getElementById('coupon-input'); const couponDisplay = document.getElementById('coupon-display-name'); if (!couponInput || !couponDisplay) return; couponInput.disabled = true; couponInput.readOnly = true; if (appliedCoupon && appliedCoupon.code) { couponInput.dataset.fullcode = appliedCoupon.code; couponInput.value = FRIENDLY_COUPON_TEXT; couponDisplay.textContent = 'Cupom de primeira compra aplicado automaticamente!'; couponDisplay.classList.remove('hidden'); } else { delete couponInput.dataset.fullcode; couponInput.value = ''; couponDisplay.textContent = ''; couponDisplay.classList.add('hidden'); } }
   function getSubtotalValue() { return cart.reduce((sum, item) => sum + ((item.price_cents / 100) * (item.quantity || 1)), 0); }
   
-  // ================== VALIDAÇÃO DO VALOR MÍNIMO ==================
+  // ================== FUNÇÃO PARA VERIFICAR SE O PEDIDO PODE SER ENVIADO ==================
   function canSubmitOrder() {
     const deliveryType = document.getElementById('delivery-type').value;
     const subtotal = getSubtotalValue();
-    const atendeMinimo = subtotal >= minOrder; // usa o valor dinâmico do backend
+    const atendeMinimo = subtotal >= minOrder;
     const atendeCep = deliveryType === 'pickup' || cepValido;
+    console.log(`🔍 canSubmitOrder: subtotal=${subtotal}, minOrder=${minOrder}, atendeMinimo=${atendeMinimo}, atendeCep=${atendeCep}`);
     return atendeMinimo && atendeCep;
   }
   
@@ -219,13 +220,14 @@
   async function loadMinOrder() {
     const notice = document.getElementById('min-order-notice');
     try {
-      const response = await fetch('/api/settings/min-order');
+      console.log('🔄 Carregando valor mínimo do backend...');
+      const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/settings/min-order');
       if (!response.ok) throw new Error('Falha ao carregar pedido minimo');
       const data = await response.json();
       minOrder = data.minOrder || 0;
-      console.log('✅ Valor mínimo carregado:', minOrder);
+      console.log(`✅ Valor mínimo carregado: ${minOrder}`);
     } catch (err) {
-      console.error('Erro ao carregar pedido mínimo:', err);
+      console.error('❌ Erro ao carregar pedido mínimo:', err);
       minOrder = 0;
     }
     if (notice && minOrder > 0) {
@@ -240,7 +242,7 @@
     }
   }
   
-  // ================== AVISO DE VALOR MÍNIMO / FRETE GRÁTIS (COM LINK) ==================
+  // ================== AVISO DE FRETE GRÁTIS / VALOR MÍNIMO ==================
   function atualizarAvisoFreteGratis() {
     const subtotal = getSubtotalValue();
     const minOrderVal = minOrder || 0;
@@ -259,15 +261,12 @@
     let mostrar = false;
     let percentual = 0;
     
-    // Prioridade: valor mínimo do pedido
     if (minOrderVal > 0 && subtotal < minOrderVal) {
       const falta = (minOrderVal - subtotal).toFixed(2);
       mensagem = `💰 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para atingir o valor mínimo do pedido (R$ ${minOrderVal.toFixed(2)}). <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">➕ Adicionar mais itens</a>`;
       mostrar = true;
       percentual = (subtotal / minOrderVal) * 100;
-    }
-    // Se já atingiu o mínimo, avisa sobre frete grátis
-    else if (freteGratisMin > 0 && subtotal < freteGratisMin) {
+    } else if (freteGratisMin > 0 && subtotal < freteGratisMin) {
       const falta = (freteGratisMin - subtotal).toFixed(2);
       mensagem = `💸 Faltam <strong>R$ ${falta.replace('.', ',')}</strong> para ganhar <strong>frete grátis</strong>! <a href="/cardapio" class="underline font-bold ml-2" id="add-more-items-link">➕ Adicionar mais itens</a>`;
       mostrar = true;
