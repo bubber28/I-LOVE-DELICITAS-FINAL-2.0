@@ -197,7 +197,10 @@
         if (pedido.valorTotal) document.getElementById('valor').value = pedido.valorTotal;
         if (pedido.descricao) document.getElementById('descricao').value = pedido.descricao;
         if (pedido.email) document.getElementById('email').value = pedido.email;
-      } catch(e) {}
+        console.log('📦 Dados do pedido carregados do sessionStorage');
+      } catch(e) { console.warn('Erro ao carregar pedido:', e); }
+    } else {
+      console.warn('Nenhum pedido pendente encontrado no sessionStorage');
     }
     const aviso = document.createElement('p');
     aviso.className = 'text-xs text-secondary mt-2 text-center';
@@ -216,23 +219,25 @@
   function iniciarPolling(paymentId) {
     if (pollingInterval) clearInterval(pollingInterval);
     currentPaymentId = paymentId;
+    console.log(`🔄 Polling iniciado para payment_id: ${paymentId}`);
     pollingInterval = setInterval(async () => {
       try {
         const response = await fetch(`${API_URL}/api/pagamento/status/${paymentId}`);
         const data = await response.json();
+        console.log(`📡 Status do pagamento: ${data.status}`);
         if (data.status === 'approved' || data.status === 'paid') {
+          console.log('✅ Pagamento aprovado! Finalizando pedido...');
           clearInterval(pollingInterval);
           pollingInterval = null;
-          // Pagamento confirmado! Cria o pedido e redireciona
           await finalizarPedido();
         }
       } catch (err) {
-        console.warn('Erro no polling:', err);
+        console.warn('⚠️ Erro no polling:', err);
       }
-    }, 3000); // a cada 3 segundos
+    }, 3000);
   }
 
-  // ================== CRIAÇÃO DO PEDIDO (MESMA LÓGICA DO CHECKOUT) ==================
+  // ================== CRIAÇÃO DO PEDIDO ==================
   async function criarPedidoComDados(dadosPedido) {
     try {
       if (dadosPedido.couponCode) {
@@ -272,7 +277,7 @@
       localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
       return orderId;
     } catch (err) {
-      console.error('Erro ao criar pedido:', err);
+      console.error('❌ Erro ao criar pedido:', err);
       throw err;
     }
   }
@@ -294,6 +299,7 @@
       window.location.href = `/acompanhamento?id=${orderId}`;
     } catch (err) {
       alert('Erro ao finalizar pedido: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -338,6 +344,8 @@
         html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}.</div>`;
       }
       html += `<div class="mt-4 text-sm text-on-surface-variant">⏳ Aguardando confirmação do pagamento... Você será redirecionado automaticamente.</div>`;
+      // 🔥 BOTÃO DE CONTINGÊNCIA (caso o polling falhe)
+      html += `<button id="forceFinalizeBtn" class="mt-4 w-full bg-secondary text-white py-2 rounded-full text-sm hover:brightness-105 transition">✅ Já paguei – Ir para acompanhamento (manual)</button>`;
       html += '</div>';
       respostaDiv.innerHTML = html;
 
@@ -345,6 +353,13 @@
       if (copyBtn) {
         copyBtn.addEventListener('click', () => {
           navigator.clipboard.writeText(data.qr_code).then(() => alert('Código PIX copiado!')).catch(() => alert('Copie manualmente.'));
+        });
+      }
+      const forceBtn = document.getElementById('forceFinalizeBtn');
+      if (forceBtn) {
+        forceBtn.addEventListener('click', async () => {
+          if (pollingInterval) clearInterval(pollingInterval);
+          await finalizarPedido();
         });
       }
     } catch (error) {
