@@ -262,19 +262,21 @@
         quantity: item.quantity || 1,
         price_cents: item.price_cents
       }));
-      const { data, error } = await supabaseClient.rpc('create_order_secure', {
-        p_customer_name: dadosPedido.name,
-        p_customer_phone: dadosPedido.phone,
-        p_delivery_type: dadosPedido.deliveryType,
-        p_payment_method: dadosPedido.payment,
-        p_items: itemsForRpc,
-        p_cpf: dadosPedido.cpfRaw || null,
-        p_delivery_address: dadosPedido.deliveryAddress,
-        p_coupon_code: dadosPedido.couponCode,
-        p_guest_id: sessionStorage.getItem('guest_token') || localStorage.getItem('guest_token'),
-        p_user_id: dadosPedido.userId,
-        p_distance_km: dadosPedido.currentDistance
-      });
+     const guestToken = localStorage.getItem('guest_token') || sessionStorage.getItem('guest_token');
+
+const { data, error } = await supabaseClient.rpc('create_order_secure', {
+  p_customer_name: dadosPedido.name,
+  p_customer_phone: dadosPedido.phone,
+  p_delivery_type: dadosPedido.deliveryType,
+  p_payment_method: dadosPedido.payment,
+  p_items: itemsForRpc,
+  p_cpf: dadosPedido.cpfRaw || null,
+  p_delivery_address: dadosPedido.deliveryAddress,
+  p_coupon_code: dadosPedido.couponCode,
+  p_guest_id: guestToken,
+  p_user_id: dadosPedido.userId,
+  p_distance_km: dadosPedido.currentDistance
+});
       if (error) throw error;
       const orderId = data.order_id;
       localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
