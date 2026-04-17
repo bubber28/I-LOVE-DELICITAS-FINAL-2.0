@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
-  /* Seus estilos originais - nenhuma linha foi alterada */
+  /* seus estilos originais - nenhuma linha foi alterada */
   body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
   .container-custom { max-width: 800px; margin: 0 auto; }
   .track-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -158,6 +158,7 @@
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
 
+  // 🔥 Função getGuestId (mantida)
   function getGuestId() {
     let guestId = localStorage.getItem('guest_id');
     if (!guestId) {
@@ -167,9 +168,17 @@
     return guestId;
   }
 
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  // 🔥 Cria cliente Supabase com header x-guest-id (atualizado dinamicamente)
+  let supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     global: { headers: { 'x-guest-id': getGuestId() } }
   });
+
+  // Função para atualizar o header do cliente Supabase (quando guest_id muda)
+  function updateSupabaseGuestId(guestId) {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      global: { headers: { 'x-guest-id': guestId } }
+    });
+  }
 
   let orderId = null;
   let currentStatus = null;
@@ -425,12 +434,24 @@
       document.getElementById('order-info').innerHTML = '<p class="text-error">Pedido não identificado.</p>';
       return;
     }
+
+    // 🔥 Lê o guest_id da URL (se existir) e sincroniza com localStorage e header do Supabase
+    const urlGuestId = urlParams.get('guest_id');
+    let currentGuestId = getGuestId();
+    if (urlGuestId && urlGuestId !== currentGuestId) {
+      localStorage.setItem('guest_id', urlGuestId);
+      currentGuestId = urlGuestId;
+      updateSupabaseGuestId(currentGuestId);
+      console.log(`🔄 guest_id sincronizado da URL: ${currentGuestId}`);
+    }
+
     console.log('[Acompanhamento] Buscando pedido ID:', orderId);
     const { data: order, error } = await supabaseClient
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single();
+
     if (error) {
       if (error.code === 'PGRST116') {
         console.warn('Pedido não encontrado:', orderId);
@@ -441,6 +462,7 @@
       document.getElementById('order-info').innerHTML = '<p class="text-error">Erro ao carregar pedido.</p>';
       return;
     }
+
     const isOwner = await isOrderOwner(order);
     if (!isOwner) {
       document.getElementById('track-card').innerHTML = `
@@ -453,6 +475,7 @@
       `;
       return;
     }
+
     if (isOrderExpired(order)) return expireOrder();
     orderData = order;
     currentStatus = order.status;
