@@ -126,6 +126,16 @@
   let pollingInterval = null;
   let currentPaymentId = null;
 
+  // ================== GUEST ID CONSISTENTE (igual ao acompanhamento) ==================
+  function getGuestId() {
+    let guestId = localStorage.getItem('guest_id');
+    if (!guestId) {
+      guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('guest_id', guestId);
+    }
+    return guestId;
+  }
+
   // ================== FUNÇÕES DE AUTENTICAÇÃO E SIDEBAR ==================
   async function getToken() {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -190,12 +200,6 @@
 
   // ================== CARREGAR DADOS DO PEDIDO ==================
   function carregarDadosDoPedido() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const paymentId = urlParams.get('payment_id');
-    if (token) sessionStorage.setItem('guest_token', token);
-    if (paymentId) currentPaymentId = paymentId;
-
     const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
     if (pedidoSalvo) {
       try {
@@ -218,14 +222,14 @@
     if (contador) contador.innerText = totalItems;
   }
 
-  // ================== POLLING AUTOMÁTICO (SEM BOTÃO MANUAL) ==================
+  // ================== POLLING AUTOMÁTICO ==================
   function iniciarPolling(paymentId) {
     if (pollingInterval) clearInterval(pollingInterval);
     currentPaymentId = paymentId;
     console.log(`🔄 Polling iniciado para payment_id: ${paymentId}`);
     pollingInterval = setInterval(async () => {
       try {
-       const response = await fetch(`${API_URL}/api/pagamento/status-direto/${paymentId}`);
+        const response = await fetch(`${API_URL}/api/pagamento/status-direto/${paymentId}`);
         const data = await response.json();
         console.log(`📡 Status do pagamento: ${data.status}`);
         if (data.status === 'approved' || data.status === 'paid') {
@@ -240,34 +244,8 @@
     }, 3000);
   }
 
-  // ================== CRIAÇÃO DO PEDIDO FINAL ==================
-  async function finalizarPedido() {
-    const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
-    if (!pedidoSalvo) {
-      alert('Nenhum pedido pendente encontrado. Volte ao checkout.');
-      window.location.href = '/checkout';
-      return;
-    }
-    try {
-      const dadosPedido = JSON.parse(pedidoSalvo);
-      // Reutiliza a lógica de criação do pedido (RPC)
-      const orderId = await criarPedidoComDados(dadosPedido);
-      sessionStorage.removeItem('pedidoPendente');
-      sessionStorage.removeItem('pixData');
-      localStorage.removeItem('cart');
-      localStorage.removeItem('appliedCoupon');
-      const guestToken = sessionStorage.getItem('guest_token') || localStorage.getItem('guest_token');
-      window.location.href = `/acompanhamento?token=${guestToken}&id=${orderId}`;
-    } catch (err) {
-      alert('Erro ao finalizar pedido: ' + err.message);
-      console.error(err);
-    }
-  }
-
-  // Função criarPedidoComDados (igual à do checkout, precisa ser copiada)
+  // ================== CRIAÇÃO DO PEDIDO ==================
   async function criarPedidoComDados(dadosPedido) {
-    // Esta função deve ser exatamente a mesma que está no checkout.html
-    // Para simplificar, vou reimplementar aqui (mas o ideal é compartilhar código)
     try {
       if (dadosPedido.couponCode) {
         const token = await getToken();
@@ -297,17 +275,40 @@
         p_cpf: dadosPedido.cpfRaw || null,
         p_delivery_address: dadosPedido.deliveryAddress,
         p_coupon_code: dadosPedido.couponCode,
-        p_guest_id: sessionStorage.getItem('guest_token') || localStorage.getItem('guest_token'),
+        p_guest_id: getGuestId(),   // 🔥 ID consistente com o acompanhamento
         p_user_id: dadosPedido.userId,
         p_distance_km: dadosPedido.currentDistance
       });
       if (error) throw error;
       const orderId = data.order_id;
       localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
+      console.log('💾 pedidoAtivo salvo:', orderId);
       return orderId;
     } catch (err) {
       console.error('Erro ao criar pedido:', err);
       throw err;
+    }
+  }
+
+  async function finalizarPedido() {
+    const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
+    if (!pedidoSalvo) {
+      alert('Nenhum pedido pendente encontrado. Volte ao checkout.');
+      window.location.href = '/checkout';
+      return;
+    }
+    try {
+      const dadosPedido = JSON.parse(pedidoSalvo);
+      const orderId = await criarPedidoComDados(dadosPedido);
+      sessionStorage.removeItem('pedidoPendente');
+      sessionStorage.removeItem('pixData');
+      localStorage.removeItem('cart');
+      localStorage.removeItem('appliedCoupon');
+      console.log('🚀 Redirecionando para acompanhamento...');
+      window.location.href = `/acompanhamento?id=${orderId}`;   // 🔥 sem token, apenas id
+    } catch (err) {
+      alert('Erro ao finalizar pedido: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -333,7 +334,6 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao gerar PIX');
 
-      // Inicia polling automático
       if (data.payment_id) {
         iniciarPolling(data.payment_id);
       }
