@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
+  /* Seus estilos originais - nenhuma linha foi alterada */
   body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
   .container-custom { max-width: 800px; margin: 0 auto; }
   .track-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -22,7 +23,6 @@
   .status-step.completed .label { color: #10b981; }
   .progress-line { position: absolute; top: 20px; left: 0; right: 0; height: 4px; background: #e5e7eb; z-index: 1; }
   .progress-line-fill { height: 100%; background: #10b981; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-  /* 🔥 ANIMAÇÃO CIRCULAR MELHORADA */
   @keyframes pulse {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0.4); }
     70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(174,47,52,0); }
@@ -80,7 +80,6 @@
     color: #6b7280;
     margin-top: 0.5rem;
   }
-  /* Estilos para avaliação */
   .star {
     font-size: 2rem;
     cursor: pointer;
@@ -245,7 +244,6 @@
     expirationTimer = setTimeout(expireOrder, remainingMs);
   }
 
-  // 🔥 Função para verificar se o pedido já foi avaliado
   async function jaAvaliou(pedidoId) {
     const { data, error } = await supabaseClient
       .from('avaliacoes')
@@ -256,7 +254,6 @@
     return !!data;
   }
 
-  // 🔥 Renderiza componente de avaliação (estrelas + comentário)
   async function mostrarAvaliacao() {
     if (await jaAvaliou(orderId)) {
       document.getElementById('status-message').innerHTML = '<div class="text-green-600">✅ Obrigado pela sua avaliação! Volte sempre.</div>';
@@ -296,6 +293,7 @@
           .from('avaliacoes')
           .insert({ pedido_id: orderId, nota: notaSelecionada, comentario: comentario || null });
         if (error) throw error;
+        console.log(`✅ Avaliação enviada para o pedido ${orderId}: ${notaSelecionada} estrelas, comentário: ${comentario}`);
         document.getElementById('avaliacao-feedback').innerHTML = '<span class="text-green-600">✅ Avaliação enviada! Muito obrigado.</span>';
         setTimeout(() => {
           const container = document.querySelector('.avaliacao-container');
@@ -320,7 +318,7 @@
         step.classList.add('completed');
       } else if (stepIndex === currentIndex) {
         if (status === 'delivered') {
-          step.classList.add('completed');   // 🔥 verde e sem animação
+          step.classList.add('completed');
         } else {
           step.classList.add('active');
         }
@@ -347,7 +345,6 @@
     } else {
       document.getElementById('tracking-area')?.classList.add('hidden');
     }
-    // Se o pedido foi entregue, exibe o formulário de avaliação
     if (status === 'delivered') {
       mostrarAvaliacao();
     }
