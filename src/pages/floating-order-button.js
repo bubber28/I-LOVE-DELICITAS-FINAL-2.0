@@ -1,5 +1,5 @@
 // ==================================================
-// BOTÃO FLUTUANTE DE ACOMPANHAMENTO - V4.1 FINAL
+// BOTÃO FLUTUANTE DE ACOMPANHAMENTO - V5.0 FINAL
 // ==================================================
 (async function () {
     const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
@@ -9,10 +9,20 @@
     let activeOrder = null;
     let button = null;
     let orderChannel = null;
-    
+    let removalTimer = null;      // Timer para remoção após entrega
     const FINAL_STATUSES = ['delivered', 'canceled'];
-    const MAX_AGE_MS = 10 * 60 * 1000;  // 10 minutos
-    const MAX_DISTANCE_KM = 3;          // Geofencing 3km
+    const POST_DELIVERY_VISIBILITY_MS = 30 * 60 * 1000; // 30 minutos
+
+    // 🔧 Função auxiliar para escape HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
 
     // 🔧 GERA GUEST_ID PERSISTENTE
     function getGuestId() {
@@ -28,7 +38,7 @@
     async function fetchActiveOrderById(orderId, userId, guestId) {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, status, created_at, distance_km, customer_name, user_id, guest_id')
+            .select('id, status, created_at, delivered_at, distance_km, customer_name, user_id, guest_id')
             .eq('id', orderId)
             .single();
 
@@ -37,7 +47,17 @@
             return null;
         }
 
-        if (FINAL_STATUSES.includes(data.status)) {
+        // Se o pedido já foi entregue, verificar se ainda está dentro do tempo de exibição
+        if (data.status === 'delivered' && data.delivered_at) {
+            const deliveredTime = new Date(data.delivered_at).getTime();
+            const now = new Date().getTime();
+            const diffMs = now - deliveredTime;
+            if (diffMs >= POST_DELIVERY_VISIBILITY_MS) {
+                console.log(`⏰ Pedido entregue há mais de ${POST_DELIVERY_VISIBILITY_MS / 60000} minutos. Não exibir botão.`);
+                return null;
+            }
+        } else if (FINAL_STATUSES.includes(data.status)) {
+            // Para status 'canceled', não exibir
             return null;
         }
 
@@ -53,7 +73,28 @@
         return data;
     }
 
-    // 🎨 CRIA BOTÃO COM CSS ANIMADO INJETADO ✅
+    // 🗑️ REMOVE COM ANIMAÇÃO SUAVE E LIMPA TIMER
+    function removeButton() {
+        if (removalTimer) {
+            clearTimeout(removalTimer);
+            removalTimer = null;
+        }
+        if (!button) return;
+        
+        button.classList.remove('entering');
+        button.classList.add('removing');
+        
+        setTimeout(() => {
+            if (button) {
+                button.remove();
+                button = null;
+                activeOrder = null;
+                console.log('✅ Botão removido suavemente');
+            }
+        }, 400);
+    }
+
+    // 🎨 CRIA BOTÃO COM CSS ANIMADO
     function createButton(order) {
         if (button) button.remove();
 
@@ -63,24 +104,12 @@
             style.id = 'floating-btn-styles';
             style.textContent = `
                 @keyframes fadeInUp {
-                    from { 
-                        opacity: 0; 
-                        transform: translateY(20px) scale(0.9); 
-                    }
-                    to { 
-                        opacity: 1; 
-                        transform: translateY(0) scale(1); 
-                    }
+                    from { opacity: 0; transform: translateY(20px) scale(0.9); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
                 }
                 @keyframes fadeOutDown {
-                    from { 
-                        opacity: 1; 
-                        transform: translateY(0) scale(1); 
-                    }
-                    to { 
-                        opacity: 0; 
-                        transform: translateY(15px) scale(0.95); 
-                    }
+                    from { opacity: 1; transform: translateY(0) scale(1); }
+                    to { opacity: 0; transform: translateY(15px) scale(0.95); }
                 }
                 #floating-order-btn {
                     will-change: transform, opacity;
@@ -103,11 +132,12 @@
         button.id = 'floating-order-btn';
         button.className = 'fixed bottom-6 right-6 z-[9999] bg-gradient-to-r from-[#ae2f34] via-[#d63f45] to-[#ff6b6b] text-white px-6 py-4 rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-[#ae2f34]/50 hover:-translate-y-1 active:scale-95 transition-all duration-300 flex items-center gap-3 font-bold text-sm border-0 cursor-pointer backdrop-blur-sm entering';
         
+        const customerNameEscaped = escapeHtml(order.customer_name || '');
         button.innerHTML = `
             <span class="material-symbols-outlined text-xl animate-pulse">local_shipping</span>
             <div>
                 <span>Pedido #${order.id.slice(-6)}</span>
-                ${order.customer_name ? `<br><span class="text-xs opacity-90 block">${order.customer_name.split(' ')[0]}</span>` : ''}
+                ${customerNameEscaped ? `<br><span class="text-xs opacity-90 block">${customerNameEscaped.split(' ')[0]}</span>` : ''}
             </div>
         `;
         
@@ -120,21 +150,25 @@
         console.log('✅ Botão criado:', order.id);
     }
 
-    // 🗑️ REMOVE COM ANIMAÇÃO SUAVE ✅
-    function removeButton() {
-        if (!button) return;
+    // ⏰ Agenda remoção automática para pedidos entregues
+    function scheduleRemovalAfterDelivery(deliveredAt) {
+        if (removalTimer) clearTimeout(removalTimer);
+        const deliveredTime = new Date(deliveredAt).getTime();
+        const now = new Date().getTime();
+        const elapsed = now - deliveredTime;
+        const remainingMs = POST_DELIVERY_VISIBILITY_MS - elapsed;
         
-        button.classList.remove('entering');
-        button.classList.add('removing');
-        
-        setTimeout(() => {
-            if (button) {
-                button.remove();
-                button = null;
-                activeOrder = null;
-                console.log('✅ Botão removido suavemente');
-            }
-        }, 400); // ✅ Sync com fadeOutDown
+        if (remainingMs <= 0) {
+            // Já passou do tempo, remove imediatamente
+            removeButton();
+            localStorage.removeItem('pedidoAtivo');
+        } else {
+            removalTimer = setTimeout(() => {
+                console.log(`⏰ Pedido entregue há ${POST_DELIVERY_VISIBILITY_MS / 60000} minutos. Removendo botão.`);
+                removeButton();
+                localStorage.removeItem('pedidoAtivo');
+            }, remainingMs);
+        }
     }
 
     // 📡 Realtime único para evitar eventos duplicados
@@ -156,10 +190,14 @@
                 filter: `id=eq.${orderId}`
             }, (payload) => {
                 const newStatus = payload.new.status;
+                const deliveredAt = payload.new.delivered_at;
                 console.log('[FloatingBtn] Evento Realtime recebido. Novo status:', newStatus);
                 
-                if (FINAL_STATUSES.includes(newStatus)) {
-                    console.log('[FloatingBtn] Pedido atingiu status final. Removendo botão.');
+                if (newStatus === 'delivered' && deliveredAt) {
+                    console.log('[FloatingBtn] Pedido entregue. Agendando remoção em 30 minutos.');
+                    scheduleRemovalAfterDelivery(deliveredAt);
+                } else if (newStatus === 'canceled') {
+                    console.log('[FloatingBtn] Pedido cancelado. Removendo botão.');
                     removeButton();
                     localStorage.removeItem('pedidoAtivo');
                 }
@@ -208,6 +246,11 @@
                 console.log('✅ [FloatingBtn] Pedido ativo:', activeOrder.id);
                 createButton(activeOrder);
                 setupRealtime(activeOrder.id);
+                
+                // Se o pedido já estiver entregue (mas ainda dentro do tempo de exibição), agenda remoção
+                if (activeOrder.status === 'delivered' && activeOrder.delivered_at) {
+                    scheduleRemovalAfterDelivery(activeOrder.delivered_at);
+                }
             } else {
                 localStorage.removeItem('pedidoAtivo');
                 removeButton();
@@ -240,6 +283,7 @@
             supabaseClient.removeChannel(orderChannel);
             orderChannel = null;
         }
+        if (removalTimer) clearTimeout(removalTimer);
     });
 
     // 🧪 DEBUG MODE (F12 → console.testFloating())
@@ -249,5 +293,5 @@
         check: init
     };
 
-    console.log('✅ [FloatingBtn v4.1] Carregado com animações!');
+    console.log('✅ [FloatingBtn v5.0] Carregado com animações e timeout pós-entrega!');
 })();
