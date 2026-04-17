@@ -22,10 +22,20 @@
   .status-step.completed .label { color: #10b981; }
   .progress-line { position: absolute; top: 20px; left: 0; right: 0; height: 4px; background: #e5e7eb; z-index: 1; }
   .progress-line-fill { height: 100%; background: #10b981; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+  /* 🔥 ANIMAÇÃO CIRCULAR MELHORADA */
   @keyframes pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0.4); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(174,47,52,0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0); }
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(174, 47, 52, 0.4);
+    }
+    70% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 12px rgba(174, 47, 52, 0);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(174, 47, 52, 0);
+    }
   }
   @keyframes bounceIcon {
     0%, 100% { transform: scale(1); }
@@ -74,26 +84,10 @@
     border-radius: 1rem;
     margin: 1rem 0;
   }
-  .status-step.done {
-    color: #10b981 !important;
-    opacity: 1 !important;
-  }
-  .status-step.active {
-    color: #10b981 !important;
-    animation: brilho 1.5s infinite !important;
-  }
-  .status-step.inactive {
-    opacity: 0.3;
-  }
-  @keyframes brilho {
-    0%,100% {
-      filter: drop-shadow(0 0 5px currentColor);
-      transform: scale(1);
-    }
-    50% {
-      filter: drop-shadow(0 0 15px currentColor);
-      transform: scale(1.1);
-    }
+  .timer-text {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
   }
 </style>
 </head>
@@ -106,7 +100,7 @@
 </header>
 
 <main class="container-custom px-4 py-8">
-  <div class="track-card">
+  <div class="track-card" id="track-card">
     <h1 class="text-2xl font-bold mb-2">Acompanhar Pedido</h1>
     <p class="text-on-surface-variant mb-6">Acompanhe em tempo real o status do seu pedido.</p>
 
@@ -169,8 +163,103 @@
   let orderId = null;
   let currentStatus = null;
   let orderData = null;
+  let expirationTimer = null;
+  let countdownInterval = null;
   const statusOrder = ['received', 'preparing', 'delivery', 'delivered'];
+  const POST_DELIVERY_VISIBILITY_MS = 30 * 60 * 1000; // 30 minutos
   let orderChannel = null;
+
+  function getGuestId() {
+    let guestId = localStorage.getItem('guest_id');
+    if (!guestId) {
+      guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('guest_id', guestId);
+    }
+    return guestId;
+  }
+
+  async function isOrderOwner(order) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const userId = session?.user?.id;
+    const guestId = getGuestId();
+    
+    if (userId) {
+      return order.user_id === userId;
+    } else {
+      return order.user_id === null && order.guest_id === guestId;
+    }
+  }
+
+  function isOrderExpired(order) {
+    if (order.status !== 'delivered') return false;
+    if (!order.delivered_at) return false;
+    const deliveredTime = new Date(order.delivered_at).getTime();
+    const now = new Date().getTime();
+    const diffMs = now - deliveredTime;
+    return diffMs >= POST_DELIVERY_VISIBILITY_MS;
+  }
+
+  function expireOrder() {
+    if (expirationTimer) clearTimeout(expirationTimer);
+    if (countdownInterval) clearInterval(countdownInterval);
+    localStorage.removeItem('pedidoAtivo');
+    const trackCard = document.getElementById('track-card');
+    if (trackCard) {
+      trackCard.innerHTML = `
+        <div class="text-center py-8">
+          <span class="material-symbols-outlined text-6xl text-gray-400">schedule</span>
+          <h2 class="text-xl font-bold mt-4">Pedido finalizado</h2>
+          <p class="text-on-surface-variant mt-2">Este pedido foi entregue há mais de 30 minutos e não está mais disponível para acompanhamento.</p>
+          <div class="mt-6">
+            <a href="/" class="btn-primary inline-block">Voltar ao início</a>
+          </div>
+        </div>
+      `;
+    }
+    if (orderChannel) {
+      supabaseClient.removeChannel(orderChannel);
+      orderChannel = null;
+    }
+  }
+
+  function startExpirationTimer(deliveredAt) {
+    const deliveredTime = new Date(deliveredAt).getTime();
+    const now = new Date().getTime();
+    const elapsed = now - deliveredTime;
+    const remainingMs = POST_DELIVERY_VISIBILITY_MS - elapsed;
+    
+    if (remainingMs <= 0) {
+      expireOrder();
+      return;
+    }
+
+    const statusDiv = document.getElementById('status-message');
+    const timerSpan = document.createElement('div');
+    timerSpan.className = 'timer-text';
+    timerSpan.id = 'expiration-timer';
+    statusDiv.appendChild(timerSpan);
+    
+    function updateCountdown() {
+      const remaining = remainingMs - (new Date().getTime() - now);
+      if (remaining <= 0) {
+        if (countdownInterval) clearInterval(countdownInterval);
+        expireOrder();
+        return;
+      }
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      const timerSpanElem = document.getElementById('expiration-timer');
+      if (timerSpanElem) {
+        timerSpanElem.innerHTML = `⏱️ Esta página será fechada em ${minutes}:${seconds.toString().padStart(2,'0')} minutos.`;
+      }
+    }
+    updateCountdown();
+    countdownInterval = setInterval(updateCountdown, 1000);
+    
+    expirationTimer = setTimeout(() => {
+      expireOrder();
+    }, remainingMs);
+  }
 
   async function loadOrder() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -182,7 +271,6 @@
 
     console.log('[Acompanhamento] Buscando pedido ID:', orderId);
 
-    // Busca o pedido esperado por id com erro explícito quando não existir.
     const { data: order, error } = await supabaseClient
       .from('orders')
       .select('*')
@@ -200,6 +288,26 @@
       return;
     }
 
+    const isOwner = await isOrderOwner(order);
+    if (!isOwner) {
+      document.getElementById('track-card').innerHTML = `
+        <div class="text-center py-8">
+          <span class="material-symbols-outlined text-6xl text-gray-400">lock</span>
+          <h2 class="text-xl font-bold mt-4">Acesso negado</h2>
+          <p class="text-on-surface-variant mt-2">Você não tem permissão para visualizar este pedido.</p>
+          <div class="mt-6">
+            <a href="/" class="btn-primary inline-block">Voltar ao início</a>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (isOrderExpired(order)) {
+      expireOrder();
+      return;
+    }
+
     orderData = order;
     currentStatus = order.status;
     document.getElementById('order-id').innerText = orderId.substring(0,8);
@@ -209,14 +317,16 @@
     updateStatusUI(currentStatus);
     addConfirmButton();
 
-    // Remove canal anterior se existir para evitar duplicação
+    if (currentStatus === 'delivered' && order.delivered_at) {
+      startExpirationTimer(order.delivered_at);
+    }
+
     if (orderChannel) {
-      console.log('[Acompanhamento] Removendo canal anterior antes de reinscrever.');
+      console.log('[Acompanhamento] Removendo canal anterior.');
       await supabaseClient.removeChannel(orderChannel);
       orderChannel = null;
     }
     
-    // 🔥 Inscreve para mudanças em tempo real (Realtime)
     orderChannel = supabaseClient
       .channel(`order-${orderId}`)
       .on('postgres_changes', {
@@ -227,16 +337,20 @@
       }, (payload) => {
         console.log('[Acompanhamento] Evento Realtime recebido:', payload);
         const newStatus = payload.new.status;
+        const newDeliveredAt = payload.new.delivered_at;
         if (!statusOrder.includes(newStatus)) {
           console.warn('[Acompanhamento] Status inválido recebido via Realtime:', newStatus);
           return;
         }
-        if (newStatus !== currentStatus) {
+        if (newStatus !== currentStatus || newDeliveredAt !== orderData?.delivered_at) {
           console.log(`[Acompanhamento] Status alterado de ${currentStatus} para ${newStatus}`);
           currentStatus = newStatus;
           orderData = payload.new;
           updateStatusUI(currentStatus);
           addConfirmButton();
+          if (currentStatus === 'delivered' && orderData.delivered_at) {
+            startExpirationTimer(orderData.delivered_at);
+          }
         }
       })
       .subscribe((status) => {
@@ -295,7 +409,6 @@
     const existingBtn = document.getElementById('confirm-receipt-btn');
     if (existingBtn) existingBtn.remove();
 
-    // Botão de confirmação de recebimento (apenas quando status for 'delivery')
     if (currentStatus === 'delivery') {
       const btn = document.createElement('button');
       btn.id = 'confirm-receipt-btn';
@@ -353,7 +466,7 @@
     if (order.confirmation_code === code) {
       const { error: updateError } = await supabaseClient
         .from('orders')
-        .update({ status: 'delivered' })
+        .update({ status: 'delivered', delivered_at: new Date().toISOString() })
         .eq('id', orderId);
       if (updateError) {
         alert('Erro ao confirmar pedido. Tente novamente.');
@@ -369,7 +482,6 @@
     }
   }
 
-  // Recarrega manualmente quando a página ganha foco (útil para mobile)
   window.addEventListener('focus', () => {
     console.log('[Acompanhamento] Página em foco, recarregando pedido.');
     loadOrder();
@@ -381,6 +493,8 @@
       await supabaseClient.removeChannel(orderChannel);
       orderChannel = null;
     }
+    if (expirationTimer) clearTimeout(expirationTimer);
+    if (countdownInterval) clearInterval(countdownInterval);
   });
 
   loadOrder();
