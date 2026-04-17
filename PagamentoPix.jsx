@@ -1,121 +1,377 @@
-import React, { useState } from 'react';
-
-function PagamentoPix() {
-  const [qrCode, setQrCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [paymentId, setPaymentId] = useState(null);
-  const [polling, setPolling] = useState(null);
-
-  const finalizarPedido = async (paymentId) => {
-    try {
-      // Aqui você precisa buscar os dados do pedido pendente (sessionStorage ou contexto)
-      const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
-      if (!pedidoSalvo) {
-        console.error('Nenhum pedido pendente encontrado');
-        return;
-      }
-      const dadosPedido = JSON.parse(pedidoSalvo);
-      // Chama a mesma lógica de criação do pedido (RPC)
-      const response = await fetch('/api/pedidos/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...dadosPedido, paymentId })
-      });
-      const result = await response.json();
-      if (result.orderId) {
-        localStorage.setItem('pedidoAtivo', JSON.stringify({ id: result.orderId }));
-        window.location.href = `/acompanhamento?id=${result.orderId}`;
-      } else {
-        throw new Error('Erro ao criar pedido');
-      }
-    } catch (err) {
-      console.error('Erro ao finalizar pedido:', err);
-      alert('Erro ao finalizar pedido. Tente novamente.');
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Pagamento PIX - I Love Delicitas</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#ae2f34",
+            "primary-container": "#ff6b6b",
+            "secondary": "#006a65",
+            "surface": "#fff8f7",
+            "on-surface": "#251818",
+            "on-surface-variant": "#584140",
+            "surface-container-low": "#fff0ef",
+            "error": "#ba1a1a"
+          },
+          fontFamily: {
+            "headline": ["Plus Jakarta Sans"],
+            "body": ["Be Vietnam Pro"]
+          },
+          borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+        },
+      },
     }
-  };
+  </script>
+  <style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    body { background-color: #fff8f7; }
+    .qr-code-container img { max-width: 200px; height: auto; margin: 0 auto; }
+    input:disabled { background-color: #f3f4f6; color: #374151; cursor: not-allowed; border-color: #e5e7eb; }
+  </style>
+</head>
+<body>
 
-  const iniciarPolling = (paymentId) => {
-    const interval = setInterval(async () => {
+<!-- Sidebar (menu hambúrguer) -->
+<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
+  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
+    <div class="flex items-center gap-3">
+      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
+      <span class="text-primary font-headline font-bold text-lg">Menu</span>
+    </div>
+    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
+  </div>
+  <nav class="flex-1 px-4 py-6 space-y-2">
+    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
+    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
+    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
+    <div id="auth-links-sidebar">
+      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
+      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
+      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
+      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
+    </div>
+  </nav>
+</div>
+
+<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+    <div class="flex items-center gap-2">
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-primary">menu</span></button>
+      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo"></a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/carrinho" class="relative p-2 rounded-full hover:bg-[#fff0ef] transition-colors">
+        <span class="material-symbols-outlined text-primary text-2xl">shopping_bag</span>
+        <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+      </a>
+      <div id="user-menu" class="hidden flex items-center gap-3">
+        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
+        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
+        <span id="user-name" class="text-primary font-semibold"></span>
+        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
+      </div>
+      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
+    </div>
+  </div>
+</header>
+
+<main class="pt-24 pb-32 px-4 max-w-5xl mx-auto">
+  <h1 class="text-3xl font-headline font-bold mb-6 text-on-surface">💳 Pagamento com PIX</h1>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2 space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm">
+        <h2 class="text-xl font-bold mb-4">Confirmar pagamento</h2>
+        <form id="form-pix" class="space-y-4">
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">💵 Valor (R$)</label><input type="number" id="valor" step="0.01" min="1" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled></div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">📝 Descrição</label><input type="text" id="descricao" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled></div>
+          <div><label class="block font-semibold mb-1 text-on-surface-variant">📧 E-mail</label><input type="email" id="email" required class="w-full border rounded-full px-4 py-2 bg-gray-100 text-gray-700 cursor-not-allowed" readonly disabled></div>
+          <button type="submit" class="w-full bg-primary text-white py-3 rounded-full font-bold text-lg hover:brightness-105 transition">🔓 Gerar QR Code PIX</button>
+        </form>
+        <div id="resposta" class="mt-6"></div>
+      </div>
+    </div>
+    <div class="space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm">
+        <h2 class="text-xl font-bold mb-4">ℹ️ Como pagar</h2>
+        <ul class="space-y-3 text-on-surface-variant">
+          <li class="flex gap-2"><span class="material-symbols-outlined text-primary">qr_code_scanner</span> Escaneie o QR Code com seu banco</li>
+          <li class="flex gap-2"><span class="material-symbols-outlined text-primary">content_copy</span> Ou copie o código e cole no app do banco</li>
+          <li class="flex gap-2"><span class="material-symbols-outlined text-primary">schedule</span> O pagamento é confirmado em poucos segundos</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const API_URL = 'https://ilove-delicitas-admin.onrender.com';
+
+  const form = document.getElementById('form-pix');
+  const respostaDiv = document.getElementById('resposta');
+
+  let pollingInterval = null;
+  let currentPaymentId = null;
+
+  // ================== FUNÇÕES DE AUTENTICAÇÃO E SIDEBAR ==================
+  async function getToken() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session?.access_token) return session.access_token;
+    return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+  }
+
+  async function updateHeaderAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const userMenu = document.getElementById('user-menu');
+    const loginLink = document.getElementById('login-link');
+    if (session) {
+      userMenu.classList.remove('hidden');
+      loginLink.classList.add('hidden');
+      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
+      document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
+    } else {
+      userMenu.classList.add('hidden');
+      loginLink.classList.remove('hidden');
+    }
+  }
+
+  async function updateSidebarAuth() {
+    const loginLink = document.getElementById('sidebar-login-link');
+    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
+    const perfil = document.getElementById('sidebar-perfil');
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (loginLink && meusPedidos && perfil && logoutBtn) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        loginLink.classList.add('hidden');
+        meusPedidos.classList.remove('hidden');
+        perfil.classList.remove('hidden');
+        logoutBtn.classList.remove('hidden');
+      } else {
+        loginLink.classList.remove('hidden');
+        meusPedidos.classList.add('hidden');
+        perfil.classList.add('hidden');
+        logoutBtn.classList.add('hidden');
+      }
+    }
+  }
+
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
+
+  const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay'), openBtn = document.getElementById('open-sidebar-btn'), closeBtn = document.getElementById('close-sidebar-btn');
+  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
+
+  // ================== CARREGAR DADOS DO PEDIDO ==================
+  function carregarDadosDoPedido() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const paymentId = urlParams.get('payment_id');
+    if (token) sessionStorage.setItem('guest_token', token);
+    if (paymentId) currentPaymentId = paymentId;
+
+    const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
+    if (pedidoSalvo) {
       try {
-        const response = await fetch(`/api/pagamento/status/${paymentId}`);
+        const pedido = JSON.parse(pedidoSalvo);
+        if (pedido.valorTotal) document.getElementById('valor').value = pedido.valorTotal;
+        if (pedido.descricao) document.getElementById('descricao').value = pedido.descricao;
+        if (pedido.email) document.getElementById('email').value = pedido.email;
+      } catch(e) {}
+    }
+    const aviso = document.createElement('p');
+    aviso.className = 'text-xs text-secondary mt-2 text-center';
+    aviso.innerHTML = '🔒 Os dados do pedido estão confirmados e não podem ser alterados.';
+    form.prepend(aviso);
+  }
+
+  function atualizarContadorCarrinho() {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    const contador = document.getElementById('cart-count');
+    if (contador) contador.innerText = totalItems;
+  }
+
+  // ================== POLLING AUTOMÁTICO ==================
+  function iniciarPolling(paymentId) {
+    if (pollingInterval) clearInterval(pollingInterval);
+    currentPaymentId = paymentId;
+    console.log(`🔄 Polling iniciado para payment_id: ${paymentId}`);
+    pollingInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/pagamento/status/${paymentId}`);
         const data = await response.json();
+        console.log(`📡 Status do pagamento: ${data.status}`);
         if (data.status === 'approved' || data.status === 'paid') {
-          clearInterval(interval);
-          setPolling(null);
-          await finalizarPedido(paymentId);
+          console.log('✅ Pagamento aprovado! Finalizando pedido...');
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+          await finalizarPedido();
         }
       } catch (err) {
-        console.warn('Erro no polling:', err);
+        console.warn('⚠️ Erro no polling:', err);
       }
     }, 3000);
-    setPolling(interval);
-  };
+  }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setError('');
-    const formData = new FormData(event.target);
-    const data = {
-      valor: formData.get('valor'),
-      descricao: formData.get('descricao'),
-      email: formData.get('email'),
-    };
+  // ================== CRIAÇÃO DO PEDIDO ==================
+  async function criarPedidoComDados(dadosPedido) {
+    try {
+      if (dadosPedido.couponCode) {
+        const token = await getToken();
+        if (!token) throw new Error('Faça login para aplicar o cupom.');
+        const applyResponse = await fetch('https://ilove-delicitas-admin.onrender.com/api/user/coupon/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ code: dadosPedido.couponCode })
+        });
+        if (!applyResponse.ok) {
+          const payload = await applyResponse.json().catch(() => null);
+          throw new Error(payload?.message || 'Não foi possível aplicar o cupom.');
+        }
+      }
+      const itemsForRpc = dadosPedido.items.map(item => ({
+        product_id: item.id || null,
+        name: item.name,
+        quantity: item.quantity || 1,
+        price_cents: item.price_cents
+      }));
+      const { data, error } = await supabaseClient.rpc('create_order_secure', {
+        p_customer_name: dadosPedido.name,
+        p_customer_phone: dadosPedido.phone,
+        p_delivery_type: dadosPedido.deliveryType,
+        p_payment_method: dadosPedido.payment,
+        p_items: itemsForRpc,
+        p_cpf: dadosPedido.cpfRaw || null,
+        p_delivery_address: dadosPedido.deliveryAddress,
+        p_coupon_code: dadosPedido.couponCode,
+        p_guest_id: sessionStorage.getItem('guest_token') || localStorage.getItem('guest_token'),
+        p_user_id: dadosPedido.userId,
+        p_distance_km: dadosPedido.currentDistance
+      });
+      if (error) throw error;
+      const orderId = data.order_id;
+      localStorage.setItem('pedidoAtivo', JSON.stringify({ id: orderId }));
+      console.log('💾 pedidoAtivo salvo:', orderId);
+      return orderId;
+    } catch (err) {
+      console.error('Erro ao criar pedido:', err);
+      throw err;
+    }
+  }
+
+  async function finalizarPedido() {
+    const pedidoSalvo = sessionStorage.getItem('pedidoPendente');
+    if (!pedidoSalvo) {
+      alert('Nenhum pedido pendente encontrado. Volte ao checkout.');
+      window.location.href = '/checkout';
+      return;
+    }
+    try {
+      const dadosPedido = JSON.parse(pedidoSalvo);
+      const orderId = await criarPedidoComDados(dadosPedido);
+      sessionStorage.removeItem('pedidoPendente');
+      sessionStorage.removeItem('pixData');
+      localStorage.removeItem('cart');
+      localStorage.removeItem('appliedCoupon');
+      console.log('🚀 Redirecionando para acompanhamento...');
+      window.location.href = `/acompanhamento?id=${orderId}`;
+    } catch (err) {
+      alert('Erro ao finalizar pedido: ' + err.message);
+      console.error(err);
+    }
+  }
+
+  // ================== SUBMISSÃO DO FORMULÁRIO (GERAR PIX) ==================
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) return;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Gerando...';
+
+    const valor = document.getElementById('valor').value;
+    const descricao = document.getElementById('descricao').value;
+    const email = document.getElementById('email').value;
+    respostaDiv.innerHTML = '<div class="text-center py-4 text-on-surface-variant">⏳ Gerando pagamento, aguarde...</div>';
 
     try {
-      const response = await fetch('https://ilove-delicitas-admin.onrender.com/api/pagamento/pix', {
+      const response = await fetch(`${API_URL}/api/pagamento/pix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ valor, descricao, email })
       });
-      const result = await response.json();
-      if (response.ok) {
-        setQrCode(result.qr_code_base64 || result.qr_code);
-        if (result.payment_id) {
-          setPaymentId(result.payment_id);
-          iniciarPolling(result.payment_id);
-        }
-      } else {
-        setError(result.error || 'Erro ao gerar pagamento');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Falha ao gerar PIX');
+
+      // Inicia polling automático
+      if (data.payment_id) {
+        iniciarPolling(data.payment_id);
       }
-    } catch (err) {
-      setError('Erro de conexão com o servidor.');
-    } finally {
-      setLoading(false);
+
+      let html = '<div class="bg-surface p-4 rounded-2xl text-center">';
+      if (data.qr_code_base64) {
+        html += `<div class="qr-code-container mb-4"><img src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX" class="mx-auto rounded-xl shadow"></div>`;
+      }
+      if (data.qr_code) {
+        html += `<div class="bg-gray-100 p-3 rounded-xl break-all text-sm mb-2">${data.qr_code}</div>`;
+        html += `<button id="copiarCodigoBtn" class="mb-2 bg-secondary text-white px-4 py-2 rounded-full text-sm hover:brightness-105 transition">📋 Copiar código</button>`;
+        html += `<div class="text-secondary font-semibold mt-2">✅ Pagamento gerado! Escaneie o QR Code ou copie o código acima.</div>`;
+      } else if (data.qr_code_base64) {
+        html += `<div class="text-secondary font-semibold mb-2">✅ Pagamento gerado! Escaneie o QR Code com seu banco.</div>`;
+      } else {
+        html += `<div class="text-on-surface">✅ Pagamento criado! ID: ${data.payment_id}.</div>`;
+      }
+      html += `<div class="mt-4 text-sm text-on-surface-variant">⏳ Aguardando confirmação do pagamento... Você será redirecionado automaticamente.</div>`;
+      html += '</div>';
+      respostaDiv.innerHTML = html;
+
+      const copyBtn = document.getElementById('copiarCodigoBtn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(data.qr_code).then(() => alert('Código PIX copiado!')).catch(() => alert('Copie manualmente.'));
+        });
+      }
+    } catch (error) {
+      respostaDiv.innerHTML = `<div class="bg-error/10 text-error p-4 rounded-2xl">⚠️ Erro: ${error.message}</div>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Gerar QR Code PIX';
     }
-  };
+  });
 
-  // Limpa polling ao desmontar componente
-  React.useEffect(() => {
-    return () => {
-      if (polling) clearInterval(polling);
-    };
-  }, [polling]);
-
-  return (
-    <div className="container">
-      <form onSubmit={handleSubmit}>
-        <input type="number" name="valor" placeholder="Valor" required step="0.01" />
-        <input type="text" name="descricao" placeholder="Descrição" required />
-        <input type="email" name="email" placeholder="E-mail" required />
-        <button type="submit">Gerar QR Code PIX</button>
-      </form>
-      {loading && <p>Carregando...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {qrCode && (
-        <div>
-          <h3>QR Code PIX:</h3>
-          {qrCode.startsWith('data:image') ? (
-            <img src={qrCode} alt="QR Code PIX" />
-          ) : (
-            <p>{qrCode}</p>
-          )}
-          <p>Aguardando confirmação do pagamento... Você será redirecionado automaticamente.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default PagamentoPix;
+  // ================== INICIALIZAÇÃO ==================
+  carregarDadosDoPedido();
+  atualizarContadorCarrinho();
+  updateHeaderAuth();
+  updateSidebarAuth();
+  window.addEventListener('storage', (e) => { if (e.key === 'cart') atualizarContadorCarrinho(); });
+</script>
+<script src="/src/pages/floating-order-button.js"></script>
+</body>
+</html>
