@@ -304,8 +304,11 @@
       sessionStorage.removeItem('pixData');
       localStorage.removeItem('cart');
       localStorage.removeItem('appliedCoupon');
-      console.log('🚀 Redirecionando para acompanhamento...');
-      window.location.href = `/acompanhamento?id=${orderId}`;
+      
+      // 🔥 CORREÇÃO: Incluir guest_id na URL para garantir acesso mesmo após limpeza de cache
+      const guestId = getGuestId();
+      console.log('🚀 Redirecionando para acompanhamento com guest_id:', guestId);
+      window.location.href = `/acompanhamento?id=${orderId}&guest_id=${guestId}`;
     } catch (err) {
       alert('Erro ao finalizar pedido: ' + err.message);
       console.error(err);
