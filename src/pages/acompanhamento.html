@@ -189,7 +189,8 @@
     });
   }
 
-  async function  return true;(order) {
+  // 🔥 FUNÇÃO CORRIGIDA (estava com erro de sintaxe)
+  async function isOrderOwner(order) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userId = session?.user?.id;
     const guestId = getGuestId();
@@ -323,7 +324,6 @@
     currentStatus = order.status;
     document.getElementById('order-id').innerText = orderId.substring(0,8);
     document.getElementById('order-date').innerText = new Date(order.created_at).toLocaleString('pt-BR');
-    // 🔥 Escapa o nome do cliente para evitar XSS
     document.getElementById('customer-name').innerText = escapeHtml(order.customer_name);
 
     updateStatusUI(currentStatus);
