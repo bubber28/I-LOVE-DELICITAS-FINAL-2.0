@@ -24,18 +24,9 @@
   .progress-line-fill { height: 100%; background: #10b981; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
   /* 🔥 ANIMAÇÃO CIRCULAR MELHORADA */
   @keyframes pulse {
-    0% {
-      transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(174, 47, 52, 0.4);
-    }
-    70% {
-      transform: scale(1.05);
-      box-shadow: 0 0 0 12px rgba(174, 47, 52, 0);
-    }
-    100% {
-      transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(174, 47, 52, 0);
-    }
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0.4); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(174,47,52,0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(174,47,52,0); }
   }
   @keyframes bounceIcon {
     0%, 100% { transform: scale(1); }
@@ -158,7 +149,25 @@
 <script>
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // 🔥 Obtém guest_id de forma consistente
+  function getGuestId() {
+    let guestId = localStorage.getItem('guest_id');
+    if (!guestId) {
+      guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('guest_id', guestId);
+    }
+    return guestId;
+  }
+
+  // 🔥 Cria cliente Supabase com header x-guest-id (necessário para as políticas RLS)
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    global: {
+      headers: {
+        'x-guest-id': getGuestId()
+      }
+    }
+  });
 
   let orderId = null;
   let currentStatus = null;
@@ -169,13 +178,15 @@
   const POST_DELIVERY_VISIBILITY_MS = 30 * 60 * 1000; // 30 minutos
   let orderChannel = null;
 
-  function getGuestId() {
-    let guestId = localStorage.getItem('guest_id');
-    if (!guestId) {
-      guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('guest_id', guestId);
-    }
-    return guestId;
+  // 🔧 Escapar HTML para evitar XSS
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
   }
 
   async function isOrderOwner(order) {
@@ -312,7 +323,8 @@
     currentStatus = order.status;
     document.getElementById('order-id').innerText = orderId.substring(0,8);
     document.getElementById('order-date').innerText = new Date(order.created_at).toLocaleString('pt-BR');
-    document.getElementById('customer-name').innerText = order.customer_name;
+    // 🔥 Escapa o nome do cliente para evitar XSS
+    document.getElementById('customer-name').innerText = escapeHtml(order.customer_name);
 
     updateStatusUI(currentStatus);
     addConfirmButton();
