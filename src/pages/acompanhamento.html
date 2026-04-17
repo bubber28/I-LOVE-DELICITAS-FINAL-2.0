@@ -189,7 +189,7 @@
     });
   }
 
-  async function isOrderOwner(order) {
+  async function  return true;(order) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userId = session?.user?.id;
     const guestId = getGuestId();
