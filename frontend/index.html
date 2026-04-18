@@ -130,8 +130,10 @@
   </section>
 </main>
 
-<footer class="bg-[#fff0ef] py-12 text-center">
+<footer class="bg-[#fff0ef] py-8 text-center text-sm text-on-surface-variant">
   <p>© 2026 I Love Delicitas. Todos os direitos reservados.</p>
+  <p class="mt-2">CNPJ: 61.316.392/0001-97</p>
+  <p id="footer-preparation-time" class="mt-2"></p>
 </footer>
 
 <div id="toast" class="toast">✅ Produto adicionado ao carrinho!</div>
@@ -139,7 +141,6 @@
 <script>
   // ================== INJEÇÃO FORÇADA DO LINK "MEUS PEDIDOS" ==================
   function injectMeusPedidosLink() {
-    // Sidebar
     const sidebarContainer = document.getElementById('sidebar-meus-pedidos-container');
     if (sidebarContainer) {
       sidebarContainer.innerHTML = `
@@ -149,8 +150,6 @@
         </a>
       `;
     }
-    
-    // Header
     const headerContainer = document.getElementById('header-meus-pedidos-container');
     if (headerContainer) {
       headerContainer.innerHTML = `
@@ -158,14 +157,13 @@
       `;
     }
   }
-
-  // Executa imediatamente
   injectMeusPedidosLink();
 
   // ================== CONFIGURAÇÃO SUPABASE ==================
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const SETTINGS_BASE_URL = 'https://ilove-delicitas-admin.onrender.com/api/settings';
 
   function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
   function updateCartCount() { const cart = JSON.parse(localStorage.getItem('cart') || '[]'); const total = cart.reduce((s,i) => s + (i.quantity||1), 0); document.getElementById('cart-count').innerText = total; }
@@ -227,6 +225,20 @@
 
   function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
 
+  // Tempo de preparo dinâmico
+  async function loadPreparationTime() {
+    try {
+      const res = await fetch(`${SETTINGS_BASE_URL}/preparation-time`);
+      const data = await res.json();
+      let value = data?.preparationTime || data?.data?.preparationTime;
+      if (typeof value === 'number') value = `${value} min`;
+      else if (typeof value === 'string') value = value;
+      else value = '30-45 min';
+      document.getElementById('footer-preparation-time').innerText = `⏱️ Tempo médio de preparo: ${value}`;
+    } catch { document.getElementById('footer-preparation-time').innerText = '⏱️ Tempo médio de preparo: 30-45 min'; }
+  }
+  loadPreparationTime();
+
   // Autenticação
   async function updateUI() {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -252,7 +264,7 @@
   document.getElementById('close-sidebar-btn').onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
   overlay.onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
 
-  // LINK MEUS PEDIDOS INTELIGENTE (usando delegação de evento)
+  // LINK MEUS PEDIDOS INTELIGENTE
   function getGuestId() { let id = localStorage.getItem('guest_id'); if (!id) { id = 'guest_'+Date.now()+'_'+Math.random().toString(36).substr(2,9); localStorage.setItem('guest_id', id); } return id; }
   document.body.addEventListener('click', (e) => {
     const link = e.target.closest('a[href="/meus-pedidos"]');
