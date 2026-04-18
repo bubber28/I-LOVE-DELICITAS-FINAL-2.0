@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
-  /* seus estilos originais - nenhuma linha foi alterada */
   body { background-color: #fff8f7; font-family: 'Be Vietnam Pro', sans-serif; }
   .container-custom { max-width: 800px; margin: 0 auto; }
   .track-card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -75,31 +74,21 @@
     border-radius: 1rem;
     margin: 1rem 0;
   }
-  .timer-text {
-    font-size: 0.85rem;
-    color: #6b7280;
-    margin-top: 0.5rem;
-  }
-  .star {
-    font-size: 2rem;
-    cursor: pointer;
-    transition: color 0.2s;
-  }
-  .star:hover {
-    color: #fbbf24;
-  }
-  /* 🔥 NOVO: leve destaque para área de avaliação */
-  .avaliacao-container {
-    background: #fefce8;
-    border: 1px solid #fde047;
-  }
+  .timer-text { font-size: 0.85rem; color: #6b7280; margin-top: 0.5rem; }
+  .star { font-size: 2rem; cursor: pointer; transition: color 0.2s; }
+  .star:hover { color: #fbbf24; }
+  .avaliacao-container { background: #fefce8; border: 1px solid #fde047; }
+  /* Link do header */
+  .header-link { color: #ae2f34; font-weight: 500; text-decoration: none; margin-left: auto; }
+  .header-link:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 
 <header class="bg-surface-container-low py-4 px-6 shadow-sm">
-  <div class="container-custom">
-    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
+  <div class="container-custom" style="display: flex; align-items: center; justify-content: space-between;">
+    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo"/></a>
+    <a href="/meus-pedidos" id="meus-pedidos-header-link" class="header-link">Meus pedidos</a>
   </div>
 </header>
 
@@ -163,7 +152,6 @@
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
 
-  // 🔥 Função getGuestId (mantida)
   function getGuestId() {
     let guestId = localStorage.getItem('guest_id');
     if (!guestId) {
@@ -173,12 +161,10 @@
     return guestId;
   }
 
-  // 🔥 Cria cliente Supabase com header x-guest-id (atualizado dinamicamente)
   let supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     global: { headers: { 'x-guest-id': getGuestId() } }
   });
 
-  // Função para atualizar o header do cliente Supabase (quando guest_id muda)
   function updateSupabaseGuestId(guestId) {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       global: { headers: { 'x-guest-id': guestId } }
@@ -271,7 +257,6 @@
   async function mostrarAvaliacao() {
     const statusMsgDiv = document.getElementById('status-message');
     if (await jaAvaliou(orderId)) {
-      // já avaliou, apenas exibe agradecimento (sem apagar a mensagem principal)
       const thanks = document.createElement('div');
       thanks.className = 'text-green-600 mt-3 font-medium';
       thanks.innerText = '✅ Obrigado pela sua avaliação! Volte sempre.';
@@ -279,7 +264,6 @@
       return;
     }
 
-    // Cria container de avaliação e adiciona ao status-message (sem sobrescrever)
     const avaliacaoDiv = document.createElement('div');
     avaliacaoDiv.className = 'avaliacao-container mt-4 p-4 bg-white rounded-xl border border-gray-200 text-left';
     avaliacaoDiv.innerHTML = `
@@ -447,7 +431,6 @@
       return;
     }
 
-    // 🔥 Lê o guest_id da URL (se existir) e sincroniza com localStorage e header do Supabase
     const urlGuestId = urlParams.get('guest_id');
     let currentGuestId = getGuestId();
     if (urlGuestId && urlGuestId !== currentGuestId) {
@@ -515,6 +498,23 @@
       })
       .subscribe();
   }
+
+  // Link "Meus Pedidos" no header
+  document.getElementById('meus-pedidos-header-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    const ativo = localStorage.getItem('pedidoAtivo');
+    if (!ativo) {
+      alert('Você não possui um pedido ativo no momento.');
+      window.location.href = '/cardapio';
+      return;
+    }
+    try {
+      const p = JSON.parse(ativo);
+      window.location.href = `/acompanhamento?id=${p.id}&guest_id=${getGuestId()}`;
+    } catch {
+      alert('Erro ao localizar pedido.');
+    }
+  });
 
   window.addEventListener('focus', () => { loadOrder(); });
   window.addEventListener('beforeunload', async () => {
