@@ -48,51 +48,11 @@
 </head>
 <body class="bg-surface text-on-surface">
 
-<!-- Sidebar -->
-<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
-<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
-  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
-    <div class="flex items-center gap-3">
-      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
-      <span class="text-primary font-headline font-bold text-lg">Menu</span>
-    </div>
-    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
-  </div>
-  <nav id="sidebar-nav" class="flex-1 px-4 py-6 space-y-2">
-    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
-    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
-    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
-    
-    <div id="sidebar-meus-pedidos-container"></div>
-    
-    <div id="auth-links-sidebar">
-      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
-      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
-      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
-    </div>
-  </nav>
-</div>
-
-<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
-  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <div class="flex items-center gap-2">
-      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-primary">menu</span></button>
-      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
-    </div>
-    <div id="header-actions" class="flex items-center gap-4">
-      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center leading-none font-semibold">0</span></a>
-      
-      <div id="header-meus-pedidos-container"></div>
-      
-      <div id="user-menu" class="hidden flex items-center gap-3">
-        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
-        <span id="user-name" class="text-primary font-semibold"></span>
-        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
-      </div>
-      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
-    </div>
-  </div>
-</header>
+<!-- 🌍 COMPONENTES GLOBAIS -->
+<div id="global-header"></div>
+<div id="global-sidebar"></div>
+<script src="/src/components/header.js"></script>
+<script src="/src/components/sidebar.js"></script>
 
 <main class="pt-24 pb-32 px-4 max-w-7xl mx-auto">
   <h1 class="text-3xl font-bold mb-2 cardapio-title">Cardápio</h1>
@@ -116,15 +76,7 @@
 </footer>
 
 <script>
-  // ================== INJEÇÃO DO LINK ==================
-  function injectMeusPedidosLink() {
-    const sidebarContainer = document.getElementById('sidebar-meus-pedidos-container');
-    if (sidebarContainer) sidebarContainer.innerHTML = `<a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" style="display: flex !important;"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>`;
-    const headerContainer = document.getElementById('header-meus-pedidos-container');
-    if (headerContainer) headerContainer.innerHTML = `<a href="/meus-pedidos" class="text-primary hover:underline text-sm font-medium" style="display: inline-block !important;">Meus pedidos</a>`;
-  }
-  injectMeusPedidosLink();
-
+  // ================== CONFIGURAÇÃO SUPABASE ==================
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const SETTINGS_BASE_URL = 'https://ilove-delicitas-admin.onrender.com/api/settings';
@@ -132,8 +84,17 @@
 
   let categories = [], allProducts = [], currentCategory = 'all';
 
-  function showToast(msg) { const t = document.querySelector('.toast') || (()=>{const d=document.createElement('div');d.className='toast';document.body.appendChild(d);return d;})(); t.textContent=msg; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2000); }
-  function updateCartCount() { const cart = JSON.parse(localStorage.getItem('cart')||'[]'); document.getElementById('cart-count').innerText = cart.reduce((s,i)=>s+(i.quantity||1),0); }
+  function showToast(msg) { 
+    const t = document.querySelector('.toast') || (()=>{const d=document.createElement('div');d.className='toast';document.body.appendChild(d);return d;})(); 
+    t.textContent=msg; t.style.opacity='1'; 
+    setTimeout(()=>t.style.opacity='0',2000); 
+  }
+
+  function updateCartCount() { 
+    const cart = JSON.parse(localStorage.getItem('cart')||'[]'); 
+    const el = document.getElementById('cart-count'); 
+    if (el) el.innerText = cart.reduce((s,i)=>s+(i.quantity||1),0); 
+  }
   updateCartCount();
 
   async function loadCategories() {
@@ -141,10 +102,24 @@
     categories = data || [];
     const container = document.getElementById('category-filters');
     container.innerHTML = '<button data-category="all" class="category-filter bg-primary text-white px-4 py-2 rounded-full text-sm font-semibold">Todos</button>';
-    categories.forEach(cat => { const btn = document.createElement('button'); btn.innerText = cat.name; btn.dataset.category = cat.id; btn.className = 'category-filter bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold hover:bg-primary-container transition'; container.appendChild(btn); });
+    categories.forEach(cat => { 
+      const btn = document.createElement('button'); 
+      btn.innerText = cat.name; 
+      btn.dataset.category = cat.id; 
+      btn.className = 'category-filter bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold hover:bg-primary-container transition'; 
+      container.appendChild(btn); 
+    });
     document.querySelectorAll('.category-filter').forEach(btn => btn.addEventListener('click', () => {
       currentCategory = btn.dataset.category;
-      document.querySelectorAll('.category-filter').forEach(b => { if (b.dataset.category === currentCategory) { b.classList.add('bg-primary','text-white'); b.classList.remove('bg-surface-container-low','text-on-surface-variant'); } else { b.classList.remove('bg-primary','text-white'); b.classList.add('bg-surface-container-low','text-on-surface-variant'); } });
+      document.querySelectorAll('.category-filter').forEach(b => { 
+        if (b.dataset.category === currentCategory) { 
+          b.classList.add('bg-primary','text-white'); 
+          b.classList.remove('bg-surface-container-low','text-on-surface-variant'); 
+        } else { 
+          b.classList.remove('bg-primary','text-white'); 
+          b.classList.add('bg-surface-container-low','text-on-surface-variant'); 
+        } 
+      });
       renderProducts();
     }));
   }
@@ -159,7 +134,10 @@
     const container = document.getElementById('products-list');
     let filtered = allProducts;
     if (currentCategory !== 'all') filtered = allProducts.filter(p => p.category_id === currentCategory);
-    if (!filtered.length) { container.innerHTML = '<div class="text-center py-8 col-span-full">Nenhum produto encontrado.</div>'; return; }
+    if (!filtered.length) { 
+      container.innerHTML = '<div class="text-center py-8 col-span-full">Nenhum produto encontrado.</div>'; 
+      return; 
+    }
     container.innerHTML = filtered.map(p => `
       <div class="bg-white rounded-2xl overflow-hidden shadow-sm product-card cursor-pointer group">
         <div class="relative overflow-hidden">
@@ -182,11 +160,18 @@
 
   function addToCart(id, name, priceCents, img) {
     let cart = JSON.parse(localStorage.getItem('cart')||'[]');
-    const ex = cart.find(i=>i.id===id); if (ex) ex.quantity++; else cart.push({id, name, price_cents: priceCents, quantity:1, image_url: img});
-    localStorage.setItem('cart', JSON.stringify(cart)); updateCartCount(); showToast(`✅ ${name} adicionado!`);
+    const ex = cart.find(i=>i.id===id); 
+    if (ex) ex.quantity++; 
+    else cart.push({id, name, price_cents: priceCents, quantity:1, image_url: img});
+    localStorage.setItem('cart', JSON.stringify(cart)); 
+    updateCartCount(); 
+    showToast(`✅ ${name} adicionado!`);
   }
 
-  function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+  function escapeHtml(s) { 
+    if (!s) return ''; 
+    return s.replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); 
+  }
 
   async function loadPreparationTime() {
     try {
@@ -197,46 +182,17 @@
       else if (typeof value === 'string') value = value;
       else value = '30-45 min';
       document.getElementById('footer-preparation-time').innerText = `⏱️ Tempo médio de preparo: ${value}`;
-    } catch { document.getElementById('footer-preparation-time').innerText = '⏱️ Tempo médio de preparo: 30-45 min'; }
+    } catch { 
+      document.getElementById('footer-preparation-time').innerText = '⏱️ Tempo médio de preparo: 30-45 min'; 
+    }
   }
   loadPreparationTime();
 
-  // Autenticação
-  async function updateUI() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const userMenu = document.getElementById('user-menu'); const loginLink = document.getElementById('login-link');
-    const sidebarLogin = document.getElementById('sidebar-login-link'); const sidebarPerfil = document.getElementById('sidebar-perfil'); const sidebarLogout = document.getElementById('sidebar-logout-btn');
-    if (session) {
-      userMenu.classList.remove('hidden'); loginLink.classList.add('hidden');
-      sidebarLogin.classList.add('hidden'); sidebarPerfil.classList.remove('hidden'); sidebarLogout.classList.remove('hidden');
-      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
-      document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
-    } else {
-      userMenu.classList.add('hidden'); loginLink.classList.remove('hidden');
-      sidebarLogin.classList.remove('hidden'); sidebarPerfil.classList.add('hidden'); sidebarLogout.classList.add('hidden');
-    }
-  }
-  document.getElementById('logout-btn')?.addEventListener('click', async () => { await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); location.href = '/'; });
-  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => { await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); location.href = '/'; });
-
-  // Sidebar toggle
-  const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay');
-  document.getElementById('open-sidebar-btn').onclick = () => { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); };
-  document.getElementById('close-sidebar-btn').onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
-  overlay.onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
-
-  // LINK MEUS PEDIDOS
-  function getGuestId() { let id = localStorage.getItem('guest_id'); if (!id) { id = 'guest_'+Date.now()+'_'+Math.random().toString(36).substr(2,9); localStorage.setItem('guest_id', id); } return id; }
-  document.body.addEventListener('click', (e) => {
-    const link = e.target.closest('a[href="/meus-pedidos"]');
-    if (!link) return;
-    e.preventDefault();
-    const ativo = localStorage.getItem('pedidoAtivo');
-    if (!ativo) { alert('Você não possui um pedido ativo.'); location.href = '/cardapio'; return; }
-    try { const p = JSON.parse(ativo); location.href = `/acompanhamento?id=${p.id}&guest_id=${getGuestId()}`; } catch { alert('Erro ao localizar pedido.'); }
+  // Inicialização
+  document.addEventListener('DOMContentLoaded', () => {
+    loadCategories();
+    loadProducts();
   });
-
-  updateUI(); loadCategories(); loadProducts();
 </script>
 </body>
 </html>
