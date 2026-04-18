@@ -45,51 +45,11 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) -->
-<div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
-<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
-  <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
-    <div class="flex items-center gap-3">
-      <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
-      <span class="text-primary font-headline font-bold text-lg">Menu</span>
-    </div>
-    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
-      <span class="material-symbols-outlined">close</span>
-    </button>
-  </div>
-  <nav class="flex-1 px-4 py-6 space-y-2">
-    <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
-    <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
-    <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
-    <div id="auth-links-sidebar">
-      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
-      <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
-      <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
-      <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
-    </div>
-  </nav>
-</div>
-
-<header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
-  <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-    <div class="flex items-center gap-2">
-      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
-        <span class="material-symbols-outlined text-primary">menu</span>
-      </button>
-      <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
-    </div>
-    <div class="flex items-center gap-4">
-      <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center leading-none font-semibold">0</span></a>
-      <div id="user-menu" class="hidden flex items-center gap-3">
-        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
-        <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
-        <span id="user-name" class="text-primary font-semibold"></span>
-        <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
-      </div>
-      <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
-    </div>
-  </div>
-</header>
+<!-- 🌍 COMPONENTES GLOBAIS -->
+<div id="global-header"></div>
+<div id="global-sidebar"></div>
+<script src="/src/components/header.js"></script>
+<script src="/src/components/sidebar.js"></script>
 
 <main class="pt-24 pb-32 px-4 max-w-md mx-auto">
   <div class="bg-white rounded-2xl p-3 shadow-sm mb-5">
@@ -108,7 +68,6 @@
       <form id="profile-form" class="space-y-4">
         <div><label class="block font-semibold mb-1">Nome completo</label><input type="text" id="name" class="input-field" required></div>
         <div><label class="block font-semibold mb-1">Telefone (WhatsApp)</label><input type="tel" id="phone" class="input-field" required></div>
-        <!-- NOVO CAMPO CPF -->
         <div>
           <label class="block font-semibold mb-1">CPF</label>
           <input type="text" id="cpf" class="input-field" placeholder="000.000.000-00" maxlength="14">
@@ -149,6 +108,7 @@
 </main>
 
 <script>
+  // ================== CONFIGURAÇÃO SUPABASE ==================
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const SETTINGS_BASE_URL = 'https://ilove-delicitas-admin.onrender.com/api/settings';
@@ -209,75 +169,20 @@
     applyTextIfFound('.profile-subtitle', pickFirstValue(content, ['profile.subtitle', 'perfil.subtitle']));
   }
 
-  function applyPreparationTimeConfig(payload) {
-    const prep = payload?.preparationTime ?? payload?.data?.preparationTime ?? payload?.data ?? payload;
-    let value = null;
-    if (typeof prep === 'number') {
-      value = `${prep} min`;
-    } else if (typeof prep === 'string') {
-      value = prep;
-    } else {
-      value = pickFirstValue(prep || {}, ['label', 'display', 'average', 'time', 'preparationTime']);
-    }
-    if (value) applyTextIfFound('#profile-preparation-time', `Tempo medio de preparo: ${value}`);
-  }
-
-  function formatOpeningHours(opening) {
-    if (!opening || typeof opening !== 'object') return null;
-    const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    const dayLabel = { monday: 'seg', tuesday: 'ter', wednesday: 'qua', thursday: 'qui', friday: 'sex', saturday: 'sab', sunday: 'dom' };
-    const enabled = dayOrder.filter((day) => opening[day]?.enabled);
-    if (!enabled.length) return null;
-    const sameSchedule = enabled.every((day) => {
-      const first = opening[enabled[0]];
-      const current = opening[day];
-      return first?.open === current?.open && first?.close === current?.close;
-    });
-    if (sameSchedule && enabled.length > 1) {
-      const first = opening[enabled[0]];
-      return `${dayLabel[enabled[0]]}-${dayLabel[enabled[enabled.length - 1]]} ${first.open}-${first.close}`;
-    }
-    return enabled.map((day) => `${dayLabel[day]} ${opening[day].open}-${opening[day].close}`).join(' | ');
-  }
-
-  function applyOpeningHoursConfig(payload) {
-    const opening = payload?.openingHours || payload?.data || payload || {};
-    const value = pickFirstValue(opening, ['label', 'display', 'summary', 'hours']) || formatOpeningHours(opening);
-    if (value) applyTextIfFound('#profile-opening-hours', `Funcionamento: ${value}`);
-  }
-
-  function applyShippingConfig(payload) {
-    const shipping = payload?.shipping || payload?.data || payload || {};
-    const standardFee = pickFirstValue(shipping, ['standardFee', 'standard_fee', 'frete_padrao', 'defaultShipping']);
-    const freeMin = pickFirstValue(shipping, ['freeShippingMinimum', 'free_shipping_minimum', 'frete_gratis_minimo', 'freeShippingMin']);
-
-    if (standardFee !== null && freeMin !== null) {
-      const standard = Number(standardFee) || 0;
-      const minimum = Number(freeMin) || 0;
-      applyTextIfFound('#profile-shipping-info', `Frete padrao: R$ ${standard.toFixed(2).replace('.', ',')} | Gratis acima de R$ ${minimum.toFixed(2).replace('.', ',')}`);
-    }
-  }
-
   async function loadDynamicSettings() {
-    const [brand, content, preparationTime, openingHours, shipping] = await Promise.all([
+    const [brand, content] = await Promise.all([
       fetchSettings(`${SETTINGS_BASE_URL}/brand`),
-      fetchSettings(`${SETTINGS_BASE_URL}/content`),
-      fetchSettings(`${SETTINGS_BASE_URL}/preparation-time`),
-      fetchSettings(`${SETTINGS_BASE_URL}/opening-hours`),
-      fetchSettings(`${SETTINGS_BASE_URL}/shipping`)
+      fetchSettings(`${SETTINGS_BASE_URL}/content`)
     ]);
-
     if (brand) applyBrandTheme(brand);
     if (content) applyContentConfig(content);
-    if (preparationTime) applyPreparationTimeConfig(preparationTime);
-    if (openingHours) applyOpeningHoursConfig(openingHours);
-    if (shipping) applyShippingConfig(shipping);
   }
 
   function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const totalItems = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
-    document.getElementById('cart-count').innerText = totalItems;
+    const el = document.getElementById('cart-count');
+    if (el) el.innerText = totalItems;
   }
 
   function escapeHTML(value) {
@@ -430,7 +335,6 @@
 
   updateCartCount();
 
-  // Máscara de CPF
   function formatCPF(value) {
     value = value.replace(/\D/g, '');
     if (value.length > 11) value = value.slice(0, 11);
@@ -464,15 +368,10 @@
     document.getElementById('cpf').value = profile?.cpf ? formatCPF(profile.cpf) : '';
     document.getElementById('email').value = userEmail;
 
-    const userName = profile?.name || userEmail.split('@')[0];
-    document.getElementById('user-name').innerText = userName;
-    document.getElementById('user-menu').classList.remove('hidden');
-    document.getElementById('login-link').classList.add('hidden');
-
+    // O componente header.js atualiza o nome do usuário automaticamente
     loadUserCoupon();
   }
 
-  // Aplicar máscara enquanto digita
   const cpfInput = document.getElementById('cpf');
   if (cpfInput) {
     cpfInput.addEventListener('input', function(e) {
@@ -505,7 +404,7 @@
       errorEl.classList.remove('hidden');
       return;
     }
-    if (cpf === '') cpf = null; // permite salvar vazio
+    if (cpf === '') cpf = null;
 
     const { error } = await supabaseClient
       .from('profiles')
@@ -517,7 +416,7 @@
     } else {
       successEl.textContent = 'Perfil atualizado com sucesso!';
       successEl.classList.remove('hidden');
-      document.getElementById('user-name').innerText = name || user.email.split('@')[0];
+      // O componente header.js será notificado via storage
     }
   });
 
@@ -525,67 +424,10 @@
     window.location.href = '/reset-password?from=profile';
   });
 
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-
-  // Sidebar
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('mobile-overlay');
-  const openBtn = document.getElementById('open-sidebar-btn');
-  const closeBtn = document.getElementById('close-sidebar-btn');
-  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
-  if (openBtn) openBtn.addEventListener('click', openSidebar);
-  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-  if (overlay) overlay.addEventListener('click', closeSidebar);
-  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
-
-  async function updateSidebarAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const loginLink = document.getElementById('sidebar-login-link');
-    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
-    const perfil = document.getElementById('sidebar-perfil');
-    const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (session) {
-      loginLink.classList.add('hidden');
-      meusPedidos.classList.remove('hidden');
-      perfil.classList.remove('hidden');
-      logoutBtn.classList.remove('hidden');
-    } else {
-      loginLink.classList.remove('hidden');
-      meusPedidos.classList.add('hidden');
-      perfil.classList.add('hidden');
-      logoutBtn.classList.add('hidden');
-    }
-  }
-  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-
   async function getAuthToken() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session?.access_token) {
-      return session.access_token;
-    }
-
-    const candidates = [
-      localStorage.getItem('token'),
-      localStorage.getItem('access_token'),
-      sessionStorage.getItem('token'),
-      sessionStorage.getItem('access_token'),
-      localStorage.getItem('supabase.auth.token')
-    ].filter(Boolean);
-
-    if (candidates.length > 0) {
-      return candidates[0];
-    }
-
-    return null;
+    if (session?.access_token) return session.access_token;
+    return localStorage.getItem('token') || null;
   }
 
   function normalizeCouponData(coupon) {
@@ -608,55 +450,15 @@
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
       if (!response.ok) return null;
-
       const payload = await response.json();
-      const coupons = Array.isArray(payload)
-        ? payload
-        : (Array.isArray(payload?.cupons)
-          ? payload.cupons
-          : (Array.isArray(payload?.historico) ? payload.historico : []));
-
-      const active = coupons.find((coupon) => {
-        const status = getCouponHistoryStatus(coupon);
-        return status.isActive;
-      });
-
+      const coupons = Array.isArray(payload) ? payload : (Array.isArray(payload?.cupons) ? payload.cupons : []);
+      const active = coupons.find((coupon) => getCouponHistoryStatus(coupon).isActive);
       return normalizeCouponData(active);
     } catch (error) {
-      console.warn('Falha ao buscar cupom ativo no histórico:', error);
+      console.warn('Falha ao buscar cupom ativo:', error);
       return null;
     }
-  }
-
-  async function fetchActiveCouponFromSupabase(user) {
-    if (!user) return null;
-
-    const queryAttempts = [
-      () => supabaseClient.from('coupons').select('*').eq('user_id', user.id).eq('used', false).gt('valid_until', new Date().toISOString()).order('valid_until', { ascending: true }).limit(1),
-      () => supabaseClient.from('coupons').select('*').eq('email', user.email).eq('used', false).gt('valid_until', new Date().toISOString()).order('valid_until', { ascending: true }).limit(1),
-      () => supabaseClient.from('coupons').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
-      () => supabaseClient.from('coupons').select('*').eq('email', user.email).order('created_at', { ascending: false }).limit(20)
-    ];
-
-    for (const runQuery of queryAttempts) {
-      try {
-        const { data, error } = await runQuery();
-        if (error || !Array.isArray(data) || data.length === 0) continue;
-
-        const active = data.find((coupon) => {
-          const status = getCouponHistoryStatus(coupon);
-          return status.isActive;
-        });
-
-        if (active) return normalizeCouponData(active);
-      } catch (error) {
-        console.warn('Falha em fallback de cupom via Supabase:', error);
-      }
-    }
-
-    return null;
   }
 
   async function loadUserCoupon() {
@@ -665,66 +467,34 @@
 
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) {
-      container.innerHTML = `
-        <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
-          <p class="text-amber-200 text-sm">Faça login para visualizar seus cupons.</p>
-        </div>`;
+      container.innerHTML = `<div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);"><p class="text-amber-200 text-sm">Faça login para visualizar seus cupons.</p></div>`;
       return;
     }
 
     const token = await getAuthToken();
-
-    container.innerHTML = `
-      <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
-        <p class="text-amber-200 text-sm animate-pulse">Carregando seu presente...</p>
-      </div>`;
+    container.innerHTML = `<div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);"><p class="text-amber-200 text-sm animate-pulse">Carregando seu presente...</p></div>`;
 
     let activeCoupon = null;
     try {
       if (token) {
-        const res = await fetch('https://ilove-delicitas-admin.onrender.com/api/user/coupon', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (res.status === 401) {
-          await supabaseClient.auth.signOut();
-          window.location.href = '/login';
-          return;
-        }
-
-        if (res.ok) {
-          const data = await res.json();
-          activeCoupon = normalizeCouponData(data);
-        }
+        const res = await fetch('https://ilove-delicitas-admin.onrender.com/api/user/coupon', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) activeCoupon = normalizeCouponData(await res.json());
       }
-    } catch (err) {
-      console.error('Erro ao carregar cupom em /api/user/coupon:', err);
-    }
+    } catch (err) { console.error('Erro ao carregar cupom:', err); }
 
+    if (!activeCoupon) activeCoupon = await fetchActiveCouponFromHistory(token);
     if (!activeCoupon) {
-      activeCoupon = await fetchActiveCouponFromHistory(token);
+      container.innerHTML = `<div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);"><p class="text-amber-200 text-sm">🎁 Seu cupom já foi usado ou expirou. Volte sempre!</p></div>`;
+      return;
     }
-
-    if (!activeCoupon) {
-      activeCoupon = await fetchActiveCouponFromSupabase(user);
-    }
-
-    const emptyState = `
-      <div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);">
-        <p class="text-amber-200 text-sm">🎁 Seu cupom já foi usado ou expirou. Volte sempre!</p>
-      </div>`;
-
-    if (!activeCoupon || !activeCoupon.code) { container.innerHTML = emptyState; return; }
 
     const expiry = new Date(activeCoupon.expires_at);
-    if (isNaN(expiry) || expiry < new Date()) { container.innerHTML = emptyState; return; }
+    if (isNaN(expiry) || expiry < new Date()) {
+      container.innerHTML = `<div class="rounded-2xl px-6 py-5 text-center" style="background:linear-gradient(135deg,#3b1a0a,#6b3520);"><p class="text-amber-200 text-sm">🎁 Seu cupom já foi usado ou expirou. Volte sempre!</p></div>`;
+      return;
+    }
 
-    _activeCouponData = {
-      ...activeCoupon,
-      desconto: Number(activeCoupon.desconto ?? activeCoupon.discount_percent ?? activeCoupon.percent ?? 50),
-      usos_atual: Number(activeCoupon.usos_atual ?? 0)
-    };
-
+    _activeCouponData = activeCoupon;
     const formattedDate = expiry.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     const safeCode = activeCoupon.code.replace(/['"<>&]/g, c => ({'\'':'&#39;','"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 
@@ -749,33 +519,24 @@
       </div>`;
   }
 
-  function useCouponNow() {
-    if (_activeCouponData) {
-      localStorage.setItem('appliedCoupon', JSON.stringify(_activeCouponData));
-    }
+  window.useCouponNow = function() {
+    if (_activeCouponData) localStorage.setItem('appliedCoupon', JSON.stringify(_activeCouponData));
     window.location.href = '/checkout';
-  }
+  };
 
-  function applyCouponFromHistory(index) {
+  window.applyCouponFromHistory = function(index) {
     const coupon = _couponsHistoryData[index];
-    if (!coupon) return;
-
-    const { isActive } = getCouponHistoryStatus(coupon);
-    if (!isActive) return;
-
+    if (!coupon || !getCouponHistoryStatus(coupon).isActive) return;
     localStorage.setItem('appliedCoupon', JSON.stringify(coupon));
     window.location.href = '/checkout';
-  }
+  };
 
   function initProfilePage() {
     initProfileTabs();
     loadDynamicSettings();
     loadProfile();
-    updateSidebarAuth();
     supabaseClient.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        loadUserCoupon();
-      }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') loadUserCoupon();
     });
   }
 
