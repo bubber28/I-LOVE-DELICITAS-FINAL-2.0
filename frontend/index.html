@@ -384,11 +384,52 @@
     window.location.href = '/';
   });
 
-  updateHeaderAuth();
-  updateSidebarAuth();
-  loadCategories();
-  loadProducts();
-  loadRecommendations();
+  // ================== LINK "MEUS PEDIDOS" INTELIGENTE (ADICIONADO) ==================
+  function getGuestId() {
+    let guestId = localStorage.getItem('guest_id');
+    if (!guestId) {
+      guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('guest_id', guestId);
+    }
+    return guestId;
+  }
+
+  function configurarLinkMeusPedidos() {
+    const links = document.querySelectorAll('a[href="/meus-pedidos"]');
+    if (links.length === 0) return;
+
+    links.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault(); // Sempre intercepta, histórico não é visível para o cliente
+
+        const pedidoAtivoStr = localStorage.getItem('pedidoAtivo');
+        if (!pedidoAtivoStr) {
+          alert('Você não possui um pedido ativo no momento.');
+          return; // permanece na página atual
+        }
+
+        try {
+          const pedidoAtivo = JSON.parse(pedidoAtivoStr);
+          const orderId = pedidoAtivo.id;
+          const guestId = getGuestId();
+          window.location.href = `/acompanhamento?id=${orderId}&guest_id=${guestId}`;
+        } catch (err) {
+          console.error('Erro ao redirecionar para pedido ativo:', err);
+          alert('Erro ao localizar pedido. Tente novamente.');
+        }
+      });
+    });
+  }
+
+  // Inicializa as funções de autenticação e a lógica do link após o DOM estar pronto
+  document.addEventListener('DOMContentLoaded', () => {
+    updateHeaderAuth();
+    updateSidebarAuth();
+    configurarLinkMeusPedidos();
+    loadCategories();
+    loadProducts();
+    loadRecommendations();
+  });
 </script>
 </body>
 </html>
