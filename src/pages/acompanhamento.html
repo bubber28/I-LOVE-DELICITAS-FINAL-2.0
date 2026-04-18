@@ -78,21 +78,18 @@
   .star { font-size: 2rem; cursor: pointer; transition: color 0.2s; }
   .star:hover { color: #fbbf24; }
   .avaliacao-container { background: #fefce8; border: 1px solid #fde047; }
-  /* Link do header */
-  .header-link { color: #ae2f34; font-weight: 500; text-decoration: none; margin-left: auto; }
-  .header-link:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 
-<header class="bg-surface-container-low py-4 px-6 shadow-sm">
-  <div class="container-custom" style="display: flex; align-items: center; justify-content: space-between;">
-    <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo"/></a>
-    <a href="/meus-pedidos" id="meus-pedidos-header-link" class="header-link">Meus pedidos</a>
-  </div>
-</header>
+<!-- 🌍 COMPONENTE GLOBAL HEADER (substitui o header antigo) -->
+<div id="global-header"></div>
+<script src="/src/components/header.js"></script>
+<!-- Sidebar não é necessária nesta página, mas incluímos o componente para manter consistência -->
+<div id="global-sidebar" style="display: none;"></div>
+<script src="/src/components/sidebar.js"></script>
 
-<main class="container-custom px-4 py-8">
+<main class="container-custom px-4 py-8" style="padding-top: 6rem;">
   <div class="track-card" id="track-card">
     <h1 class="text-2xl font-bold mb-2">Acompanhar Pedido</h1>
     <p class="text-on-surface-variant mb-6">Acompanhe em tempo real o status do seu pedido.</p>
@@ -499,22 +496,8 @@
       .subscribe();
   }
 
-  // Link "Meus Pedidos" no header
-  document.getElementById('meus-pedidos-header-link').addEventListener('click', (e) => {
-    e.preventDefault();
-    const ativo = localStorage.getItem('pedidoAtivo');
-    if (!ativo) {
-      alert('Você não possui um pedido ativo no momento.');
-      window.location.href = '/cardapio';
-      return;
-    }
-    try {
-      const p = JSON.parse(ativo);
-      window.location.href = `/acompanhamento?id=${p.id}&guest_id=${getGuestId()}`;
-    } catch {
-      alert('Erro ao localizar pedido.');
-    }
-  });
+  // O redirecionamento do link "Meus Pedidos" agora é gerenciado pelo componente header.js
+  // Não é mais necessário o listener manual aqui.
 
   window.addEventListener('focus', () => { loadOrder(); });
   window.addEventListener('beforeunload', async () => {
