@@ -94,7 +94,7 @@
 </head>
 <body class="bg-surface text-on-surface">
 
-<!-- Sidebar (menu hambúrguer) - mesmo código do index -->
+<!-- Sidebar (menu hambúrguer) -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -157,6 +157,8 @@
         <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
       </div>
       <a href="/login" id="login-link" class="text-primary font-semibold hover:underline">Entrar</a>
+      <!-- Link público Meus Pedidos para não logados -->
+      <a href="/meus-pedidos" id="header-meus-pedidos-publico" class="text-primary hover:underline text-sm hidden">Meus pedidos</a>
     </div>
   </div>
 </header>
@@ -523,29 +525,89 @@
       .replace(/"/g, '&quot;');
   }
 
-  // ================== HEADER AUTH ==================
+  // ================== HEADER AUTH (CORRIGIDO) ==================
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu');
     const loginLink = document.getElementById('login-link');
+    const publicLink = document.getElementById('header-meus-pedidos-publico');
+    
     if (session) {
       userMenu.classList.remove('hidden');
       loginLink.classList.add('hidden');
+      if (publicLink) publicLink.classList.add('hidden');
       const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
       const userName = profile?.name || session.user.email.split('@')[0];
       document.getElementById('user-name').innerText = userName;
     } else {
       userMenu.classList.add('hidden');
       loginLink.classList.remove('hidden');
+      if (publicLink) publicLink.classList.remove('hidden');
     }
   }
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
 
-  // ================== SIDEBAR ==================
+  // ================== SIDEBAR AUTH (CORRIGIDO) ==================
+  async function updateSidebarAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const loginLink = document.getElementById('sidebar-login-link');
+    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
+    const perfil = document.getElementById('sidebar-perfil');
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    
+    // "Meus Pedidos" sempre visível
+    if (meusPedidos) meusPedidos.classList.remove('hidden');
+    
+    if (session) {
+      if (loginLink) loginLink.classList.add('hidden');
+      if (perfil) perfil.classList.remove('hidden');
+      if (logoutBtn) logoutBtn.classList.remove('hidden');
+    } else {
+      if (loginLink) loginLink.classList.remove('hidden');
+      if (perfil) perfil.classList.add('hidden');
+      if (logoutBtn) logoutBtn.classList.add('hidden');
+    }
+  }
+
+  // ================== LINK "MEUS PEDIDOS" INTELIGENTE ==================
+  function getGuestId() {
+    let guestId = localStorage.getItem('guest_id');
+    if (!guestId) {
+      guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('guest_id', guestId);
+    }
+    return guestId;
+  }
+
+  function configurarLinkMeusPedidos() {
+    const links = document.querySelectorAll('a[href="/meus-pedidos"]');
+    if (links.length === 0) return;
+
+    links.forEach(link => {
+      link.removeEventListener('click', handleMeusPedidosClick);
+      link.addEventListener('click', handleMeusPedidosClick);
+    });
+  }
+
+  function handleMeusPedidosClick(e) {
+    e.preventDefault();
+    const pedidoAtivoStr = localStorage.getItem('pedidoAtivo');
+    if (!pedidoAtivoStr) {
+      alert('Você não possui um pedido ativo no momento.');
+      window.location.href = '/cardapio';
+      return;
+    }
+    try {
+      const pedidoAtivo = JSON.parse(pedidoAtivoStr);
+      const orderId = pedidoAtivo.id;
+      const guestId = getGuestId();
+      window.location.href = `/acompanhamento?id=${orderId}&guest_id=${guestId}`;
+    } catch (err) {
+      console.error('Erro:', err);
+      alert('Erro ao localizar pedido.');
+    }
+  }
+
+  // Sidebar toggle
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('mobile-overlay');
   const openBtn = document.getElementById('open-sidebar-btn');
@@ -557,35 +619,26 @@
   if (overlay) overlay.addEventListener('click', closeSidebar);
   document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
 
-  async function updateSidebarAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const loginLink = document.getElementById('sidebar-login-link');
-    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
-    const perfil = document.getElementById('sidebar-perfil');
-    const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (session) {
-      loginLink.classList.add('hidden');
-      meusPedidos.classList.remove('hidden');
-      perfil.classList.remove('hidden');
-      logoutBtn.classList.remove('hidden');
-    } else {
-      loginLink.classList.remove('hidden');
-      meusPedidos.classList.add('hidden');
-      perfil.classList.add('hidden');
-      logoutBtn.classList.add('hidden');
-    }
-  }
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('cart');
+    window.location.href = '/';
+  });
   document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
     localStorage.removeItem('cart');
     window.location.href = '/';
   });
 
-  updateHeaderAuth();
-  updateSidebarAuth();
-  loadCategories();
-  loadProducts();
-  initDynamicSettingsOnReady();
+  // Inicialização
+  document.addEventListener('DOMContentLoaded', () => {
+    updateHeaderAuth();
+    updateSidebarAuth();
+    configurarLinkMeusPedidos();
+    loadCategories();
+    loadProducts();
+    initDynamicSettingsOnReady();
+  });
 </script>
 </body>
 </html>
