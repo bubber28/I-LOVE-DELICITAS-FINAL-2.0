@@ -60,13 +60,13 @@
     </div>
     <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
   </div>
-  <nav class="flex-1 px-4 py-6 space-y-2">
+  <nav id="sidebar-nav" class="flex-1 px-4 py-6 space-y-2">
     <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
     <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
     <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
     
-    <!-- LINK FIXO - SEMPRE VISÍVEL -->
-    <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" style="display: flex !important;"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
+    <!-- LINK INJETADO VIA JS -->
+    <div id="sidebar-meus-pedidos-container"></div>
     
     <div id="auth-links-sidebar">
       <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
@@ -82,14 +82,14 @@
       <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-primary">menu</span></button>
       <a href="/"><img alt="Logo" class="h-12 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
     </div>
-    <div class="flex items-center gap-4">
+    <div id="header-actions" class="flex items-center gap-4">
       <a href="/carrinho" class="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#fff0ef] transition-colors">
         <span class="material-symbols-outlined text-primary text-2xl">delivery</span>
         <span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center shadow-sm">0</span>
       </a>
       
-      <!-- LINK FIXO NO HEADER -->
-      <a href="/meus-pedidos" class="text-primary hover:underline text-sm font-medium" style="display: inline-block !important;">Meus pedidos</a>
+      <!-- LINK INJETADO VIA JS -->
+      <div id="header-meus-pedidos-container"></div>
       
       <div id="user-menu" class="hidden flex items-center gap-3">
         <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
@@ -137,6 +137,32 @@
 <div id="toast" class="toast">✅ Produto adicionado ao carrinho!</div>
 
 <script>
+  // ================== INJEÇÃO FORÇADA DO LINK "MEUS PEDIDOS" ==================
+  function injectMeusPedidosLink() {
+    // Sidebar
+    const sidebarContainer = document.getElementById('sidebar-meus-pedidos-container');
+    if (sidebarContainer) {
+      sidebarContainer.innerHTML = `
+        <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" style="display: flex !important;">
+          <span class="material-symbols-outlined">receipt</span>
+          <span>Meus Pedidos</span>
+        </a>
+      `;
+    }
+    
+    // Header
+    const headerContainer = document.getElementById('header-meus-pedidos-container');
+    if (headerContainer) {
+      headerContainer.innerHTML = `
+        <a href="/meus-pedidos" class="text-primary hover:underline text-sm font-medium" style="display: inline-block !important;">Meus pedidos</a>
+      `;
+    }
+  }
+
+  // Executa imediatamente
+  injectMeusPedidosLink();
+
+  // ================== CONFIGURAÇÃO SUPABASE ==================
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -201,7 +227,7 @@
 
   function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
 
-  // Autenticação (somente perfil/sair)
+  // Autenticação
   async function updateUI() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const userMenu = document.getElementById('user-menu'); const loginLink = document.getElementById('login-link');
@@ -226,15 +252,16 @@
   document.getElementById('close-sidebar-btn').onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
   overlay.onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
 
-  // LINK MEUS PEDIDOS INTELIGENTE
+  // LINK MEUS PEDIDOS INTELIGENTE (usando delegação de evento)
   function getGuestId() { let id = localStorage.getItem('guest_id'); if (!id) { id = 'guest_'+Date.now()+'_'+Math.random().toString(36).substr(2,9); localStorage.setItem('guest_id', id); } return id; }
-  function handleMeusPedidosClick(e) {
+  document.body.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href="/meus-pedidos"]');
+    if (!link) return;
     e.preventDefault();
     const ativo = localStorage.getItem('pedidoAtivo');
     if (!ativo) { alert('Você não possui um pedido ativo no momento.'); location.href = '/cardapio'; return; }
     try { const p = JSON.parse(ativo); location.href = `/acompanhamento?id=${p.id}&guest_id=${getGuestId()}`; } catch { alert('Erro ao localizar pedido.'); }
-  }
-  document.querySelectorAll('a[href="/meus-pedidos"]').forEach(l => l.addEventListener('click', handleMeusPedidosClick));
+  });
 
   // Inicialização
   updateUI(); loadCategories(); loadProducts(); loadRecommendations();
