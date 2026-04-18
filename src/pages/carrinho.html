@@ -46,7 +46,7 @@
 </head>
 <body>
 
-<!-- Sidebar (menu hambúrguer) – igual ao das outras páginas -->
+<!-- Sidebar -->
 <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 <div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-surface-container-low border-r border-outline-variant/30 transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
   <div class="px-6 py-8 flex justify-between items-center border-b border-outline-variant/30">
@@ -54,16 +54,17 @@
       <img class="h-10 w-auto" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png" alt="Logo">
       <span class="text-primary font-headline font-bold text-lg">Menu</span>
     </div>
-    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary">
-      <span class="material-symbols-outlined">close</span>
-    </button>
+    <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
   </div>
-  <nav class="flex-1 px-4 py-6 space-y-2">
+  <nav id="sidebar-nav" class="flex-1 px-4 py-6 space-y-2">
     <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
     <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
     <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
+    
+    <!-- LINK INJETADO VIA JS -->
+    <div id="sidebar-meus-pedidos-container"></div>
+    
     <div id="auth-links-sidebar">
-      <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-meus-pedidos"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
       <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
       <button id="sidebar-logout-btn" class="hidden w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-error-container/20 text-error transition-colors"><span class="material-symbols-outlined">logout</span><span>Sair</span></button>
       <a href="/login" id="sidebar-login-link" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">login</span><span>Entrar</span></a>
@@ -74,15 +75,16 @@
 <header class="fixed top-0 w-full z-50 bg-[#fff8f7]/70 backdrop-blur-xl shadow-sm">
   <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
     <div class="flex items-center gap-2">
-      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
-        <span class="material-symbols-outlined text-primary">menu</span>
-      </button>
+      <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-primary">menu</span></button>
       <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
     </div>
-    <div class="flex items-center gap-4">
+    <div id="header-actions" class="flex items-center gap-4">
       <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center leading-none font-semibold">0</span></a>
+      
+      <!-- LINK INJETADO VIA JS -->
+      <div id="header-meus-pedidos-container"></div>
+      
       <div id="user-menu" class="hidden flex items-center gap-3">
-        <a href="/meus-pedidos" class="text-primary hover:underline text-sm">Meus pedidos</a>
         <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
         <span id="user-name" class="text-primary font-semibold"></span>
         <button id="logout-btn" class="text-sm bg-surface-container-low px-3 py-1 rounded-full hover:bg-surface-container transition">Sair</button>
@@ -119,7 +121,6 @@
     </div>
   </div>
 
-  <!-- Seção de cross‑sell -->
   <div id="cross-sell-section" class="mt-12 hidden">
     <h2 class="text-2xl font-bold mb-6">✨ Você também pode gostar</h2>
     <div id="cross-sell-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -127,6 +128,27 @@
 </main>
 
 <script>
+  // ================== INJEÇÃO DO LINK "MEUS PEDIDOS" ==================
+  function injectMeusPedidosLink() {
+    const sidebarContainer = document.getElementById('sidebar-meus-pedidos-container');
+    if (sidebarContainer) {
+      sidebarContainer.innerHTML = `
+        <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" style="display: flex !important;">
+          <span class="material-symbols-outlined">receipt</span>
+          <span>Meus Pedidos</span>
+        </a>
+      `;
+    }
+    const headerContainer = document.getElementById('header-meus-pedidos-container');
+    if (headerContainer) {
+      headerContainer.innerHTML = `
+        <a href="/meus-pedidos" class="text-primary hover:underline text-sm font-medium" style="display: inline-block !important;">Meus pedidos</a>
+      `;
+    }
+  }
+  injectMeusPedidosLink();
+
+  // ================== CONFIGURAÇÃO SUPABASE ==================
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -160,12 +182,7 @@
 
   function getSafeImageSrc(value, fallback) {
     if (!value) return fallback;
-    try {
-      const resolved = new URL(value, window.location.origin);
-      return /^https?:$/i.test(resolved.protocol) ? resolved.href : fallback;
-    } catch (err) {
-      return fallback;
-    }
+    try { const u = new URL(value, window.location.origin); return /^https?:$/i.test(u.protocol) ? u.href : fallback; } catch { return fallback; }
   }
 
   function renderCart() {
@@ -183,334 +200,168 @@
       const card = document.createElement('div');
       card.className = 'bg-white rounded-lg p-4 flex gap-4 items-center shadow-sm';
       card.dataset.index = String(idx);
-
-      const image = document.createElement('img');
-      image.className = 'cart-item-image';
-      image.src = getSafeImageSrc(item.image_url, 'https://placehold.co/300x300?text=Delícia');
-      image.alt = item.name || 'Produto';
-      card.appendChild(image);
-
+      const img = document.createElement('img');
+      img.className = 'cart-item-image';
+      img.src = getSafeImageSrc(item.image_url, 'https://placehold.co/300x300?text=Delícia');
+      img.alt = item.name || 'Produto';
+      card.appendChild(img);
       const content = document.createElement('div');
       content.className = 'flex-grow';
       const title = document.createElement('h3');
       title.className = 'font-bold text-lg';
       title.textContent = item.name || 'Produto';
       content.appendChild(title);
-
       const footer = document.createElement('div');
       footer.className = 'flex justify-between items-center mt-2';
-      const total = document.createElement('span');
-      total.className = 'text-primary font-bold';
-      total.textContent = `R$ ${itemTotal.toFixed(2).replace('.', ',')}`;
-      footer.appendChild(total);
-
+      const totalSpan = document.createElement('span');
+      totalSpan.className = 'text-primary font-bold';
+      totalSpan.textContent = `R$ ${itemTotal.toFixed(2).replace('.', ',')}`;
+      footer.appendChild(totalSpan);
       const controls = document.createElement('div');
       controls.className = 'flex items-center gap-2';
-
-      const minusBtn = document.createElement('button');
-      minusBtn.type = 'button';
-      minusBtn.className = 'qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center';
-      minusBtn.dataset.idx = String(idx);
-      minusBtn.dataset.delta = '-1';
-      minusBtn.textContent = '-';
-
-      const quantity = document.createElement('span');
-      quantity.className = 'w-8 text-center font-semibold';
-      quantity.textContent = String(item.quantity || 1);
-
-      const plusBtn = document.createElement('button');
-      plusBtn.type = 'button';
-      plusBtn.className = 'qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center';
-      plusBtn.dataset.idx = String(idx);
-      plusBtn.dataset.delta = '1';
-      plusBtn.textContent = '+';
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'remove-btn text-error';
-      removeBtn.dataset.idx = String(idx);
-      removeBtn.textContent = '🗑️';
-
-      controls.append(minusBtn, quantity, plusBtn, removeBtn);
+      const minus = document.createElement('button');
+      minus.type = 'button'; minus.className = 'qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center';
+      minus.dataset.idx = idx; minus.dataset.delta = '-1'; minus.textContent = '-';
+      const qty = document.createElement('span');
+      qty.className = 'w-8 text-center font-semibold'; qty.textContent = String(item.quantity || 1);
+      const plus = document.createElement('button');
+      plus.type = 'button'; plus.className = 'qty-btn w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center';
+      plus.dataset.idx = idx; plus.dataset.delta = '1'; plus.textContent = '+';
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.className = 'remove-btn text-error'; remove.dataset.idx = idx; remove.textContent = '🗑️';
+      controls.append(minus, qty, plus, remove);
       footer.appendChild(controls);
       content.appendChild(footer);
       card.appendChild(content);
       fragment.appendChild(card);
     });
     container.appendChild(fragment);
-
-    document.querySelectorAll('.qty-btn').forEach(btn => {
-      btn.removeEventListener('click', handleQuantityClick);
-      btn.addEventListener('click', handleQuantityClick);
-    });
-    document.querySelectorAll('.remove-btn').forEach(btn => {
-      btn.removeEventListener('click', handleRemoveClick);
-      btn.addEventListener('click', handleRemoveClick);
-    });
-  }
-
-  function handleQuantityClick(e) {
-    e.stopPropagation();
-    const btn = e.currentTarget;
-    const idx = parseInt(btn.dataset.idx);
-    const delta = parseInt(btn.dataset.delta);
-    if (isNaN(idx)) return;
-    const newQty = (cart[idx].quantity || 1) + delta;
-    if (newQty <= 0) {
-      cart.splice(idx, 1);
-    } else {
-      cart[idx].quantity = newQty;
-    }
-    saveCart();
-  }
-
-  function handleRemoveClick(e) {
-    e.stopPropagation();
-    const btn = e.currentTarget;
-    const idx = parseInt(btn.dataset.idx);
-    if (isNaN(idx)) return;
-    cart.splice(idx, 1);
-    saveCart();
+    document.querySelectorAll('.qty-btn').forEach(b => b.addEventListener('click', (e) => {
+      const btn = e.currentTarget; const idx = parseInt(btn.dataset.idx); const delta = parseInt(btn.dataset.delta);
+      if (isNaN(idx)) return;
+      const newQty = (cart[idx].quantity || 1) + delta;
+      if (newQty <= 0) cart.splice(idx, 1); else cart[idx].quantity = newQty;
+      saveCart();
+    }));
+    document.querySelectorAll('.remove-btn').forEach(b => b.addEventListener('click', (e) => {
+      const idx = parseInt(e.currentTarget.dataset.idx); if (isNaN(idx)) return;
+      cart.splice(idx, 1); saveCart();
+    }));
   }
 
   function updateTotals() {
-    let subtotal = 0;
-    for (let i = 0; i < cart.length; i++) {
-      const item = cart[i];
-      subtotal += (item.price_cents / 100) * (item.quantity || 1);
-    }
-    let desconto = 0;
-    if (appliedCoupon && appliedCoupon.desconto) {
-      desconto = (subtotal * appliedCoupon.desconto) / 100;
-    }
+    let subtotal = cart.reduce((s, i) => s + (i.price_cents/100)*(i.quantity||1), 0);
+    let desconto = (appliedCoupon?.desconto) ? (subtotal * appliedCoupon.desconto / 100) : 0;
     const total = subtotal - desconto;
-    document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-    document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.', ',')}`;
-    document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
-    console.log('Totais atualizados:', { subtotal, desconto, total });
+    document.getElementById('subtotal').innerText = `R$ ${subtotal.toFixed(2).replace('.',',')}`;
+    document.getElementById('desconto').innerText = `- R$ ${desconto.toFixed(2).replace('.',',')}`;
+    document.getElementById('total').innerText = `R$ ${total.toFixed(2).replace('.',',')}`;
   }
 
   async function applyCoupon() {
     const code = document.getElementById('coupon-input').value.trim().toUpperCase();
     const msg = document.getElementById('coupon-message');
     if (!code) return;
-
     const hoje = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabaseClient
-      .from('cupons')
-      .select('*')
-      .eq('codigo', code)
-      .eq('ativo', true)
-      .gte('validade', hoje)
-      .maybeSingle();
-
+    const { data, error } = await supabaseClient.from('cupons').select('*').eq('codigo', code).eq('ativo', true).gte('validade', hoje).maybeSingle();
     if (error || !data) {
-      msg.textContent = 'Cupom inválido ou expirado.';
-      msg.classList.remove('hidden', 'text-secondary');
-      msg.classList.add('text-error');
-      appliedCoupon = null;
-      localStorage.removeItem('appliedCoupon');
-      updateTotals();
-      return;
+      msg.textContent = 'Cupom inválido ou expirado.'; msg.classList.remove('hidden','text-secondary'); msg.classList.add('text-error');
+      appliedCoupon = null; localStorage.removeItem('appliedCoupon'); updateTotals(); return;
     }
-
     if (data.usos_atual >= data.uso_maximo) {
-      msg.textContent = 'Este cupom já atingiu o limite de uso.';
-      msg.classList.remove('hidden', 'text-secondary');
-      msg.classList.add('text-error');
-      appliedCoupon = null;
-      localStorage.removeItem('appliedCoupon');
-      updateTotals();
-      return;
+      msg.textContent = 'Cupom já atingiu o limite.'; msg.classList.remove('hidden','text-secondary'); msg.classList.add('text-error');
+      appliedCoupon = null; localStorage.removeItem('appliedCoupon'); updateTotals(); return;
     }
-
-    appliedCoupon = data;
-    localStorage.setItem('appliedCoupon', JSON.stringify(data));
-    msg.textContent = `Cupom aplicado! ${data.desconto}% de desconto.`;
-    msg.classList.remove('hidden', 'text-error');
-    msg.classList.add('text-secondary');
+    appliedCoupon = data; localStorage.setItem('appliedCoupon', JSON.stringify(data));
+    msg.textContent = `Cupom aplicado! ${data.desconto}% de desconto.`; msg.classList.remove('hidden','text-error'); msg.classList.add('text-secondary');
     updateTotals();
   }
 
-  // ================== CROSS‑SELL CORRIGIDO (ERRO 400) ==================
   async function loadCrossSell() {
     try {
-      if (cart.length === 0) return;
-
-      const productIds = cart.map(i => i.id).filter(id => id);
-      if (productIds.length === 0) return;
-
-      let query = supabaseClient
-        .from('products')
-        .select('*')
-        .eq('active', true)
-        .gt('stock', 0)
-        .limit(3);
-
-      if (productIds.length > 0) {
-        const ids = productIds.map(id => `'${id}'`).join(',');
-        query = query.not('id', 'in', `(${ids})`);
-      }
-
-      const { data: suggestions, error } = await query;
-      if (error) {
-        console.error('Erro no cross‑sell:', error);
-        return;
-      }
-      if (!suggestions || suggestions.length === 0) return;
-
-      const container = document.getElementById('cross-sell-container');
+      if (!cart.length) return;
+      const ids = cart.map(i => i.id).filter(id => id);
+      if (!ids.length) return;
+      let query = supabaseClient.from('products').select('*').eq('active', true).gt('stock', 0).limit(3);
+      if (ids.length) query = query.not('id', 'in', `(${ids.map(id=>`'${id}'`).join(',')})`);
+      const { data, error } = await query;
+      if (error || !data?.length) return;
       const section = document.getElementById('cross-sell-section');
-      container.textContent = '';
-      const fragment = document.createDocumentFragment();
-      suggestions.forEach((prod) => {
-        const card = document.createElement('div');
-        card.className = 'bg-white rounded-2xl p-5 shadow-sm product-card transition-all';
-
-        const imageWrap = document.createElement('div');
-        imageWrap.className = 'mb-4 overflow-hidden rounded-xl';
-        const image = document.createElement('img');
-        image.className = 'product-image w-full h-40 object-cover';
-        image.src = getSafeImageSrc(prod.image_url, 'https://placehold.co/300x300?text=Delícia');
-        image.alt = prod.name || 'Produto';
-        imageWrap.appendChild(image);
-        card.appendChild(imageWrap);
-
-        const title = document.createElement('h3');
-        title.className = 'font-headline font-bold text-xl mb-1';
-        title.textContent = prod.name || 'Produto';
-        card.appendChild(title);
-
-        const description = document.createElement('p');
-        description.className = 'text-sm text-on-surface-variant mb-3 line-clamp-2';
-        description.textContent = prod.description || 'Delícia artesanal';
-        card.appendChild(description);
-
-        const footer = document.createElement('div');
-        footer.className = 'flex justify-between items-center';
-        const price = document.createElement('span');
-        price.className = 'text-2xl font-black text-on-surface';
-        price.textContent = `R$ ${((prod.price_cents || 0) / 100).toFixed(2).replace('.', ',')}`;
-        footer.appendChild(price);
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'bg-secondary text-white p-3 rounded-full hover:scale-110 transition';
-        button.dataset.id = prod.id;
-        button.dataset.name = prod.name || '';
-        button.dataset.price = String(prod.price_cents || 0);
-        button.dataset.image = prod.image_url || '';
-        button.addEventListener('click', () => {
-          addToCartCrossSell(button.dataset.id, button.dataset.name, Number(button.dataset.price), button.dataset.image);
-        });
-        const icon = document.createElement('span');
-        icon.className = 'material-symbols-outlined';
-        icon.textContent = 'add_shopping_cart';
-        button.appendChild(icon);
-        footer.appendChild(button);
-
-        card.appendChild(footer);
-        fragment.appendChild(card);
-      });
-      container.appendChild(fragment);
+      const container = document.getElementById('cross-sell-container');
+      container.innerHTML = data.map(p => `
+        <div class="bg-white rounded-2xl p-5 shadow-sm">
+          <div class="mb-4 overflow-hidden rounded-xl"><img class="w-full h-40 object-cover" src="${getSafeImageSrc(p.image_url,'https://placehold.co/300x300?text=Delícia')}" alt="${escapeHtml(p.name)}"></div>
+          <h3 class="font-headline font-bold text-xl mb-1">${escapeHtml(p.name)}</h3>
+          <p class="text-sm text-on-surface-variant mb-3 line-clamp-2">${escapeHtml(p.description||'Delícia artesanal')}</p>
+          <div class="flex justify-between items-center">
+            <span class="text-2xl font-black">R$ ${((p.price_cents||0)/100).toFixed(2).replace('.',',')}</span>
+            <button class="bg-secondary text-white p-3 rounded-full hover:scale-110" onclick="addToCartCrossSell('${p.id}','${escapeHtml(p.name)}',${p.price_cents},'${p.image_url||''}')"><span class="material-symbols-outlined">add_shopping_cart</span></button>
+          </div>
+        </div>
+      `).join('');
       section.classList.remove('hidden');
-    } catch (err) {
-      console.error('Falha no cross‑sell:', err);
-    }
+    } catch (err) { console.error('Cross-sell:', err); }
   }
 
-  window.addToCartCrossSell = function(id, name, priceCents, imageUrl) {
-    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existing = cart.find(i => i.id === id);
-    if (existing) existing.quantity = (existing.quantity || 1) + 1;
-    else cart.push({ id, name, price_cents: priceCents, quantity: 1, image_url: imageUrl });
-    localStorage.setItem('cart', JSON.stringify(cart));
-    loadCart();
-    alert('Produto adicionado ao carrinho!');
+  window.addToCartCrossSell = function(id, name, priceCents, img) {
+    let cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    const ex = cart.find(i=>i.id===id); if (ex) ex.quantity++; else cart.push({id, name, price_cents: priceCents, quantity:1, image_url: img});
+    localStorage.setItem('cart', JSON.stringify(cart)); loadCart(); alert('Produto adicionado!');
   };
 
-  document.getElementById('checkout-btn').addEventListener('click', () => {
-    if (cart.length === 0) alert('Carrinho vazio.');
-    else window.location.href = '/checkout';
-  });
+  function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+  document.getElementById('checkout-btn').addEventListener('click', ()=> cart.length ? window.location.href='/checkout' : alert('Carrinho vazio.'));
   document.getElementById('apply-coupon').addEventListener('click', applyCoupon);
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str
-      .replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]))
-      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, (c) => c)
-      .replace(/'/g, '&#39;')
-      .replace(/"/g, '&quot;');
-  }
-
-  // ================== HEADER AUTH ==================
+  // ================== AUTENTICAÇÃO ==================
   async function updateHeaderAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    const userMenu = document.getElementById('user-menu');
-    const loginLink = document.getElementById('login-link');
+    const userMenu = document.getElementById('user-menu'), loginLink = document.getElementById('login-link');
     if (session) {
-      userMenu.classList.remove('hidden');
-      loginLink.classList.add('hidden');
+      userMenu.classList.remove('hidden'); loginLink.classList.add('hidden');
       const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
-      const userName = profile?.name || session.user.email.split('@')[0];
-      document.getElementById('user-name').innerText = userName;
-    } else {
-      userMenu.classList.add('hidden');
-      loginLink.classList.remove('hidden');
-    }
+      document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
+    } else { userMenu.classList.add('hidden'); loginLink.classList.remove('hidden'); }
   }
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
-  });
-
-  // ================== SIDEBAR ==================
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('mobile-overlay');
-  const openBtn = document.getElementById('open-sidebar-btn');
-  const closeBtn = document.getElementById('close-sidebar-btn');
-  function closeSidebar() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-  function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
-  if (openBtn) openBtn.addEventListener('click', openSidebar);
-  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-  if (overlay) overlay.addEventListener('click', closeSidebar);
-  document.querySelectorAll('#sidebar a, #sidebar button').forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
 
   async function updateSidebarAuth() {
-    const loginLink = document.getElementById('sidebar-login-link');
-    const meusPedidos = document.getElementById('sidebar-meus-pedidos');
-    const perfil = document.getElementById('sidebar-perfil');
-    const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (loginLink && meusPedidos && perfil && logoutBtn) {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        loginLink.classList.add('hidden');
-        meusPedidos.classList.remove('hidden');
-        perfil.classList.remove('hidden');
-        logoutBtn.classList.remove('hidden');
-      } else {
-        loginLink.classList.remove('hidden');
-        meusPedidos.classList.add('hidden');
-        perfil.classList.add('hidden');
-        logoutBtn.classList.add('hidden');
-      }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const loginLink = document.getElementById('sidebar-login-link'), perfil = document.getElementById('sidebar-perfil'), logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (session) {
+      if (loginLink) loginLink.classList.add('hidden');
+      if (perfil) perfil.classList.remove('hidden');
+      if (logoutBtn) logoutBtn.classList.remove('hidden');
+    } else {
+      if (loginLink) loginLink.classList.remove('hidden');
+      if (perfil) perfil.classList.add('hidden');
+      if (logoutBtn) logoutBtn.classList.add('hidden');
     }
+    // "Meus Pedidos" já é injetado e sempre visível
   }
-  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    localStorage.removeItem('cart');
-    window.location.href = '/';
+
+  document.getElementById('logout-btn')?.addEventListener('click', async ()=>{ await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); location.href='/'; });
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async ()=>{ await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); location.href='/'; });
+
+  // Sidebar toggle
+  const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay');
+  document.getElementById('open-sidebar-btn').onclick = ()=> { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); };
+  document.getElementById('close-sidebar-btn').onclick = ()=> { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
+  overlay.onclick = ()=> { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
+
+  // ================== LINK MEUS PEDIDOS INTELIGENTE ==================
+  function getGuestId() { let id = localStorage.getItem('guest_id'); if (!id) { id = 'guest_'+Date.now()+'_'+Math.random().toString(36).substr(2,9); localStorage.setItem('guest_id', id); } return id; }
+  document.body.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href="/meus-pedidos"]');
+    if (!link) return;
+    e.preventDefault();
+    const ativo = localStorage.getItem('pedidoAtivo');
+    if (!ativo) { alert('Você não possui um pedido ativo no momento.'); location.href = '/cardapio'; return; }
+    try { const p = JSON.parse(ativo); location.href = `/acompanhamento?id=${p.id}&guest_id=${getGuestId()}`; } catch { alert('Erro ao localizar pedido.'); }
   });
 
-  updateHeaderAuth();
-  updateSidebarAuth();
-  loadCart();
+  // Inicialização
+  updateHeaderAuth(); updateSidebarAuth(); loadCart();
 </script>
-
-<!-- Botão flutuante de acompanhamento (funciona para logados e deslogados) -->
-<script src="/src/pages/floating-order-button.js"></script>
-
 </body>
 </html>
