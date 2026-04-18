@@ -43,11 +43,7 @@
   .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .product-image { aspect-ratio: 1 / 1; object-fit: cover; width: 100%; height: auto; border-radius: 1rem; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #10b981; color: white; padding: 12px 24px; border-radius: 9999px; font-weight: 600; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; white-space: nowrap; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-  @media (max-width: 640px) {
-    .toast { white-space: normal; text-align: center; width: 90%; font-size: 14px; }
-    .product-card { border-radius: 1rem; }
-    .product-card .p-4 { padding: 0.75rem; }
-  }
+  @media (max-width: 640px) { .toast { white-space: normal; text-align: center; width: 90%; font-size: 14px; } .product-card { border-radius: 1rem; } .product-card .p-4 { padding: 0.75rem; } }
 </style>
 </head>
 <body class="bg-surface text-on-surface">
@@ -62,12 +58,12 @@
     </div>
     <button id="close-sidebar-btn" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">close</span></button>
   </div>
-  <nav class="flex-1 px-4 py-6 space-y-2">
+  <nav id="sidebar-nav" class="flex-1 px-4 py-6 space-y-2">
     <a href="/" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">home</span><span>Início</span></a>
     <a href="/cardapio" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu_book</span><span>Cardápio</span></a>
     <a href="/carrinho" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">shopping_cart</span><span>Carrinho</span></a>
-    <!-- 🔥 MEUS PEDIDOS FIXO (SEMPRE VISÍVEL) -->
-    <a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>
+    
+    <div id="sidebar-meus-pedidos-container"></div>
     
     <div id="auth-links-sidebar">
       <a href="/perfil" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" id="sidebar-perfil"><span class="material-symbols-outlined">person</span><span>Perfil</span></a>
@@ -83,10 +79,10 @@
       <button id="open-sidebar-btn" class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-primary">menu</span></button>
       <a href="/"><img class="h-12" src="https://bizrnjpmsyxdsflgpxcl.supabase.co/storage/v1/object/public/logos/ILOVE%20DELICITAS%20PNG%20OK.png"/></a>
     </div>
-    <div class="flex items-center gap-4">
+    <div id="header-actions" class="flex items-center gap-4">
       <a href="/carrinho" class="relative p-2"><span class="material-symbols-outlined text-primary">shopping_bag</span><span id="cart-count" class="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center leading-none font-semibold">0</span></a>
-      <!-- 🔥 MEUS PEDIDOS FIXO NO HEADER -->
-      <a href="/meus-pedidos" class="text-primary hover:underline text-sm font-medium">Meus pedidos</a>
+      
+      <div id="header-meus-pedidos-container"></div>
       
       <div id="user-menu" class="hidden flex items-center gap-3">
         <a href="/perfil" class="text-primary hover:underline text-sm">Perfil</a>
@@ -113,17 +109,22 @@
   </div>
 </main>
 
-<footer class="bg-[#fff0ef] py-12 text-center">
-  <p class="font-semibold logo-text">I Love Delicitas</p>
-  <p class="text-sm mt-1 slogan">Sabor que vira memória</p>
-  <p class="text-sm text-on-surface-variant mt-1" id="cardapio-preparation-time">Tempo médio de preparo: até 45 min</p>
-  <p class="text-sm text-on-surface-variant mt-1" id="cardapio-opening-hours">Funcionamento: seg-sex 9h-18h</p>
-  <p class="text-sm text-on-surface-variant mt-1" id="cardapio-shipping-info">Frete padrão: R$ 7,00</p>
-  <p class="text-sm text-on-surface-variant mt-1">CNPJ: 61.316.392/0001-97</p>
-  <p class="text-sm mt-1">© 2026 I Love Delicitas. Todos os direitos reservados.</p>
+<footer class="bg-[#fff0ef] py-8 text-center text-sm text-on-surface-variant">
+  <p>© 2026 I Love Delicitas. Todos os direitos reservados.</p>
+  <p class="mt-2">CNPJ: 61.316.392/0001-97</p>
+  <p id="footer-preparation-time" class="mt-2"></p>
 </footer>
 
 <script>
+  // ================== INJEÇÃO DO LINK ==================
+  function injectMeusPedidosLink() {
+    const sidebarContainer = document.getElementById('sidebar-meus-pedidos-container');
+    if (sidebarContainer) sidebarContainer.innerHTML = `<a href="/meus-pedidos" class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors" style="display: flex !important;"><span class="material-symbols-outlined">receipt</span><span>Meus Pedidos</span></a>`;
+    const headerContainer = document.getElementById('header-meus-pedidos-container');
+    if (headerContainer) headerContainer.innerHTML = `<a href="/meus-pedidos" class="text-primary hover:underline text-sm font-medium" style="display: inline-block !important;">Meus pedidos</a>`;
+  }
+  injectMeusPedidosLink();
+
   const SUPABASE_URL = 'https://bizrnjpmsyxdsflgpxcl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_l4xxVaXF8srM0JldOJob0Q_2ZRrXFdR';
   const SETTINGS_BASE_URL = 'https://ilove-delicitas-admin.onrender.com/api/settings';
@@ -131,100 +132,111 @@
 
   let categories = [], allProducts = [], currentCategory = 'all';
 
-  // ... (funções de carregamento de produtos, categorias, toast, etc. mantidas exatamente iguais) ...
-  function getNestedValue(obj, path) { return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj); }
-  function pickFirstValue(source, candidates) { for (const candidate of candidates) { const value = getNestedValue(source, candidate); if (value !== undefined && value !== null && value !== '') return value; } return null; }
-  function applyTextIfFound(selector, value) { if (!value) return; const element = document.querySelector(selector); if (element) element.textContent = String(value); }
-  function applyBrandTheme(brandPayload) { /* mantida */ }
-  function applyContentConfig(contentPayload) { /* mantida */ }
-  function applyPreparationTimeConfig(payload) { /* mantida */ }
-  function formatOpeningHours(opening) { /* mantida */ }
-  function applyOpeningHoursConfig(payload) { /* mantida */ }
-  function applyShippingConfig(payload) { /* mantida */ }
-  async function fetchSettings(url) { /* mantida */ }
-  async function loadDynamicSettings() { /* mantida */ }
-  function initDynamicSettingsOnReady() { /* mantida */ }
-  function showToast(message, isError = false) { /* mantida */ }
-  function updateCartCount() { const cart = JSON.parse(localStorage.getItem('cart') || '[]'); document.getElementById('cart-count').innerText = cart.reduce((s,i) => s + (i.quantity||1), 0); }
-  function getSafeImageSrc(value, fallback) { /* mantida */ }
-  function createProductCard(prod) { /* mantida */ }
-  async function loadCategories() { /* mantida */ }
-  async function loadProducts() { /* mantida */ }
-  function renderProducts() { /* mantida */ }
-  function addToCart(id, name, priceCents, imageUrl) { /* mantida */ }
-  function escapeHtml(str) { /* mantida */ }
+  function showToast(msg) { const t = document.querySelector('.toast') || (()=>{const d=document.createElement('div');d.className='toast';document.body.appendChild(d);return d;})(); t.textContent=msg; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2000); }
+  function updateCartCount() { const cart = JSON.parse(localStorage.getItem('cart')||'[]'); document.getElementById('cart-count').innerText = cart.reduce((s,i)=>s+(i.quantity||1),0); }
+  updateCartCount();
 
-  // ================== AUTENTICAÇÃO (APENAS PERFIL/SAIR) ==================
-  async function updateHeaderAuth() {
+  async function loadCategories() {
+    const { data } = await supabaseClient.from('categories').select('*').order('name');
+    categories = data || [];
+    const container = document.getElementById('category-filters');
+    container.innerHTML = '<button data-category="all" class="category-filter bg-primary text-white px-4 py-2 rounded-full text-sm font-semibold">Todos</button>';
+    categories.forEach(cat => { const btn = document.createElement('button'); btn.innerText = cat.name; btn.dataset.category = cat.id; btn.className = 'category-filter bg-surface-container-low text-on-surface-variant px-4 py-2 rounded-full text-sm font-semibold hover:bg-primary-container transition'; container.appendChild(btn); });
+    document.querySelectorAll('.category-filter').forEach(btn => btn.addEventListener('click', () => {
+      currentCategory = btn.dataset.category;
+      document.querySelectorAll('.category-filter').forEach(b => { if (b.dataset.category === currentCategory) { b.classList.add('bg-primary','text-white'); b.classList.remove('bg-surface-container-low','text-on-surface-variant'); } else { b.classList.remove('bg-primary','text-white'); b.classList.add('bg-surface-container-low','text-on-surface-variant'); } });
+      renderProducts();
+    }));
+  }
+
+  async function loadProducts() {
+    const { data } = await supabaseClient.from('products').select('*').eq('active', true).gt('stock', 0).order('name');
+    allProducts = data || [];
+    renderProducts();
+  }
+
+  function renderProducts() {
+    const container = document.getElementById('products-list');
+    let filtered = allProducts;
+    if (currentCategory !== 'all') filtered = allProducts.filter(p => p.category_id === currentCategory);
+    if (!filtered.length) { container.innerHTML = '<div class="text-center py-8 col-span-full">Nenhum produto encontrado.</div>'; return; }
+    container.innerHTML = filtered.map(p => `
+      <div class="bg-white rounded-2xl overflow-hidden shadow-sm product-card cursor-pointer group">
+        <div class="relative overflow-hidden">
+          <img class="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-110" src="${p.image_url || 'https://placehold.co/300x300/fff0ef/ae2f34?text=🍰'}" alt="${escapeHtml(p.name)}" loading="lazy">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          ${(p.stock||0) < 5 ? '<span class="absolute top-2 left-2 bg-primary text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">⚡ Últimas!</span>' : ''}
+          <button class="absolute bottom-2 right-2 bg-primary text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:scale-110" onclick="event.stopPropagation();addToCart('${p.id}','${escapeHtml(p.name)}',${p.price_cents},'${p.image_url||''}')"><span class="material-symbols-outlined text-sm">add</span></button>
+        </div>
+        <div class="p-4">
+          <h3 class="font-headline font-bold text-base mb-1 line-clamp-1">${escapeHtml(p.name)}</h3>
+          <p class="text-xs text-on-surface-variant mb-3 line-clamp-2 min-h-[2rem]">${escapeHtml(p.description||'Delícia artesanal')}</p>
+          <div class="flex justify-between items-end gap-2">
+            <span class="text-lg font-black text-primary">R$ ${((p.price_cents||0)/100).toFixed(2).replace('.',',')}</span>
+            <button class="flex items-center gap-1 bg-primary text-white px-3 py-1.5 rounded-full text-xs font-bold hover:scale-105 transition" onclick="addToCart('${p.id}','${escapeHtml(p.name)}',${p.price_cents},'${p.image_url||''}')"><span class="material-symbols-outlined text-xs">add</span> Adicionar</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function addToCart(id, name, priceCents, img) {
+    let cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    const ex = cart.find(i=>i.id===id); if (ex) ex.quantity++; else cart.push({id, name, price_cents: priceCents, quantity:1, image_url: img});
+    localStorage.setItem('cart', JSON.stringify(cart)); updateCartCount(); showToast(`✅ ${name} adicionado!`);
+  }
+
+  function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+  async function loadPreparationTime() {
+    try {
+      const res = await fetch(`${SETTINGS_BASE_URL}/preparation-time`);
+      const data = await res.json();
+      let value = data?.preparationTime || data?.data?.preparationTime;
+      if (typeof value === 'number') value = `${value} min`;
+      else if (typeof value === 'string') value = value;
+      else value = '30-45 min';
+      document.getElementById('footer-preparation-time').innerText = `⏱️ Tempo médio de preparo: ${value}`;
+    } catch { document.getElementById('footer-preparation-time').innerText = '⏱️ Tempo médio de preparo: 30-45 min'; }
+  }
+  loadPreparationTime();
+
+  // Autenticação
+  async function updateUI() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    const userMenu = document.getElementById('user-menu');
-    const loginLink = document.getElementById('login-link');
+    const userMenu = document.getElementById('user-menu'); const loginLink = document.getElementById('login-link');
+    const sidebarLogin = document.getElementById('sidebar-login-link'); const sidebarPerfil = document.getElementById('sidebar-perfil'); const sidebarLogout = document.getElementById('sidebar-logout-btn');
     if (session) {
-      userMenu.classList.remove('hidden');
-      loginLink.classList.add('hidden');
+      userMenu.classList.remove('hidden'); loginLink.classList.add('hidden');
+      sidebarLogin.classList.add('hidden'); sidebarPerfil.classList.remove('hidden'); sidebarLogout.classList.remove('hidden');
       const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
       document.getElementById('user-name').innerText = profile?.name || session.user.email.split('@')[0];
     } else {
-      userMenu.classList.add('hidden');
-      loginLink.classList.remove('hidden');
+      userMenu.classList.add('hidden'); loginLink.classList.remove('hidden');
+      sidebarLogin.classList.remove('hidden'); sidebarPerfil.classList.add('hidden'); sidebarLogout.classList.add('hidden');
     }
   }
-
-  async function updateSidebarAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const loginLink = document.getElementById('sidebar-login-link');
-    const perfil = document.getElementById('sidebar-perfil');
-    const logoutBtn = document.getElementById('sidebar-logout-btn');
-    if (session) {
-      if (loginLink) loginLink.classList.add('hidden');
-      if (perfil) perfil.classList.remove('hidden');
-      if (logoutBtn) logoutBtn.classList.remove('hidden');
-    } else {
-      if (loginLink) loginLink.classList.remove('hidden');
-      if (perfil) perfil.classList.add('hidden');
-      if (logoutBtn) logoutBtn.classList.add('hidden');
-    }
-  }
-
-  document.getElementById('logout-btn')?.addEventListener('click', async () => { await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); window.location.href = '/'; });
-  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => { await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); window.location.href = '/'; });
+  document.getElementById('logout-btn')?.addEventListener('click', async () => { await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); location.href = '/'; });
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', async () => { await supabaseClient.auth.signOut(); localStorage.removeItem('cart'); location.href = '/'; });
 
   // Sidebar toggle
   const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay');
-  document.getElementById('open-sidebar-btn')?.addEventListener('click', () => { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); });
-  document.getElementById('close-sidebar-btn')?.addEventListener('click', () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); });
-  overlay?.addEventListener('click', () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); });
+  document.getElementById('open-sidebar-btn').onclick = () => { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); };
+  document.getElementById('close-sidebar-btn').onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
+  overlay.onclick = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
 
-  // ================== LINK "MEUS PEDIDOS" INTELIGENTE ==================
-  function getGuestId() {
-    let guestId = localStorage.getItem('guest_id');
-    if (!guestId) { guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('guest_id', guestId); }
-    return guestId;
-  }
-  function configurarLinkMeusPedidos() {
-    document.querySelectorAll('a[href="/meus-pedidos"]').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const pedidoAtivoStr = localStorage.getItem('pedidoAtivo');
-        if (!pedidoAtivoStr) { alert('Você não possui um pedido ativo no momento.'); window.location.href = '/cardapio'; return; }
-        try {
-          const pedido = JSON.parse(pedidoAtivoStr);
-          window.location.href = `/acompanhamento?id=${pedido.id}&guest_id=${getGuestId()}`;
-        } catch { alert('Erro ao localizar pedido.'); }
-      });
-    });
-  }
-
-  // Inicialização
-  document.addEventListener('DOMContentLoaded', () => {
-    updateHeaderAuth();
-    updateSidebarAuth();
-    configurarLinkMeusPedidos();
-    loadCategories();
-    loadProducts();
-    initDynamicSettingsOnReady();
-    updateCartCount();
+  // LINK MEUS PEDIDOS
+  function getGuestId() { let id = localStorage.getItem('guest_id'); if (!id) { id = 'guest_'+Date.now()+'_'+Math.random().toString(36).substr(2,9); localStorage.setItem('guest_id', id); } return id; }
+  document.body.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href="/meus-pedidos"]');
+    if (!link) return;
+    e.preventDefault();
+    const ativo = localStorage.getItem('pedidoAtivo');
+    if (!ativo) { alert('Você não possui um pedido ativo.'); location.href = '/cardapio'; return; }
+    try { const p = JSON.parse(ativo); location.href = `/acompanhamento?id=${p.id}&guest_id=${getGuestId()}`; } catch { alert('Erro ao localizar pedido.'); }
   });
+
+  updateUI(); loadCategories(); loadProducts();
 </script>
 </body>
 </html>
